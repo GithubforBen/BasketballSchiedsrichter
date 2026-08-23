@@ -15,6 +15,7 @@ const slotsOf = (occupants: readonly (string | null)[]) =>
               gameId: 'x',
               slotIndex: index as SlotIndex,
               refereeId,
+              claimedAt: new Date(0),
               confirmedAt: null,
               playedAsReferee: null,
             },

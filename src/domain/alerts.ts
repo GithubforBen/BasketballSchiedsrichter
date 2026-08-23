@@ -22,12 +22,15 @@ export interface AdminAlertSettings {
   confirmationOverdue: boolean;
   /** Wenn Ersatzplaetze offen sind, obwohl beide Schiedsrichter stehen. */
   substituteMissing: boolean;
+  /** Abendliche Zusammenfassung statt einer Meldung pro Vorgang. Regel 20. */
+  dailyDigest: boolean;
 }
 
 export const DEFAULT_ALERT_SETTINGS: AdminAlertSettings = {
   unfilled: true,
   confirmationOverdue: true,
   substituteMissing: true,
+  dailyDigest: true,
 };
 
 export interface AdminAlert {

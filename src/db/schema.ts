@@ -87,6 +87,12 @@ export const games = pgTable(
       .default('scheduled'),
     /** Zaehler fuer Verschiebungen — geht in den Idempotenzschluessel der Nachricht. */
     relocationVersion: integer('relocation_version').notNull().default(0),
+    /**
+     * Zaehler fuer frei gewordene Schiedsrichter-Plaetze. Steht ebenfalls im
+     * Idempotenzschluessel, damit die zweite Ausschreibung eines Spiels nicht
+     * als Doppelung der ersten verworfen wird. Regeln 15 und 32.
+     */
+    vacancyVersion: integer('vacancy_version').notNull().default(0),
     /** Admin-Freigaben pro Spiel. Regeln 6, 7, 8. */
     overrideWithdraw: boolean('override_withdraw').notNull().default(false),
     overrideSubstituteRequest: boolean('override_substitute_request').notNull().default(false),
@@ -196,7 +202,16 @@ export const notificationOutbox = pgTable(
     gameId: text('game_id').references(() => games.id, { onDelete: 'cascade' }),
     payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
     costUnits: integer('cost_units').notNull().default(1),
-    state: text('state', { enum: ['queued', 'sent', 'failed'] })
+    /**
+     * `sending` ist der Zustand zwischen Holen und Ergebnis.
+     *
+     * Ohne ihn koennten zwei gleichzeitige Cron-Laeufe dieselbe Zeile greifen
+     * und die Nachricht ginge doppelt raus. Wer holt, setzt zugleich
+     * `sendAfter` in die Zukunft: stuerzt der Prozess mitten im Versand ab,
+     * wird die Zeile nach dieser Frist von allein wieder abholbar, statt fuer
+     * immer in `sending` zu haengen.
+     */
+    state: text('state', { enum: ['queued', 'sending', 'sent', 'failed'] })
       .notNull()
       .default('queued'),
     attempts: integer('attempts').notNull().default(0),

@@ -16,7 +16,26 @@ const baseURL = process.env.E2E_BASE_URL ?? 'http://localhost:3100';
  * Angabe entfaellt.
  */
 const chromiumPath = process.env.PLAYWRIGHT_CHROMIUM_PATH;
-const launchOptions = chromiumPath ? { launchOptions: { executablePath: chromiumPath } } : {};
+
+/**
+ * Der Browser im Test spricht ausschliesslich mit der Anwendung.
+ *
+ * `--no-proxy-server` haelt ihn von einem Proxy fern, den die Umgebung gesetzt
+ * haben mag, und laesst externe Adressen sofort scheitern statt in eine
+ * Zeitueberschreitung zu laufen. Das ist hier kein Detail: `modernist.css`
+ * laedt Archivo von Google Fonts, und ohne diese Angabe wartet jeder
+ * Seitenaufbau rund zwoelf Sekunden auf diese eine Anfrage, bevor `load`
+ * ausgeloest wird — die eigene Seite ist nach 75 Millisekunden fertig. Die
+ * Suite braucht damit ueber eine Stunde statt weniger Minuten. Fuer die Tests
+ * aendert sich nichts: die Schrift ist Schmuck, und `display=swap` zeigt den
+ * Text ohnehin sofort.
+ */
+const launchOptions = {
+  launchOptions: {
+    args: ['--no-proxy-server'],
+    ...(chromiumPath ? { executablePath: chromiumPath } : {}),
+  },
+};
 
 export default defineConfig({
   testDir: './e2e',

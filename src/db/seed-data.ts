@@ -1,4 +1,5 @@
 import { INITIAL_LEAGUES } from '@/config/club';
+import { localToUtc } from '@/domain/time';
 
 /**
  * Die Daten aus dem Mockup, damit die Oberflaeche gegen dieselben Faelle
@@ -247,31 +248,8 @@ export const toKickoff = (
   return localToUtc(`${localDate}T${game.time}`, timeZone);
 };
 
-/** Deutet eine Ortszeit `YYYY-MM-DDTHH:mm` als Zeitstempel. */
-export const localToUtc = (local: string, timeZone: string): Date => {
-  const naive = new Date(`${local}:00Z`);
-  return new Date(naive.getTime() - timeZoneOffsetMs(naive, timeZone));
-};
-
-const timeZoneOffsetMs = (date: Date, timeZone: string): number => {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hour12: false,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).formatToParts(date);
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? '0');
-  const asUtc = Date.UTC(
-    get('year'),
-    get('month') - 1,
-    get('day'),
-    get('hour') % 24,
-    get('minute'),
-    get('second'),
-  );
-  return asUtc - date.getTime();
-};
+/**
+ * Weiterhin von hier aus erreichbar: die Seed-Daten und ihre Tests nutzen sie,
+ * zu Hause ist sie aber in der Fachschicht.
+ */
+export { localToUtc };

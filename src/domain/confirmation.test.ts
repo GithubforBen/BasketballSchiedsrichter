@@ -82,3 +82,32 @@ describe('Regel 12 — nur Schiedsrichter-Plaetze bestaetigen', () => {
     expect(open.map((s) => s.index)).toEqual([1]);
   });
 });
+
+describe('Regel 11 — wer sich spaet eintraegt, bekommt seine eigene Frist', () => {
+  it('mahnt niemanden zu einer Frage, die ihm nie gestellt wurde', () => {
+    /*
+     * Anpfiff in 40 Stunden, Vorlauf 72 Stunden: der Zeitpunkt der Anfrage
+     * liegt 32 Stunden zurueck. Wer sich gerade eben eingetragen hat, waere
+     * damit sofort "ueberfaellig" — und bekaeme Bitte und Mahnung im selben
+     * Augenblick.
+     */
+    const game = makeGame({ kickoff: inHours(40) });
+    const slots = slotsFrom(['r-jk', null, null, null], (a) => ({ ...a, claimedAt: NOW }));
+    expect(confirmationState(slots[0]!, game, settings(), NOW)).toBe('pending');
+  });
+
+  it('mahnt ihn, sobald seine eigene Frist verstrichen ist', () => {
+    const game = makeGame({ kickoff: inHours(40) });
+    const slots = slotsFrom(['r-jk', null, null, null], (a) => ({
+      ...a,
+      claimedAt: inHours(-25),
+    }));
+    expect(confirmationState(slots[0]!, game, settings(), NOW)).toBe('overdue');
+  });
+
+  it('bleibt beim eingestellten Vorlauf, wenn die Eintragung laenger zurueckliegt', () => {
+    const game = makeGame({ kickoff: inHours(40) });
+    const slots = slotsFrom(['r-jk', null, null, null]);
+    expect(confirmationState(slots[0]!, game, settings(), NOW)).toBe('overdue');
+  });
+});

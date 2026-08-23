@@ -22,6 +22,13 @@
       "when": 1787505610851,
       "tag": "0002_relocation_ack",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787521283768,
+      "tag": "0003_notification_dispatch",
+      "breakpoints": true
     }
   ]
 }

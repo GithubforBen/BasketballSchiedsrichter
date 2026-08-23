@@ -259,7 +259,7 @@ erhalten: sie stillschweigend zu löschen würde ein Spiel unbemerkt unbesetzt l
 letzte aktive Admin kann sich weder herabstufen noch stilllegen, sonst käme niemand mehr an
 die Verwaltung.
 
-### M5 — Nachrichten und Hintergrundjobs
+### M5 — Nachrichten und Hintergrundjobs ✅ fertig
 
 - Kanal-Adapter: WhatsApp Cloud API, E-Mail, Dev-Outbox — per Config umschaltbar
 - Nachrichtentexte als Templates, WhatsApp-Template-Struktur berücksichtigt
@@ -269,12 +269,120 @@ die Verwaltung.
 
 **Review-Fokus**: Keine Doppelversendung bei Neustart oder doppeltem Cron-Lauf. Limits greifen. Alles im Trockenlauf testbar, ohne echte Nachrichten.
 
+**Ergebnis des Abschluss-Reviews:** 459 Unit- und Integrationstests, dazu 115 E2E-Tests auf
+Desktop und Handy — zweimal hintereinander grün, was vorher nicht möglich war (Befund 13).
+
+Alle drei Punkte des Review-Fokus sind eigens belegt: ein zweiter Lauf über unveränderten Daten
+legt null Zeilen an, zwei gleichzeitige Läufe teilen sich die Arbeit statt sie zu verdoppeln,
+eine im Versand hängengebliebene Zeile wird nach ihrer Frist wieder abgeholt; die Grenze je Lauf
+und das Tagesbudget greifen nachweislich; und `planNotifications` entscheidet ohne Datenbank,
+ohne Netz und ohne dass eine Nachricht Geld kostet.
+
+Dreizehn Befunde, davon zehn echte Fehler:
+
+1. **Der Kostendeckel war jeden Abend zwei Stunden lang wirkungslos.** Der Tageszähler bildete
+   „Mitternacht" als `Mitternacht UTC des Vereins-Kalendertags`. In Berliner Sommerzeit gehören
+   die zwei Stunden vor Mitternacht Ortszeit aber schon zum nächsten UTC-Tag — die Grenze lag
+   damit in der Zukunft, keine verschickte Nachricht zählte mehr, der Zähler stand auf null und
+   das Tagesbudget griff nicht. Aufgefallen im Integrationstest zum Budget, der zur falschen
+   Zeit lief und deshalb genau in dieses Fenster fiel. `localToUtc` ist aus den Seed-Daten in
+   die Fachschicht gezogen und um `startOfLocalDay` ergänzt; drei Tests halten die Grenze fest.
+2. **Ein Join ohne Join-Bedingung.** Die Abfrage für die Rotation verband Einsätze und Spiele
+   über den Datumsbereich statt über die Spiel-Id — ein Kreuzprodukt, das jeden Einsatz mit
+   jedem Spiel des Fensters gepaart hätte. Die Anschreib-Reihenfolge wäre Unsinn gewesen.
+   Gefunden beim erneuten Lesen des eigenen Diffs.
+3. **Die Nachrück-Anfrage wäre in einer zweiten Runde stumm geblieben.** Ihr Schlüssel bestand
+   aus Spiel, Platz und Person. Rückt jemand nach und trägt sich später wieder aus, entsteht
+   für denselben Ersatz auf demselben Platz eine neue Anfrage — mit demselben Schlüssel. Die
+   Outbox hätte sie als Doppelung verworfen, und die Frage wäre nie gestellt worden. Der
+   Schlüssel hängt jetzt an der Anfrage selbst.
+4. **Dieselbe Lücke bei der Ausschreibung.** Wird ein Platz frei, besetzt und wieder frei, sah
+   die zweite Ausschreibung wie eine Wiederholung der ersten aus. Dafür zählt `vacancyVersion`
+   am Spiel jede neu entstandene Lücke mit; der Zähler steckt im Schlüssel.
+5. **Die Anmeldenachricht galt beim ersten Fehler als endgültig gescheitert.** Sie lief an der
+   Outbox vorbei und setzte im Fehlerfall `failed` mit einem Versuch — ein kurzer Ausfall des
+   Kanals hätte den Zugang verschluckt, ohne dass es je einen zweiten Versuch gegeben hätte.
+   Sie läuft jetzt über dieselbe Outbox wie alles andere, wird aber sofort zugestellt statt
+   bis zum nächsten Cron-Lauf zu warten — es steht jemand davor und wartet.
+6. **`queued` meldete Geplantes statt Angelegtes.** Ein zweiter Lauf hätte „25 Nachrichten
+   angelegt" berichtet, obwohl er keine einzige angelegt hat. Gezählt wird jetzt, was
+   tatsächlich entstanden ist — und genau daran hängt der Beleg für den doppelten Cron-Lauf.
+7. **Grammatik im eigenen Text:** „7 Tagen vor Anpfiff". Der Dativ gehört hinter die
+   Präposition („in 7 Tagen"), die Maßangabe davor steht im Nominativ.
+8. **Eine längst verstrichene Erinnerung wäre nachträglich rausgegangen.** Nach einem Ausfall
+   hätte die 7-Tage-Erinnerung sechs Tage zu spät „in 7 Tagen" geschrieben. Sie wird nur noch
+   innerhalb von sechs Stunden nachgeholt — lieber keine Erinnerung als eine irreführende.
+9. **Bitte und Mahnung im selben Augenblick.** Wer sich *innerhalb* des Bestätigungsvorlaufs
+   einträgt — 40 Stunden vor Anpfiff bei 72 Stunden Vorlauf —, war nach der alten Rechnung
+   sofort „überfällig": der Zeitpunkt der Anfrage lag ja schon 32 Stunden zurück. Er hätte im
+   selben Lauf die Bitte und die Mahnung bekommen, zu einer Frage, die ihm nie gestellt wurde.
+   Der Zeitpunkt der Anfrage ist jetzt der spätere von beidem — Vorlauf oder Eintragung.
+   Derselbe Fehlertyp wie bei den Erinnerungen, an einer zweiten Stelle.
+10. **Eine unbekannte Nachrichtenart hätte eine leere Nachricht verschickt.** Die Outbox liest
+    ihre Art als Text zurück; wäre nach einem Umbau eine Art verschwunden, während alte Zeilen
+    noch warten, hätte die Textfunktion nichts geliefert und eine Nachricht ohne Betreff und
+    ohne Inhalt wäre rausgegangen — zum vollen Preis. Die Arten sind jetzt eine Liste zur
+    Laufzeit, und was nicht darin steht, scheitert dauerhaft statt leer zuzustellen.
+
+11. **Zwei Adminbildschirme scrollten am Handy waagerecht** — `/uebersicht` um 348, `/schiris`
+    um 501 Pixel. Die Ursache saß nicht in den Tabellen: die stecken korrekt in einem
+    scrollbaren Rahmen. Es waren die Screenreader-Beschriftungen in den Zellen. Sie sind
+    `position: absolute`, und ohne positionierten Vorfahren ist ihr umschließender Block das
+    Fenster selbst — sie entkommen dem Rahmen und ziehen die Seite auf. Ein `position: relative`
+    auf `.scroll-x` behebt beides.
+12. **Derselbe Fehler machte einen Knopf unklickbar.** Die entkommene Beschriftung lag über
+    „+ Schiedsrichter anlegen"; der Test lief 90 Sekunden lang in Klickversuche, die ein
+    unsichtbares Element abfing. Eine Person mit dem Finger hätte dasselbe erlebt.
+13. **Die E2E-Suite war nicht wiederholbar.** Sie verschiebt Spiele und stellt sie nie zurück.
+    Beim zweiten Lauf lag das erste Spiel bereits auf der Zeit, auf die ein Test es erst
+    verschieben wollte — der Test schlug fehl, ohne dass sich am Code etwas geändert hatte. Das
+    Zurücksetzen umfasst jetzt auch Anpfiff, Ort, Zustand und die beiden Zähler.
+
+Befunde 11 und 12 waren nur zu sehen, weil die Suite überhaupt in vertretbarer Zeit lief. Sie
+brauchte 75 Minuten, weil jeder Seitenaufbau rund zwölf Sekunden auf die Schrift von Google
+Fonts wartete, bevor `load` ausgelöst wurde — die eigene Seite ist nach 75 Millisekunden fertig.
+Der Browser im Test bekommt jetzt `--no-proxy-server`; die Suite läuft in anderthalb Minuten.
+Die Mobil-Variante der Admin-Tests lief damit zum ersten Mal überhaupt durch, und beide Fehler
+lagen dort.
+
+Und die Fehlermeldung selbst wurde brauchbar gemacht: „läuft 348px über" sagt nicht, wo man
+suchen soll. Der Test nennt jetzt die Elemente, die hinausragen — und lässt dabei aus, was ein
+Scroll-Rahmen ohnehin abschneidet, sonst wäre jede breite Tabelle ein Fehlalarm.
+
+Bewusst so gebaut:
+
+- **Die erste Ausschreibung hängt nicht am Schalter für die automatische Nachfrage.** Ohne sie
+  erführe niemand von der Lücke (Regel 15). Nur die Wiederholungen sind abschaltbar, denn sie
+  kosten erneut Geld.
+- **Der Trockenlauf ist der lesende Weg.** `GET /api/cron` zeigt, was ein Lauf täte; `POST`
+  führt ihn aus. Ein vorausschauender Browser oder ein Linkprüfer darf nichts auslösen, was
+  Geld kostet.
+- **Der Text entsteht erst beim Versand**, aus dem frisch gelesenen Spiel: verschiebt sich der
+  Anpfiff zwischen Anlegen und Versand, nennt die Nachricht den neuen Termin. Nur die
+  Anmeldenachricht trägt ihren Text mit, weil Link und Code danach nicht mehr rekonstruierbar
+  sind. Die Dev-Outbox benutzt dieselbe Funktion — was dort steht, geht auch so raus.
+- **Eine Erinnerung geht nur an jemanden, der zu ihrem Zeitpunkt schon eingetragen war.** Wer
+  sich zwei Stunden vor Anpfiff einträgt, bekommt keine „7 Tage vorher"-Nachricht mehr.
+- **Der Zeitgeber läuft im internen Netz**, nicht über den Tunnel. Ein Ausfall bei Cloudflare
+  soll die Erinnerungen nicht mitnehmen.
+
+Nebenbei: `tsconfig.tsbuildinfo` lag seit M2 in der Versionsverwaltung. Ein reines
+Build-Artefakt, das sich bei jedem Lauf ändert — jetzt in `.gitignore`.
+
 ### M6 — Härtung und Abnahme
 
 - Barrierefreiheit: Tastaturbedienung, Kontraste, Fokusreihenfolge, Screenreader-Beschriftungen
 - Responsive-Feinschliff gegen beide Artboards, Screen für Screen
 - Rate-Limits, Fehlerseiten, Logging ohne personenbezogene Daten
 - Datenschutz: Löschkonzept, Aufbewahrungsfristen, Auskunftsfähigkeit
+- **Archivo selbst ausliefern statt von Google Fonts.** `modernist.css` lädt die Schrift per
+  `@import` von `fonts.googleapis.com` — so steht es im Handoff, und so ist es bisher
+  unverändert übernommen. Im Betrieb heißt das: der Browser jedes Besuchers der öffentlichen
+  Seite verbindet sich mit Google, bevor irgendetwas zu sehen ist. Für einen deutschen Verein
+  mit Impressum und Datenschutzerklärung ist das der bekannte Streitpunkt, und die Schrift ist
+  zugleich ein fremder Punkt, an dem der Seitenaufbau hängen bleiben kann: in der Testumgebung
+  wartete jeder Seitenaufbau zwölf Sekunden auf diese eine Anfrage, bevor `load` ausgelöst
+  wurde. Für die Tests ist das umgangen (siehe M5); im Betrieb bleibt die Abhängigkeit.
 - Vollständige E2E-Suite Desktop und Mobile
 - Deployment auf den VPS, Cloudflare Tunnel, Backups, Monitoring
 

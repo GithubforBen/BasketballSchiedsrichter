@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   calendarDay,
+  startOfLocalDay,
   days,
   describeHours,
   describeHoursDative,
@@ -65,5 +66,31 @@ describe('Stundenangaben auf Deutsch', () => {
       'in weniger als einer Stunde',
     );
     expect(describeLeadTime(new Date('2026-08-01T11:00:00Z'), now)).toBe('bereits angepfiffen');
+  });
+});
+
+describe('Der Tagesbeginn richtet sich nach der Vereinszeit', () => {
+  it('liegt in der Sommerzeit zwei Stunden vor Mitternacht UTC', () => {
+    expect(startOfLocalDay(new Date('2026-08-23T12:00:00Z'), 'Europe/Berlin').toISOString()).toBe(
+      '2026-08-22T22:00:00.000Z',
+    );
+  });
+
+  it('liegt in der Winterzeit eine Stunde davor', () => {
+    expect(startOfLocalDay(new Date('2026-01-10T12:00:00Z'), 'Europe/Berlin').toISOString()).toBe(
+      '2026-01-09T23:00:00.000Z',
+    );
+  });
+
+  it('zaehlt die Stunden vor Mitternacht Ortszeit noch zum laufenden Tag', () => {
+    /*
+     * 22:30 UTC ist in Berlin bereits der Folgetag, 0:30 Uhr. Wer gegen
+     * Mitternacht UTC rechnet, setzt hier einen Tageszaehler zurueck, obwohl
+     * der Tag laengst gewechselt hat — oder eben umgekehrt.
+     */
+    const kurzNachMitternacht = new Date('2026-08-23T22:30:00Z');
+    const beginn = startOfLocalDay(kurzNachMitternacht, 'Europe/Berlin');
+    expect(beginn.toISOString()).toBe('2026-08-23T22:00:00.000Z');
+    expect(beginn.getTime()).toBeLessThan(kurzNachMitternacht.getTime());
   });
 });

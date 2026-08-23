@@ -12,3 +12,7 @@ coverage/
 test-results/
 playwright-report/
 playwright/.cache/
+
+# Zwischenstand des TypeScript-Compilers. Reines Build-Artefakt: es aendert
+# sich bei jedem Lauf und gehoert nicht in die Versionsverwaltung.
+*.tsbuildinfo

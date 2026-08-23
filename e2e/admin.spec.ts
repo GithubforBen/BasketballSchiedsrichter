@@ -12,7 +12,7 @@ import {
   upcomingGameIds,
   withdrawDeadline,
 } from './db';
-import { formError, formSuccess, loginAs, SEED } from './helfer';
+import { expectNoHorizontalScroll, formError, formSuccess, loginAs, SEED } from './helfer';
 
 /**
  * Der Adminbereich im Browser.
@@ -260,10 +260,7 @@ test.describe('Adminbereich', () => {
     await loginAs(page, SEED.nele.phone);
     for (const path of ['/uebersicht', '/meldungen', '/anlegen', '/schiris', '/einstellungen', '/nachpflegen']) {
       await page.goto(path);
-      const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      );
-      expect(overflow, `${path} läuft ${overflow}px über`).toBeLessThanOrEqual(1);
+      await expectNoHorizontalScroll(page, path);
     }
   });
 });

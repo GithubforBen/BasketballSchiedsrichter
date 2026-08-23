@@ -297,7 +297,18 @@ body {
   flex-wrap: wrap;
 }
 
+/*
+ * Rahmen fuer Tabellen, die breiter sind als das Handy-Fenster.
+ *
+ * `position: relative` ist hier kein Schmuck, sondern die Bedingung dafuer,
+ * dass der Rahmen wirklich abschneidet: die Screenreader-Beschriftungen in den
+ * Zellen liegen absolut positioniert. Ohne einen positionierten Vorfahren ist
+ * ihr umschliessender Block das Fenster selbst — sie entkommen dem Rahmen und
+ * ziehen die Seite waagerecht auf, obwohl die Tabelle sauber scrollt. Auf dem
+ * Pixel 7 waren das 500 Pixel Ueberlauf auf der Schiedsrichter-Verwaltung.
+ */
 .scroll-x {
+  position: relative;
   overflow-x: auto;
 }
 

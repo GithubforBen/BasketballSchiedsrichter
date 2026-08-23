@@ -22,6 +22,7 @@ export const toGame = (row: GameRow): Game => ({
   away: row.away,
   venue: row.venue,
   state: row.state,
+  vacancyVersion: row.vacancyVersion,
   overrides: {
     withdraw: row.overrideWithdraw,
     substituteRequest: row.overrideSubstituteRequest,
@@ -33,6 +34,7 @@ export const toAssignment = (row: AssignmentRow): Assignment => ({
   gameId: row.gameId,
   slotIndex: row.slotIndex as SlotIndex,
   refereeId: row.refereeId,
+  claimedAt: row.claimedAt,
   confirmedAt: row.confirmedAt,
   playedAsReferee: row.playedAsReferee,
 });

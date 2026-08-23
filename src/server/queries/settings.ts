@@ -40,5 +40,6 @@ export const loadAlertSettings = async (): Promise<AdminAlertSettings> => {
     unfilled: row.alertUnfilled,
     confirmationOverdue: row.alertConfirmationOverdue,
     substituteMissing: row.alertSubstituteMissing,
+    dailyDigest: row.alertDailyDigest,
   };
 };

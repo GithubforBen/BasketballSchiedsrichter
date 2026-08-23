@@ -36,6 +36,7 @@ const slotsFor = (occupants: readonly (string | null)[]) =>
               slotIndex: index as SlotIndex,
               refereeId,
               confirmedAt: null,
+              claimedAt: new Date(),
               playedAsReferee: null,
             },
           ],

@@ -1,16 +1,17 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, eq, gte, lt, ne } from 'drizzle-orm';
+import { and, eq, gte, lt, ne, sql as sqlRaw } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { CLUB } from '@/config/club';
-import { assignmentIntent, type NotificationIntent } from '@/domain/notifications';
+import { assignmentIntent } from '@/domain/notifications';
 import { canClaimSlot, canRequestSubstitute, canWithdraw } from '@/domain/rules';
 import { buildSlots, nextFreeSlot, slotOf, SLOT_LABELS } from '@/domain/slots';
 import { calendarDay, days } from '@/domain/time';
-import type { ClubSettings, Game, Referee, SlotIndex } from '@/domain/types';
+import type { ClubSettings, Game, Referee, Slot, SlotIndex } from '@/domain/types';
 import { loadSettings } from './queries/settings';
 import { toAssignment, toGame } from './queries/games';
 import { loadReferee } from './queries/referees';
+import { enqueue } from './outbox';
 
 /**
  * Aenderungen an der Besetzung eines Spiels.
@@ -143,7 +144,7 @@ export const claimNextSlot = async (
         gameId,
         detail: { slotIndex: target.index },
       });
-      await queue(tx, assignmentIntent(gameId, refereeId, target.index));
+      await enqueue(tx, assignmentIntent(gameId, refereeId, target.index));
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -162,6 +163,22 @@ export const claimNextSlot = async (
       ? `Eingetragen als ${label}. Die Eintragung ist verbindlich.`
       : `Als ${label} eingetragen.`,
   );
+};
+
+/**
+ * Zaehlt die Luecken eines Spiels hoch, wenn ein Schiedsrichter-Platz frei wird.
+ *
+ * Der Zaehler steckt im Idempotenzschluessel der Ausschreibung. Ohne ihn saehe
+ * die zweite Ausschreibung desselben Spiels wie eine Wiederholung der ersten
+ * aus und bliebe stumm — der Platz waere offen, und niemand erfuehre davon.
+ * Ersatzplaetze zaehlen nicht mit: fuer sie wird nichts ausgeschrieben.
+ */
+const countVacancy = async (writer: Writer, gameId: string, slot: Slot): Promise<void> => {
+  if (slot.kind !== 'referee') return;
+  await writer
+    .update(schema.games)
+    .set({ vacancyVersion: sqlRaw`${schema.games.vacancyVersion} + 1` })
+    .where(eq(schema.games.id, gameId));
 };
 
 /** Traegt eine Person wieder aus. Regel 7. */
@@ -185,6 +202,7 @@ export const withdraw = async (
       .where(
         and(eq(schema.assignments.gameId, gameId), eq(schema.assignments.refereeId, refereeId)),
       );
+    await countVacancy(tx, gameId, own);
     await writeAudit(tx, {
       actorId: refereeId,
       action: 'assignment.withdraw',
@@ -265,26 +283,6 @@ const writeAudit = async (writer: Writer, entry: AuditEntry): Promise<void> => {
   await writer.insert(schema.auditLog).values({ id: randomUUID(), ...entry });
 };
 
-/**
- * Legt eine Nachricht in die Outbox. Der Versand selbst folgt in Meilenstein 5;
- * bis dahin ist die Zeile der Beleg, dass die Nachricht faellig waere.
- */
-const queue = async (writer: Writer, intent: NotificationIntent): Promise<void> => {
-  for (const recipientId of intent.recipientIds) {
-    await writer
-      .insert(schema.notificationOutbox)
-      .values({
-        id: randomUUID(),
-        key: intent.key,
-        kind: intent.kind,
-        channel: 'dev',
-        recipientId,
-        gameId: intent.gameId,
-        payload: {},
-      })
-      .onConflictDoNothing();
-  }
-};
 
 /** Der Platz, auf dem diese Person in diesem Spiel steht — oder null. */
 export const ownSlotIndex = (
@@ -340,6 +338,7 @@ export const respondToRelocation = async (
       .where(
         and(eq(schema.assignments.gameId, gameId), eq(schema.assignments.refereeId, refereeId)),
       );
+    await countVacancy(tx, gameId, own);
     await writeAudit(tx, {
       actorId: refereeId,
       action: 'relocation.decline',

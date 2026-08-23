@@ -22,6 +22,21 @@ export type ConfirmationState =
 export const confirmationDueAt = (game: Game, settings: ClubSettings): Date =>
   new Date(game.kickoff.getTime() - hours(settings.confirmationLeadHours));
 
+/**
+ * Wann die Frage tatsaechlich gestellt wurde.
+ *
+ * In aller Regel zum eingestellten Vorlauf. Traegt sich jemand aber erst
+ * *innerhalb* des Vorlaufs ein, ist der Zeitpunkt laengst vorbei — die Frage
+ * geht ihm erst jetzt zu. Ohne diese Unterscheidung waere seine Bestaetigung im
+ * selben Augenblick "ueberfaellig", in dem er sich eingetragen hat: er bekaeme
+ * Bitte und Mahnung zusammen, zu einer Frage, die ihm nie gestellt wurde.
+ */
+export const confirmationRequestedAt = (
+  claimedAt: Date,
+  game: Game,
+  settings: ClubSettings,
+): Date => new Date(Math.max(confirmationDueAt(game, settings).getTime(), claimedAt.getTime()));
+
 export const confirmationState = (
   slot: Slot,
   game: Game,
@@ -33,10 +48,10 @@ export const confirmationState = (
   if (!assignment) return 'not-required';
   if (assignment.confirmedAt) return 'confirmed';
 
-  const due = confirmationDueAt(game, settings);
-  if (now < due) return 'scheduled';
+  const requested = confirmationRequestedAt(assignment.claimedAt, game, settings);
+  if (now < requested) return 'scheduled';
 
-  const sinceRequest = now.getTime() - due.getTime();
+  const sinceRequest = now.getTime() - requested.getTime();
   return sinceRequest >= hours(settings.confirmationFollowUpHours) ? 'overdue' : 'pending';
 };
 

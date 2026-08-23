@@ -31,6 +31,7 @@ export const makeReferee = (overrides: Partial<Referee> = {}): Referee => ({
   phone: '+49 151 23456789',
   role: 'referee',
   qualifications: ['U14', 'U16', 'U18', 'Senioren'],
+  reminderHours: [],
   active: true,
   ...overrides,
 });
@@ -43,6 +44,7 @@ export const makeGame = (overrides: Partial<Game> = {}): Game => ({
   away: 'TV Ostheim',
   venue: 'Sporthalle Nordstadt, Feld 2',
   state: 'scheduled',
+  vacancyVersion: 0,
   overrides: { withdraw: false, substituteRequest: false, oneGamePerDay: false },
   ...overrides,
 });
@@ -55,6 +57,7 @@ export const makeAssignment = (
   gameId: 'g1',
   slotIndex,
   refereeId,
+  claimedAt: new Date(NOW.getTime() - 90 * 24 * 60 * 60 * 1000),
   confirmedAt: null,
   playedAsReferee: null,
   ...overrides,

@@ -2,9 +2,9 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { and, eq, sql as raw } from 'drizzle-orm';
 import { db, schema } from '@/db';
-import { activeChannel } from '@/notifications/channel';
 import { loginMessage } from '@/notifications/templates';
 import { env } from '../env';
+import { dispatchOutbox, enqueue } from '../outbox';
 import {
   evaluateRateLimit,
   LOGIN_PER_IP,
@@ -90,47 +90,26 @@ export const requestLogin = async (
     code: issued.code,
   });
 
-  const channel = activeChannel();
+  /*
+   * Auch die Anmeldenachricht laeuft ueber die Outbox — sie ist der einzige Weg
+   * nach draussen. Sie wartet aber nicht auf den naechsten Cron-Lauf: jemand
+   * steht vor dem Bildschirm und wartet auf den Link. Deshalb wird direkt im
+   * Anschluss genau dieser eine Schluessel zugestellt. Schlaegt der Versand
+   * fehl, bleibt die Zeile liegen und der naechste Lauf versucht es erneut —
+   * frueher galt sie sofort als endgueltig gescheitert.
+   */
   const key = `login:${tokenId}`;
-  await db.insert(schema.notificationOutbox).values({
-    id: randomUUID(),
-    key,
+  await enqueue(db, {
     kind: 'login',
-    channel: channel.name,
-    recipientId: referee.id,
+    recipientIds: [referee.id],
+    gameId: null,
+    key,
+    expectsReply: false,
     payload: { subject: rendered.subject, body: rendered.body },
-    state: 'queued',
   });
-
-  try {
-    await channel.send({
-      ...rendered,
-      kind: 'login',
-      key,
-      recipient: { refereeId: referee.id, name: referee.name, phone: referee.phone },
-    });
-    await markSent(key, referee.id, null);
-  } catch (error) {
-    await markSent(key, referee.id, error instanceof Error ? error.message : String(error));
-  }
+  await dispatchOutbox({ onlyKey: key, now });
 
   return { ...confirmation, tokenId };
-};
-
-const markSent = async (key: string, recipientId: string, failure: string | null): Promise<void> => {
-  await db
-    .update(schema.notificationOutbox)
-    .set(
-      failure === null
-        ? { state: 'sent', sentAt: new Date(), attempts: 1 }
-        : { state: 'failed', attempts: 1, lastError: failure },
-    )
-    .where(
-      and(
-        eq(schema.notificationOutbox.key, key),
-        eq(schema.notificationOutbox.recipientId, recipientId),
-      ),
-    );
 };
 
 export type RedeemResult =

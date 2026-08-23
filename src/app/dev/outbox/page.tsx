@@ -1,7 +1,12 @@
-import { desc } from 'drizzle-orm';
+import { desc, inArray } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
+import { CLUB } from '@/config/club';
 import { Note, Tag } from '@/components/primitives';
 import { db, schema } from '@/db';
+import { isNotificationKind } from '@/domain/notifications';
+import { renderMessage } from '@/notifications/templates';
+import { env } from '@/server/env';
+import { toGame } from '@/server/queries/games';
 
 /**
  * Die Outbox der Entwicklung.
@@ -11,13 +16,6 @@ import { db, schema } from '@/db';
  * Postfach. Im Produktionsbetrieb ist die Seite nicht erreichbar.
  */
 export const dynamic = 'force-dynamic';
-
-interface Payload {
-  subject?: unknown;
-  body?: unknown;
-}
-
-const asText = (value: unknown): string => (typeof value === 'string' ? value : '');
 
 /** Macht den Anmeldelink in der Vorschau anklickbar. */
 const withLinks = (body: string) =>
@@ -40,6 +38,24 @@ const Outbox = async () => {
     .orderBy(desc(schema.notificationOutbox.sendAfter))
     .limit(50);
 
+  /*
+   * Der Text entsteht mit derselben Funktion wie beim Versand. Was hier steht,
+   * geht auch genau so raus — es gibt keinen zweiten Weg, auf dem ein anderer
+   * Text entstehen koennte.
+   */
+  const now = new Date();
+  const gameIds = [...new Set(rows.flatMap((row) => (row.gameId === null ? [] : [row.gameId])))];
+  const gameRows =
+    gameIds.length === 0
+      ? []
+      : await db.select().from(schema.games).where(inArray(schema.games.id, gameIds));
+  const byGame = new Map(gameRows.map((row) => [row.id, toGame(row)]));
+
+  const names = await db
+    .select({ id: schema.referees.id, name: schema.referees.name })
+    .from(schema.referees);
+  const byReferee = new Map(names.map((row) => [row.id, row.name]));
+
   return (
     <div style={{ padding: 'var(--space-8)' }}>
       <div className="kicker kicker-accent">Nur Entwicklung</div>
@@ -54,12 +70,22 @@ const Outbox = async () => {
       ) : (
         <ul className="card-list" style={{ maxWidth: '68ch' }}>
           {rows.map((row) => {
-            const payload = row.payload as Payload;
+            const rendered = isNotificationKind(row.kind)
+              ? renderMessage(row.kind, {
+                  recipientName: byReferee.get(row.recipientId) ?? row.recipientId,
+                  game: row.gameId === null ? null : (byGame.get(row.gameId) ?? null),
+                  payload: row.payload,
+                  baseUrl: env.baseUrl,
+                  timeZone: CLUB.timeZone,
+                  now,
+                })
+              : { subject: `Unbekannte Art: ${row.kind}`, body: '' };
             return (
               <li key={row.id} className="outbox-entry">
                 <div className="row" style={{ gap: 'var(--space-2)' }}>
                   <Tag tone={row.state === 'failed' ? 'outline' : 'neutral'}>{row.state}</Tag>
                   <Tag tone="neutral">{row.channel}</Tag>
+                  <Tag tone="neutral">{row.kind}</Tag>
                   <span
                     className="text-muted"
                     style={{ fontSize: '11px', marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}
@@ -67,8 +93,8 @@ const Outbox = async () => {
                     {row.sendAfter.toISOString()}
                   </span>
                 </div>
-                <div className="outbox-subject">{asText(payload.subject)}</div>
-                <pre className="outbox-body">{withLinks(asText(payload.body))}</pre>
+                <div className="outbox-subject">{rendered.subject}</div>
+                <pre className="outbox-body">{withLinks(rendered.body)}</pre>
                 {row.lastError ? (
                   <div className="form-error" style={{ marginTop: 'var(--space-2)' }}>
                     {row.lastError}

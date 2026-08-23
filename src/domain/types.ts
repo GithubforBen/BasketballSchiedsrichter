@@ -33,6 +33,8 @@ export interface Referee {
   role: 'referee' | 'admin';
   /** IDs der Ligen, fuer die diese Person pfeifen darf. Regel 4. */
   qualifications: readonly string[];
+  /** Persoenliche Erinnerungen als Vorlauf in Stunden vor Anpfiff. Regel 21. */
+  reminderHours: readonly number[];
   active: boolean;
 }
 
@@ -47,6 +49,14 @@ export interface Game {
   away: string;
   venue: string;
   state: GameState;
+  /**
+   * Zaehlt, wie oft an diesem Spiel ein Schiedsrichter-Platz frei geworden ist.
+   *
+   * Er unterscheidet eine neue Ausschreibung von der Wiederholung einer alten:
+   * ohne ihn saehe die zweite Ausschreibung desselben Spiels wie eine Doppelung
+   * aus und bliebe stumm. Regeln 15 und 32.
+   */
+  vacancyVersion: number;
   /** Freigaben, die der Admin pro Spiel setzt. Regeln 6, 7, 8. */
   overrides: GameOverrides;
 }
@@ -64,6 +74,14 @@ export interface Assignment {
   gameId: string;
   slotIndex: SlotIndex;
   refereeId: string;
+  /**
+   * Wann sich diese Person eingetragen hat.
+   *
+   * Der Nachrichtenplan braucht den Zeitpunkt: wer sich zwei Stunden vor
+   * Anpfiff eintraegt, darf keine Erinnerung mehr bekommen, deren Vorlauf
+   * laengst verstrichen war. Regel 21.
+   */
+  claimedAt: Date;
   /** Zeitpunkt der Pflichtbestaetigung, null solange offen. Regeln 10-12. */
   confirmedAt: Date | null;
   /**

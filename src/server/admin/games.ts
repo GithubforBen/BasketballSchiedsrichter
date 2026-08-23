@@ -1,17 +1,18 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, eq, gte } from 'drizzle-orm';
+import { and, eq, gte, sql as sqlRaw } from 'drizzle-orm';
 import { CLUB } from '@/config/club';
 import { db, schema } from '@/db';
 import { dedupe, gameKey, parseCsv, type CsvParseResult, type CsvRow } from '@/domain/csv';
 import { nextPromotionStep } from '@/domain/escalation';
-import { relocationIntent, type NotificationIntent } from '@/domain/notifications';
-import { buildSlots, SLOT_LABELS } from '@/domain/slots';
-import { localToUtc } from '@/db/seed-data';
+import { relocationIntent } from '@/domain/notifications';
+import { buildSlots, slotKind, SLOT_LABELS } from '@/domain/slots';
+import { localToUtc } from '@/domain/time';
 import type { SlotIndex } from '@/domain/types';
 import { isUniqueViolation } from '../assignments';
 import { toAssignment, toGame } from '../queries/games';
 import { loadSettings } from '../queries/settings';
+import { enqueue } from '../outbox';
 
 /**
  * Spielverwaltung im Adminbereich.
@@ -42,22 +43,6 @@ const writeAudit = async (
   await writer.insert(schema.auditLog).values({ id: randomUUID(), ...entry });
 };
 
-const queue = async (writer: Writer, intent: NotificationIntent): Promise<void> => {
-  for (const recipientId of intent.recipientIds) {
-    await writer
-      .insert(schema.notificationOutbox)
-      .values({
-        id: randomUUID(),
-        key: intent.key,
-        kind: intent.kind,
-        channel: 'dev',
-        recipientId,
-        gameId: intent.gameId,
-        payload: {},
-      })
-      .onConflictDoNothing();
-  }
-};
 
 export interface NewGameInput {
   localDate: string;
@@ -258,7 +243,13 @@ export const editGame = async (
     });
 
     if (notifies && affected.length > 0) {
-      await queue(tx, relocationIntent(gameId, affected, version));
+      await enqueue(
+        tx,
+        relocationIntent(gameId, affected, version, {
+          kickoff: row.kickoff,
+          venue: row.venue,
+        }),
+      );
     }
   });
 
@@ -300,6 +291,19 @@ export const removeFromGame = async (
   ]);
   const gameRow = gameRows[0];
   if (!gameRow) return fail('Dieses Spiel gibt es nicht mehr.');
+
+  /*
+   * Ein frei gewordener Schiedsrichter-Platz zaehlt als neue Luecke. Der
+   * Zaehler steckt im Idempotenzschluessel der Ausschreibung — ohne ihn saehe
+   * die zweite Ausschreibung desselben Spiels wie eine Wiederholung aus und
+   * bliebe stumm.
+   */
+  if (slotKind(slotIndex) === 'referee') {
+    await db
+      .update(schema.games)
+      .set({ vacancyVersion: sqlRaw`${schema.games.vacancyVersion} + 1` })
+      .where(eq(schema.games.id, gameId));
+  }
 
   const step = nextPromotionStep({
     game: toGame(gameRow),

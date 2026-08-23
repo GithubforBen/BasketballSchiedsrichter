@@ -9,6 +9,7 @@ export interface RefereeRow {
   initials: string;
   phone: string;
   role: 'referee' | 'admin';
+  reminderHours: number[];
   active: boolean;
 }
 
@@ -19,6 +20,7 @@ export const toReferee = (row: RefereeRow, qualifications: readonly string[]): R
   phone: row.phone,
   role: row.role,
   qualifications,
+  reminderHours: row.reminderHours,
   active: row.active,
 });
 

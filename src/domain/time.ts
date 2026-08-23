@@ -36,6 +36,61 @@ export const calendarDay = (date: Date, timeZone: string): string =>
   }).format(date);
 
 /**
+ * Stunde des Tages in der Zeitzone des Vereins, 0-23.
+ * Die Tageszusammenfassung soll um 18 Uhr Ortszeit rausgehen und nicht dann,
+ * wenn es beim Server gerade 18 Uhr ist. Regel 20.
+ */
+export const localHour = (date: Date, timeZone: string): number =>
+  Number(
+    new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', hour12: false }).format(date),
+  );
+
+/**
+ * Abstand der Ortszeit zur Weltzeit an einem bestimmten Zeitpunkt.
+ * Wird zum Zeitpunkt ausgewertet, nicht pauschal — sonst laege alles zwischen
+ * Sommer- und Winterzeit um eine Stunde daneben.
+ */
+const timeZoneOffsetMs = (date: Date, timeZone: string): number => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? '0');
+  const asUtc = Date.UTC(
+    get('year'),
+    get('month') - 1,
+    get('day'),
+    get('hour') % 24,
+    get('minute'),
+    get('second'),
+  );
+  return asUtc - date.getTime();
+};
+
+/** Deutet eine Ortszeit `YYYY-MM-DDTHH:mm` als Zeitstempel. */
+export const localToUtc = (local: string, timeZone: string): Date => {
+  const naive = new Date(`${local}:00Z`);
+  return new Date(naive.getTime() - timeZoneOffsetMs(naive, timeZone));
+};
+
+/**
+ * Der Beginn des laufenden Kalendertages in Vereinszeit.
+ *
+ * Nicht Mitternacht UTC: in Berliner Sommerzeit liegen die zwei Stunden vor
+ * Mitternacht Ortszeit bereits im naechsten UTC-Tag. Ein Tageszaehler, der
+ * gegen Mitternacht UTC rechnet, springt dort auf null zurueck — der
+ * Kostendeckel waere jeden Abend zwei Stunden lang wirkungslos.
+ */
+export const startOfLocalDay = (date: Date, timeZone: string): Date =>
+  localToUtc(`${calendarDay(date, timeZone)}T00:00`, timeZone);
+
+/**
  * Beschreibt eine Stundenzahl auf Deutsch, so wie im Mockup:
  * 1 -> "1 Stunde", 24 -> "1 Tag", 72 -> "3 Tage", 26 -> "1 Tag 2 Std".
  */

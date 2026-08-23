@@ -12,6 +12,9 @@ import postgres from 'postgres';
  * mit mehreren Anmeldungen würde sonst an der eigenen Schutzmaßnahme scheitern.
  */
 
+import { CLUB } from '@/config/club';
+import { SEED_GAMES, toKickoff } from '@/db/seed-data';
+
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL fehlt — die E2E-Tests brauchen dieselbe Datenbank wie die App.');
 
@@ -53,12 +56,41 @@ export const closeDb = async (): Promise<void> => {
   await sql.end();
 };
 
-/** Setzt die Besetzung aller Spiele auf den Ausgangszustand des Seeds zurück. */
+/**
+ * Setzt Besetzung **und** Spieldaten auf den Ausgangszustand des Seeds zurück.
+ *
+ * Die Spieldaten gehören dazu, auch wenn es zunächst nach Besetzung klingt:
+ * der Adminbereich verschiebt Spiele, sagt sie ab und zählt dabei
+ * `relocation_version` und `vacancy_version` hoch. Blieben diese Änderungen
+ * stehen, bestünde die Suite nur beim ersten Lauf gegen einen frischen Seed —
+ * beim zweiten läge das erste Spiel schon auf der Zeit, auf die ein Test es
+ * erst verschieben will, und der Test schlüge fehl, ohne dass sich am Code
+ * etwas geändert hat.
+ */
 export const resetAssignments = async (): Promise<void> => {
   await sql`DELETE FROM assignments`;
   await sql`DELETE FROM audit_log WHERE action LIKE 'assignment.%' OR action LIKE 'relocation.%'`;
   await sql`DELETE FROM notification_outbox WHERE kind <> 'login'`;
+  await sql`DELETE FROM promotion_offers`;
   await sql`UPDATE referees SET reminder_hours = '[]'::jsonb`;
+  await resetGames();
+};
+
+/** Stellt Anpfiff, Ort, Zustand und Zähler jedes Seed-Spiels wieder her. */
+export const resetGames = async (): Promise<void> => {
+  const base = new Date();
+  for (const game of SEED_GAMES) {
+    await sql`UPDATE games SET
+        kickoff = ${toKickoff(game, CLUB.timeZone, base)},
+        venue = ${game.venue},
+        state = ${game.state ?? 'scheduled'},
+        relocation_version = 0,
+        vacancy_version = 0,
+        override_withdraw = false,
+        override_substitute_request = false,
+        override_one_game_per_day = false
+      WHERE id = ${game.id}`;
+  }
 };
 
 /** Trägt eine Person direkt auf einem Platz ein — Aufbau, nicht Prüfung. */
