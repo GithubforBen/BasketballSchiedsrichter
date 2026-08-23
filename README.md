@@ -12,4 +12,4 @@ Planungsphase. Der Implementierungsplan steht in [PLAN.md](PLAN.md), das Design 
 ## Struktur
 
 - `PLAN.md` — Entscheidungen, Fachregeln, Meilensteine, Review-Checkliste
-- `design/` — der Handoff aus Claude Design: Mockup und Design-System „Modernist"
+- `design/` — der Handoff aus Claude Design: Mockup, Briefing-Historie und Design-System „Modernist"

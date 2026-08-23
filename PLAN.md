@@ -72,14 +72,19 @@ Aus dem Mockup extrahiert und in Session 1 ergänzt. Diese Liste ist die Referen
 24. Die Pflichtbestätigung kommt immer zusätzlich und zählt nicht gegen das Limit.
 
 ### Statistik
-25. Gezählt werden nur Einsätze **als Schiedsrichter auf dem Feld**.
+25. Gezählt werden nur Einsätze **als Schiedsrichter auf dem Feld**. Die Zahl ist abrechnungsrelevant — der Verein bezahlt pro gepfiffenem Spiel. Entsprechend muss sie nachvollziehbar und korrigierbar sein.
 26. Ersatz **mit** Einsatz zählt, Ersatz **ohne** Einsatz zählt nicht.
 27. Nachrücken zählt automatisch als Einsatz; der Admin kann das pro Spiel nachträglich korrigieren.
 28. Ranking: nur die eigene Person namentlich mit Zahl, alle anderen als „anonym" ohne Zahl.
 
 ### Sichtbarkeit
 29. Ohne Login sind ausschließlich Kürzel sichtbar — kein Name, keine Telefonnummer, kein Profilbild. Das gilt auch für ausgelieferte JSON-Daten und HTML-Attribute, nicht nur für die Anzeige.
-30. Name, Kürzel und Telefonnummer ändert ausschließlich der Admin.
+30. Name, Kürzel und Telefonnummer ändert ausschließlich der Admin. Das **Profilbild** ändert die Person selbst.
+
+### Nachrichten an Schiedsrichter
+31. Wer sich einträgt, bekommt sofort eine Zuteilungsnachricht („Das Spiel gehört dir") mit Datum, Zeit, Ort und Liga.
+32. Der Admin kann per Knopf alle Qualifizierten an **offene Spiele** erinnern (die „Notruf"-Erinnerung aus dem Erst-Briefing).
+33. Jede Nachricht kostet den Verein Geld — Sparsamkeit ist ein Produktziel, kein Detail. Jeder neue Nachrichtenauslöser muss begründet sein und im Kostenzähler auftauchen.
 
 ### Statusfarben
 | Zustand | Bedingung | Farbe |
@@ -128,7 +133,7 @@ Jeder Meilenstein ist eine Session und endet mit zwei Review-Stufen:
 - Primitives: Button, Tag, Input, Field, Seg, Table, Toggle, Hr, StatusDot, Avatar-Kürzel
 - Komponenten-Galerie unter `/dev/ui` zum Abgleich gegen das Design-System
 - Schema: `user`, `qualification`, `league`, `game`, `assignment`, `confirmation`, `reminder`, `notification_outbox`, `setting`, `audit_log`, `login_token`
-- Regel-Engine als reine Funktionen ohne DB-Zugriff — alle 30 Regeln aus Abschnitt 2
+- Regel-Engine als reine Funktionen ohne DB-Zugriff — alle 33 Regeln aus Abschnitt 2
 - Seed mit den Mockup-Daten (5 Spieltage, 8 Spiele, 6 Personen, Qualifikationsmatrix)
 - Lint inkl. Design-System-Adherence, Vitest, GitHub Actions
 
@@ -187,7 +192,7 @@ Jeder Meilenstein ist eine Session und endet mit zwei Review-Stufen:
 - Vollständige E2E-Suite Desktop und Mobile
 - Deployment auf den VPS, Cloudflare Tunnel, Backups, Monitoring
 
-**Review-Fokus — großes Abschluss-Review**: Screen-für-Screen-Abgleich gegen `design/Schiri-Planer Mockup.dc.html` · alle 30 Regeln nachweislich getestet und fachlich richtig · Tests prüfen Verhalten, nicht Implementierung · kein toter Code · Design-System-Treue durchgehend.
+**Review-Fokus — großes Abschluss-Review**: Screen-für-Screen-Abgleich gegen `design/Schiri-Planer Mockup.dc.html` · alle 33 Regeln nachweislich getestet und fachlich richtig · Tests prüfen Verhalten, nicht Implementierung · kein toter Code · Design-System-Treue durchgehend.
 
 ---
 
@@ -214,9 +219,34 @@ Jeder Meilenstein ist eine Session und endet mit zwei Review-Stufen:
 
 ---
 
-## 6. Referenzdateien im Repo
+## 6. Bewusst gestrichen — nicht bauen
+
+Zwischen Erst-Briefing und finalem Mockup hat der Auftraggeber mehrere Funktionen wieder
+gestrichen. Sie stehen noch im ursprünglichen Auftragstext, sind aber **nicht** Teil des
+Produkts. Wer sie im Code sieht, hat sich verlaufen.
+
+| Gestrichen | Stand im Erst-Briefing | Warum weg |
+|---|---|---|
+| **Standard-Verfügbarkeit** | Wochenplan „Mo–Sa verfügbar, So nie" als Vorbelegung | Ausdrücklich zurückgezogen: „Standard-Verfügbarkeit rausnehmen" |
+| **Automatische Zuteilung** | System verteilt Spiele nach Regeln automatisch | Ersetzt durch „immer First come first served". Die Regeln aus dem Briefing leben nur noch als Anschreib-Reihenfolge (Regel 19) und als Sperre (Regel 6) weiter |
+| **Bewerbung mit Bestätigung** | Zwei Modi: sofort verbindlich **oder** Bewerbung, die Admin/System bestätigt | Fällt mit der automatischen Zuteilung weg. Es gibt nur noch einen Zustand: eingetragen = verbindlich. Kein „⏳ wartet auf Bestätigung" |
+| **Sich für Tage sperren** | Swipe nach links sperrt den Tag | Ersatzlos gestrichen |
+| **Telefonnummer selbst ändern** | Schiedsrichter ändert seine Nummer im Profil | Nur noch der Admin |
+
+### Die Wischgeste hat ihre Bedeutung gewechselt
+
+Im Erst-Briefing hieß Wischen: rechts = bewerben, links = Tag sperren. **Heute heißt Wischen:
+Spieltag wechseln** — links zum nächsten, rechts zum vorherigen Spieltag. Das Eintragen läuft
+ausschließlich über die Knöpfe an den vier Plätzen. Diese Umdeutung ist die häufigste
+Fehlerquelle beim Nachbauen aus dem alten Auftragstext.
+
+---
+
+## 7. Referenzdateien im Repo
 
 - `design/Schiri-Planer Mockup.dc.html` — der Handoff, maßgeblich für Layout, Texte und Verhalten
+- `design/BRIEFING.md` — Erst-Briefing und alle Änderungswünsche aus der Design-Session, inklusive der
+  Punkte, die später gestrichen wurden. Bei Widerspruch gilt: Mockup schlägt Änderungswunsch schlägt Erst-Briefing
 - `design/_ds/modernist-.../styles.css` — Tokens und Komponentenklassen, Basis des App-Stylesheets
 - `design/_ds/modernist-.../readme.md` — die Design-System-Regeln
 - `design/_ds/modernist-.../_adherence.oxlintrc.json` — maschinenlesbare Adherence-Regeln für den Linter
