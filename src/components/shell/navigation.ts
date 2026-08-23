@@ -36,6 +36,24 @@ export const REFEREE_TABS: readonly NavTarget[] = [
   { href: '/regeln', label: 'Regeln', short: 'Regeln' },
 ];
 
+/** Navigation fuer Admins. Sieben Ziele — die Tab-Leiste zeigt eine Auswahl. */
+export const ADMIN_NAV: readonly NavTarget[] = [
+  { href: '/', label: 'Öffentliche Ansicht', short: 'Spielplan' },
+  { href: '/uebersicht', label: 'Spielübersicht', short: 'Spiele' },
+  { href: '/meldungen', label: 'Offene Spiele & Meldungen', short: 'Meldungen' },
+  { href: '/anlegen', label: 'Spiele anlegen', short: 'Neu' },
+  { href: '/nachpflegen', label: 'Spiele nachpflegen', short: 'Nachpflegen' },
+  { href: '/schiris', label: 'Schiedsrichter', short: 'Schiris' },
+  { href: '/einstellungen', label: 'Einstellungen', short: 'Einstellungen' },
+];
+
+export const ADMIN_TABS: readonly NavTarget[] = [
+  { href: '/uebersicht', label: 'Spielübersicht', short: 'Spiele' },
+  { href: '/meldungen', label: 'Offene Spiele & Meldungen', short: 'Meldungen' },
+  { href: '/anlegen', label: 'Spiele anlegen', short: 'Neu' },
+  { href: '/schiris', label: 'Schiedsrichter', short: 'Schiris' },
+];
+
 /** Tab-Leiste ohne Login: vier Ziele, mehr traegt die Leiste nicht. */
 export const PUBLIC_TABS: readonly NavTarget[] = [
   { href: '/', label: 'Öffentliche Ansicht', short: 'Spiele' },

@@ -137,3 +137,58 @@ export const dayKeyOfGame = async (gameId: string): Promise<string> => {
     FROM games WHERE id = ${gameId}`;
   return rows[0]?.day ?? '';
 };
+
+/** Entfernt alle Spiele, die ein Test angelegt hat. */
+export const dropGamesLike = async (pattern: string): Promise<void> => {
+  await sql`DELETE FROM games WHERE home LIKE ${pattern} OR away LIKE ${pattern}`;
+};
+
+/** Wie viele Spiele es gibt, deren Heimmannschaft zum Muster passt. */
+export const countGamesLike = async (pattern: string): Promise<number> => {
+  const rows = await sql<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM games WHERE home LIKE ${pattern}`;
+  return rows[0]?.n ?? 0;
+};
+
+/** Die Einträge des Prüfprotokolls zu einer Aktion. */
+export const auditCount = async (action: string): Promise<number> => {
+  const rows = await sql<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM audit_log WHERE action = ${action}`;
+  return rows[0]?.n ?? 0;
+};
+
+/** Setzt eine Qualifikation direkt. */
+export const setQualificationDirect = async (
+  refereeId: string,
+  leagueId: string,
+  on: boolean,
+): Promise<void> => {
+  if (on) {
+    await sql`INSERT INTO qualifications (referee_id, league_id) VALUES (${refereeId}, ${leagueId})
+              ON CONFLICT DO NOTHING`;
+  } else {
+    await sql`DELETE FROM qualifications
+              WHERE referee_id = ${refereeId} AND league_id = ${leagueId}`;
+  }
+};
+
+/** Ob eine Person für eine Liga qualifiziert ist. */
+export const hasQualification = async (refereeId: string, leagueId: string): Promise<boolean> => {
+  const rows = await sql<{ n: number }[]>`
+    SELECT count(*)::int AS n FROM qualifications
+    WHERE referee_id = ${refereeId} AND league_id = ${leagueId}`;
+  return (rows[0]?.n ?? 0) > 0;
+};
+
+/** Setzt eine Einstellung zurück. */
+export const resetSettings = async (): Promise<void> => {
+  await sql`UPDATE settings SET withdraw_deadline_days = 21, substitute_request_deadline_days = 3,
+            confirmation_lead_hours = 72, reminder_limit = 10 WHERE id = 1`;
+};
+
+/** Die Austragefrist aus den Einstellungen. */
+export const withdrawDeadline = async (): Promise<number> => {
+  const rows = await sql<{ d: number }[]>`
+    SELECT withdraw_deadline_days AS d FROM settings WHERE id = 1`;
+  return rows[0]?.d ?? 21;
+};

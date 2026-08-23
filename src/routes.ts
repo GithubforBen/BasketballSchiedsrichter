@@ -51,3 +51,19 @@ export const loginRoute = (query: {
   fehler?: string;
   hinweis?: string;
 }): Route => withQuery('/anmelden', query);
+
+/** Adminseiten mit Rückmeldung zur zuletzt ausgeführten Aktion. */
+export const adminResultRoute = (
+  path: Route,
+  result: { ok: boolean; message: string },
+): Route => withQuery(path, { [result.ok ? 'hinweis' : 'fehler']: result.message });
+
+/** Ein bestimmtes Spiel im Bearbeiten-Bildschirm. */
+export const editGameRoute = (gameId: string, result?: { ok: boolean; message: string }): Route =>
+  withQuery('/bearbeiten', {
+    spiel: gameId,
+    ...(result ? { [result.ok ? 'hinweis' : 'fehler']: result.message } : {}),
+  });
+
+/** Die Spielübersicht, wahlweise auf einem bestimmten Spieltag. */
+export const overviewRoute = (day?: string): Route => withQuery('/uebersicht', { tag: day });

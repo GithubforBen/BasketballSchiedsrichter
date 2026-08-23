@@ -766,3 +766,135 @@ body {
   margin-bottom: 5px;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
+
+/* — Adminbereich — */
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  border: 2px solid var(--color-text);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (min-width: 768px) {
+  .kpi-row {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.kpi-row li {
+  padding: var(--space-3) var(--space-4);
+  border-right: 1px solid var(--color-divider);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.kpi-value {
+  display: block;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 34px;
+  line-height: 1;
+}
+
+.kpi-label {
+  display: block;
+  font-size: 12px;
+  margin-top: var(--space-1);
+}
+
+.alert {
+  display: grid;
+  grid-template-columns: 6px minmax(0, 1fr);
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--color-divider);
+  align-items: start;
+}
+
+@media (min-width: 1024px) {
+  .alert {
+    grid-template-columns: 6px minmax(0, 1fr) 300px;
+  }
+}
+
+.alert-bar {
+  align-self: stretch;
+}
+
+.form-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .form-grid-wide {
+    grid-column: span 2;
+  }
+}
+
+.split {
+  display: grid;
+  gap: var(--space-8);
+}
+
+@media (min-width: 1024px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+.matrix-check {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--color-divider);
+  background: transparent;
+  color: var(--color-bg);
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.matrix-check[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+/*
+ * Kontrollkaestchen neben mehrzeiligem Text.
+ *
+ * Die zwei bis vier Pixel Versatz richten das Kaestchen an der ersten Zeile
+ * aus und liegen unter dem kleinsten Abstands-Token. Sie stehen deshalb hier
+ * einmal mit Begruendung statt roh im TSX.
+ */
+.check-inline {
+  margin-top: 3px;
+  accent-color: var(--color-accent);
+}
+
+.check-inline-lg {
+  margin-top: 4px;
+  accent-color: var(--color-accent);
+}
+
+/*
+ * Das Eingabefeld fuer CSV.
+ *
+ * Eine Ausnahme von „nur Archivo“: bei semikolongetrennten Spalten hilft eine
+ * Schrift mit fester Zeichenbreite, Spalten zu zaehlen und Tippfehler zu
+ * sehen. Das Mockup macht es an derselben Stelle genauso.
+ */
+.input-mono {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}

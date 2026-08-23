@@ -13,6 +13,12 @@ export const KNOWN_SCREENS = [
   '/spiele',
   '/kalender',
   '/profil',
+  '/uebersicht',
+  '/meldungen',
+  '/anlegen',
+  '/nachpflegen',
+  '/schiris',
+  '/einstellungen',
   '/regeln',
   '/impressum',
 ] as const;

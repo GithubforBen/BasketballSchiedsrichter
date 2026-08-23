@@ -226,7 +226,7 @@ Der Kern des Bereichs, die Sichtbarkeit der Aktionen, liegt bewusst in der Regel
 stumm gesperrt" ohne Browser prüfbar — und wird zusätzlich im Browser über alle Plätze
 hinweg nachgeprüft.
 
-### M4 — Admin-Bereich
+### M4 — Admin-Bereich ✅ fertig
 
 - Spielübersicht mit KPI-Zeile, Meldungsliste mit Aktionen
 - Spiele anlegen einzeln, CSV-Import mit Vorschau und Duplikaterkennung
@@ -236,6 +236,28 @@ hinweg nachgeprüft.
 - Neuer Screen „Spiele nachpflegen" für Regel 27
 
 **Review-Fokus**: Jede Admin-Aktion erzeugt die richtigen Nachrichten **und** einen Audit-Eintrag. Entfernen eines Schiris stößt die Nachrück-Kaskade korrekt an. CSV-Import ist idempotent.
+
+**Ergebnis des Abschluss-Reviews:** 334 Unit- und Integrationstests, dazu 17 E2E-Tests für den
+Adminbereich (55 E2E insgesamt). Alle drei Punkte des Review-Fokus sind eigens belegt: das
+Prüfprotokoll je Aktion, die Nachrück-Kaskade beim Entfernen und ein zweifach ausgeführter
+Import, der nichts doppelt anlegt. Zwei Befunde:
+
+1. **Ein Test war von der Uhrzeit abhängig.** Der Test zu Regel 6 legte zwei Spiele „drei
+   Stunden auseinander" an, ausgehend von der aktuellen Uhrzeit. Am Abend fiel das zweite Spiel
+   damit auf den Folgetag — und die Regel griff zu Recht nicht. Der Test schlug also je nach
+   Tageszeit des Laufs fehl, ohne dass sich am Code etwas geändert hätte. Anpfiffzeiten in
+   Tests liegen jetzt auf einer festen Ortszeit, und der Bezugspunkt wird einmal je Datei
+   festgehalten statt bei jedem Aufruf neu gelesen.
+2. **`String(formData.get(…))` hätte „[object Object]" ergeben**, wenn statt eines Textfelds
+   eine Datei ankommt. Der Linter hat es aufgedeckt; alle Formularfelder laufen jetzt über
+   denselben typprüfenden Helfer.
+
+Bewusst so gebaut: Die Qualifikationsprüfung hat in den Einstellungen **keinen** Schalter,
+sondern einen Hinweis — sie ist Pflicht (Regel 4), und ein Regler, der nichts bewirkt, wäre
+schlimmer als keiner. Wird eine Qualifikation entzogen, bleiben bestehende Eintragungen
+erhalten: sie stillschweigend zu löschen würde ein Spiel unbemerkt unbesetzt lassen. Und der
+letzte aktive Admin kann sich weder herabstufen noch stilllegen, sonst käme niemand mehr an
+die Verwaltung.
 
 ### M5 — Nachrichten und Hintergrundjobs
 

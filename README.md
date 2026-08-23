@@ -7,11 +7,14 @@ verbindlich — wer zuerst einträgt, hat den Platz. Nachrichten laufen über Wh
 
 ## Stand
 
-Meilenstein 0 bis 3 sind fertig: Fundament, Datenmodell, die vollständige Regel-Engine, die
-öffentliche Spieltagsansicht, die Anmeldung ohne Passwort und der komplette
-Schiedsrichter-Bereich — offene Spiele mit Tageswechsel, Eintragen und Austragen,
-Pflichtbestätigung, Kalender mit Statistik und Ranking sowie die eigenen Erinnerungen.
-Der Adminbereich entsteht in Meilenstein 4 — siehe [PLAN.md](PLAN.md).
+Meilenstein 0 bis 4 sind fertig: Fundament, Datenmodell, die vollständige Regel-Engine, die
+öffentliche Spieltagsansicht, die Anmeldung ohne Passwort, der Schiedsrichter-Bereich und der
+Adminbereich — Spielübersicht mit Meldungen, Spiele anlegen und per CSV importieren, Spiele
+bearbeiten, Schiedsrichter-Verwaltung, Einstellungen und das Nachpflegen der Einsätze.
+
+Was noch fehlt: der tatsächliche **Versand** der Nachrichten. Bisher entstehen die Auslöser und
+landen in der Outbox; WhatsApp, E-Mail und der Zeitplan folgen in Meilenstein 5 — siehe
+[PLAN.md](PLAN.md).
 
 ## Loslegen
 

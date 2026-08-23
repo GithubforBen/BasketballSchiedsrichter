@@ -28,7 +28,29 @@ suite('Besetzung', () => {
   const c = `${prefix}-c`;
   const unqualified = `${prefix}-u`;
 
-  const inDays = (n: number) => new Date(Date.now() + n * 24 * 60 * 60 * 1000);
+  /**
+   * Anpfiff in `n` Tagen, immer um 10:00 Ortszeit.
+   *
+   * Die Tageszeit gehoert festgelegt: mit der aktuellen Uhrzeit als Anker
+   * faellt ein Spiel „drei Stunden spaeter“ am Abend auf den Folgetag, und ein
+   * Test zu Regel 6 waere je nach Uhrzeit des Laufs mal erfolgreich, mal nicht.
+   */
+  const inDays = (n: number, hour = 10) => {
+    const day = new Date(Date.now() + n * 24 * 60 * 60 * 1000);
+    const local = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(day);
+    // Europe/Berlin liegt ein bis zwei Stunden vor UTC; 10:00 Ortszeit liegt
+    // damit sicher am selben Kalendertag wie 13:00 Ortszeit.
+    const naive = new Date(`${local}T${String(hour).padStart(2, '0')}:00:00Z`);
+    const offset =
+      new Date(naive.toLocaleString('en-US', { timeZone: 'Europe/Berlin' })).getTime() -
+      new Date(naive.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+    return new Date(naive.getTime() - offset);
+  };
 
   const makeReferee = async (id: string, initials: string, leagues: readonly string[]) => {
     await sql`INSERT INTO referees (id, name, initials, phone)
@@ -137,14 +159,22 @@ suite('Besetzung', () => {
   });
 
   it('Regel 6: kein zweites Spiel am selben Tag, mit Begründung', async () => {
-    const kickoff = inDays(30);
-    await makeGame(gameId, kickoff);
-    await makeGame(`${prefix}-g2`, new Date(kickoff.getTime() + 3 * 60 * 60 * 1000));
+    // Beide Spiele liegen sicher am selben Kalendertag: 10:00 und 13:00 Ortszeit.
+    await makeGame(gameId, inDays(30, 10));
+    await makeGame(`${prefix}-g2`, inDays(30, 13));
 
     await claimNextSlot(gameId, a);
     const second = await claimNextSlot(`${prefix}-g2`, a);
     expect(second.ok).toBe(false);
     expect(second.message).toContain('an diesem Tag');
+  });
+
+  it('Regel 6: erlaubt ein Spiel am Vortag', async () => {
+    await makeGame(gameId, inDays(30, 10));
+    await makeGame(`${prefix}-g2`, inDays(29, 18));
+
+    await claimNextSlot(gameId, a);
+    expect((await claimNextSlot(`${prefix}-g2`, a)).ok).toBe(true);
   });
 
   it('Regel 7: Austragen gibt den Platz wieder frei', async () => {

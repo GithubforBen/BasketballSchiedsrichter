@@ -8,6 +8,9 @@ import { latestLoginMessage, resetLoginState } from './db';
  */
 export const loginAs = async (page: Page, phone: string): Promise<void> => {
   await resetLoginState();
+  // Eine bestehende Sitzung würde die Anmeldeseite überspringen — ein Test,
+  // der die Person wechselt, säße sonst weiter im alten Konto.
+  await page.context().clearCookies();
   await page.goto('/anmelden');
   await page.getByLabel('Telefonnummer').fill(phone);
   await page.getByRole('button', { name: 'Zugang anfordern' }).click();
