@@ -152,7 +152,7 @@ wurden im Zuge des Reviews behoben:
    linksbündige verlangt — das Mockup korrigiert das an jedem einzelnen Button. Die Korrektur
    steht jetzt einmal zentral in `app.css`.
 
-### M2 — Öffentliche Ansicht und Anmeldung
+### M2 — Öffentliche Ansicht und Anmeldung ✅ fertig
 
 - Öffentliche Spieltagsansicht, serverseitig gerendert, ohne personenbezogene Daten außer Kürzel
 - Login: Telefonnummer → Token erzeugen → Versand über Kanal-Adapter (Dev: Outbox-Ansicht)
@@ -163,6 +163,36 @@ wurden im Zuge des Reviews behoben:
 - Seed-Kommando für den ersten Admin
 
 **Review-Fokus**: Ohne Login taucht in **keiner** Antwort ein Name oder eine Telefonnummer auf — geprüft über die ausgelieferte HTML- und JSON-Nutzlast, nicht nur visuell. Tokens sind einmalig, zeitlich begrenzt und nicht erratbar. Cloudflare-Tunnel-Header korrekt ausgewertet, damit Rate-Limits nicht alle Nutzer als eine IP sehen.
+
+**Ergebnis des Abschluss-Reviews:** 247 Unit- und Integrationstests plus 30 E2E-Tests
+(Desktop und Handy, gegen den Produktionsbuild). Vier Befunde wurden im Zuge des Reviews
+behoben:
+
+1. **Anmeldelinks führten ins Leere.** Next ersetzt ein relativ angegebenes `Location` durch
+   eine absolute Adresse und nimmt dafür die *Bindeadresse* des Servers — im eigenständigen
+   Betrieb `0.0.0.0`, hinter dem Cloudflare Tunnel den internen Dienstnamen. `Host` und
+   `X-Forwarded-Host` werden dabei nicht ausgewertet. Das Sitzungscookie gilt aber für den
+   Host, den der Browser aufgerufen hat, und wurde nach der Weiterleitung nicht mehr
+   mitgeschickt: die Anmeldung sah erfolgreich aus und war es nicht. Weiterleitungen lösen
+   jetzt gegen `PUBLIC_BASE_URL` auf — dieselbe Quelle, aus der auch der Anmeldelink entsteht.
+2. **`+49 0151 …` wurde stillschweigend zu einer falschen Nummer.** Die Vermischung aus
+   Ländervorwahl und nationaler Null ist die häufigste Fehleingabe; die Nachricht wäre nie
+   angekommen. Wird jetzt mit Begründung abgelehnt.
+3. **Ein fehlendes `PUBLIC_BASE_URL` wäre unbemerkt geblieben.** Da Anmeldelink und
+   Weiterleitung daran hängen, bricht der Start im Echtbetrieb jetzt ab, statt auf localhost
+   zu zeigen.
+4. **„Sa." statt „Sa"** — die deutsche Kurzform des Wochentags trägt in Node einen Punkt,
+   das Mockup schreibt sie ohne. Die Beschriftung wird jetzt aus zwei Formatierungen
+   zusammengesetzt, statt am Ergebnis herumzuschneiden.
+
+Nicht behoben, sondern festgehalten: `/dev/ui` und `/dev/outbox` sind im Produktionsbetrieb
+nicht erreichbar (geprüft). Die E2E-Tests lesen die Anmeldenachricht deshalb direkt aus der
+Datenbank statt über die Entwicklerseite.
+
+Zwei Dinge am Rande, die beim Prüfen auffielen und gleich mitkorrigiert wurden: der
+Vorbereitungsschritt für den eigenständigen Server war nicht wiederholbar (beim zweiten Lauf
+entstanden verschachtelte Verzeichnisse), und ein Build ohne vorheriges Aufräumen nahm eine
+gelöschte Route aus dem Zwischenspeicher wieder mit.
 
 ### M3 — Schiedsrichter-Bereich
 

@@ -26,6 +26,10 @@ services:
     environment:
       DATABASE_URL: postgres://schiriplan:${POSTGRES_PASSWORD:-schiriplan}@db:5432/schiriplan
       NODE_ENV: production
+      # Muss die oeffentliche Adresse sein, unter der der Tunnel die App
+      # veroeffentlicht — nicht der interne Dienstname. Anmeldelinks und
+      # Weiterleitungen werden daraus gebaut.
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL muss gesetzt sein}
     env_file:
       - .env
     # Kein "ports"-Eintrag: die App ist nur im Compose-Netz erreichbar.

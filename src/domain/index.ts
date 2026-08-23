@@ -2,6 +2,7 @@ export * from './types';
 export * from './time';
 export * from './slots';
 export * from './status';
+export * from './schedule';
 export * from './rules';
 export * from './confirmation';
 export * from './escalation';

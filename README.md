@@ -7,8 +7,9 @@ verbindlich — wer zuerst einträgt, hat den Platz. Nachrichten laufen über Wh
 
 ## Stand
 
-Meilenstein 0 und 1 sind fertig: Fundament, Datenmodell und die vollständige Regel-Engine
-mit Tests. Die Bildschirme entstehen ab Meilenstein 2 — siehe [PLAN.md](PLAN.md).
+Meilenstein 0 bis 2 sind fertig: Fundament, Datenmodell, die vollständige Regel-Engine, die
+öffentliche Spieltagsansicht und die Anmeldung ohne Passwort. Der Schiedsrichter- und der
+Adminbereich entstehen ab Meilenstein 3 — siehe [PLAN.md](PLAN.md).
 
 ## Loslegen
 
@@ -34,10 +35,13 @@ npm run seed:admin -- --name "Nele Baumann" --initials NB --phone "+4915722067"
 | `npm run check` | Typen, Lint und Tests in einem Rutsch |
 | `npm test` | Regel-Engine; mit `TEST_DATABASE_URL` zusätzlich die Datenbank-Zusicherungen |
 | `npm run db:generate` | Migration aus dem Schema erzeugen |
+| `npm run test:e2e` | E2E-Tests im Browser, Desktop und Handy |
 | `npm run build` | Produktionsbuild |
 
-`/dev/ui` zeigt alle Bausteine nebeneinander — der Abgleich gegen das Design-System.
-Die Seite ist im Produktionsbetrieb nicht erreichbar.
+Zwei Seiten helfen bei der Entwicklung und sind im Produktionsbetrieb nicht erreichbar:
+`/dev/ui` zeigt alle Bausteine nebeneinander für den Abgleich gegen das Design-System, und
+`/dev/outbox` zeigt jede Nachricht, die die Anwendung verschicken würde — im Kanal `dev` geht
+nichts hinaus, der Anmeldelink ist dort anklickbar.
 
 ## Aufbau
 
@@ -45,7 +49,10 @@ Die Seite ist im Produktionsbetrieb nicht erreichbar.
 | --- | --- |
 | `src/domain/` | Die Fachregeln als reine Funktionen. Kennt weder Datenbank noch Oberfläche. |
 | `src/db/` | Schema, Migrationen, Seed |
+| `src/server/` | Sitzungen, Anmeldung, Rate-Limits, Datenzugriffe |
+| `src/notifications/` | Versandkanäle und Nachrichtentexte |
 | `src/components/` | Bausteine des Design-Systems und das Grundraster |
+| `e2e/` | Browser-Tests gegen den Produktionsbuild |
 | `src/styles/` | `modernist.css` unverändert aus dem Handoff, `app.css` darüber |
 | `design/` | Der Handoff aus Claude Design: Mockup, Briefing-Historie, Design-System |
 

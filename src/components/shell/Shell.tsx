@@ -46,6 +46,12 @@ export const Shell = ({
         <div className="row" style={{ gap: 'var(--space-2)' }}>
           <Initials initials={user.initials} size={28} label={user.name} />
           <span style={{ fontSize: '13px' }}>{user.name}</span>
+          {/* Abmelden geht nur ueber POST, damit niemand per Link abgemeldet wird. */}
+          <form action="/abmelden" method="post">
+            <button type="submit" className="btn btn-ghost btn-compact">
+              Abmelden
+            </button>
+          </form>
         </div>
       ) : (
         <span className="text-muted" style={{ fontSize: '13px' }}>

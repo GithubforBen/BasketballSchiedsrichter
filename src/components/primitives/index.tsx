@@ -48,8 +48,8 @@ export interface FieldProps {
   label: string;
   htmlFor: string;
   children: ReactNode;
-  hint?: string;
-  className?: string;
+  hint?: string | undefined;
+  className?: string | undefined;
 }
 
 export const Field = ({ label, htmlFor, children, hint, className }: FieldProps) => (

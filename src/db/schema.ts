@@ -243,3 +243,20 @@ export const auditLog = pgTable(
   },
   (table) => [index('audit_log_created_idx').on(table.createdAt)],
 );
+
+/**
+ * Zaehler fuer Rate-Limits, in festen Zeitfenstern.
+ *
+ * Bewusst in der Datenbank und nicht im Arbeitsspeicher: ein Neustart darf das
+ * Limit nicht zuruecksetzen, und bei mehreren Prozessen muesste es sonst
+ * mehrfach ueberschritten werden koennen.
+ */
+export const rateLimits = pgTable(
+  'rate_limits',
+  {
+    key: text('key').notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true, precision: 0 }).notNull(),
+    count: integer('count').notNull().default(0),
+  },
+  (table) => [primaryKey({ columns: [table.key, table.windowStart] })],
+);
