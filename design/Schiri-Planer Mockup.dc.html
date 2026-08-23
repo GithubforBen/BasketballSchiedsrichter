@@ -1,0 +1,1770 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/modernist-11ee9c05-7e12-42a8-8930-b005628d2360/styles.css">
+<script src="_ds/modernist-11ee9c05-7e12-42a8-8930-b005628d2360/_ds_bundle.js"></script>
+<style>
+  body { margin: 0; }
+  a { color: var(--color-accent); }
+  a:hover { color: var(--color-accent-700); }
+  .scr { flex: 1; overflow-y: auto; }
+  .scr::-webkit-scrollbar { width: 0; height: 0; }
+  textarea.input { font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5; }
+</style>
+</helmet>
+
+<div style="background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); padding: 40px 40px 80px; min-height: 100vh">
+
+  <div style="display: flex; align-items: flex-end; gap: 24px; border-bottom: 2px solid var(--color-divider); padding-bottom: 16px; flex-wrap: wrap">
+    <div style="flex: 1; min-width: 320px">
+      <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent); margin-bottom: 8px">Interaktives Mockup · UI/UX</div>
+      <h1 style="font-size: 46px; margin: 0">Schiedsrichter-Planung</h1>
+      <p style="margin: 8px 0 0; max-width: 680px" class="text-muted">Zwei gleichwertige Schiedsrichter pro Spiel, zwei Ersatzplätze. Eintragen gilt sofort und verbindlich (First come, first served). Desktop und Mobile zeigen die gleichen Funktionen.</p>
+    </div>
+    <div style="display: flex; gap: 20px; flex-wrap: wrap">
+      <div style="display: flex; align-items: center; gap: 8px"><span style="width: 12px; height: 12px; background: #1f7a4d; display: block"></span><span style="font-size: 12px">besetzt</span></div>
+      <div style="display: flex; align-items: center; gap: 8px"><span style="width: 12px; height: 12px; background: #c58a00; display: block"></span><span style="font-size: 12px">Ersatz fehlt</span></div>
+      <div style="display: flex; align-items: center; gap: 8px"><span style="width: 12px; height: 12px; background: var(--color-accent); display: block"></span><span style="font-size: 12px">offen</span></div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: baseline; gap: 16px; margin: 40px 0 16px">
+    <h2 style="margin: 0">Desktop</h2>
+    <span class="text-muted" style="font-size: 13px">Rolle oben umschalten, links navigieren</span>
+  </div>
+
+  <div style="width: 1280px; max-width: 100%; border: 2px solid var(--color-text); background: var(--color-bg); box-shadow: var(--shadow-md)">
+    <div style="display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 2px solid var(--color-divider)">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 18px; margin-right: auto">SCHIRIPLAN <span style="color: var(--color-accent)">·</span> BG Nordstadt</div>
+      <div class="seg">
+        <label class="seg-opt" onClick="{{ setRolePublic }}" style="background: {{ segPubBg }}; color: {{ segPubFg }}; cursor: pointer">Öffentlich</label>
+        <label class="seg-opt" onClick="{{ setRoleRef }}" style="background: {{ segRefBg }}; color: {{ segRefFg }}; cursor: pointer">Schiedsrichter</label>
+        <label class="seg-opt" onClick="{{ setRoleAdmin }}" style="background: {{ segAdmBg }}; color: {{ segAdmFg }}; cursor: pointer">Admin</label>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding-left: 8px; border-left: 1px solid var(--color-divider)">
+        <div style="width: 28px; height: 28px; background: {{ avatarBg }}; color: var(--color-bg); display: grid; place-items: center; font-size: 11px; font-family: var(--font-heading); font-weight: 800">{{ userInitials }}</div>
+        <span style="font-size: 13px">{{ userName }}</span>
+      </div>
+    </div>
+
+    <div style="display: flex; min-height: 780px">
+      <div style="width: 250px; flex: none; border-right: 2px solid var(--color-divider); padding: 16px 0; display: flex; flex-direction: column; gap: 2px">
+        <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="6">
+          <div onClick="{{ item.go }}" style="padding: 10px 16px; font-size: 14px; cursor: pointer; border-left: 3px solid {{ item.bar }}; background: {{ item.bg }}; color: {{ item.fg }}; font-family: var(--font-heading); font-weight: {{ item.weight }}; display: flex; gap: 8px; align-items: center">
+            <span style="flex: 1">{{ item.label }}</span>
+            <span class="tag tag-accent" style="opacity: {{ item.badgeOpacity }}">{{ item.badge }}</span>
+          </div>
+        </sc-for>
+        <div style="margin-top: auto; padding: 16px 16px 0; display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--color-divider)">
+          <sc-for list="{{ footerNav }}" as="f" hint-placeholder-count="2">
+            <div onClick="{{ f.go }}" style="font-size: 12px; cursor: pointer; color: {{ f.fg }}">{{ f.label }}</div>
+          </sc-for>
+          <div class="text-muted" style="font-size: 11px; margin-top: 8px">Alle Nachrichten laufen über WhatsApp.</div>
+        </div>
+      </div>
+
+      <div class="scr" style="padding: 28px 32px; max-height: 780px">
+
+        <sc-if value="{{ isPublic }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+            <div style="flex: 1; min-width: 300px">
+              <h3 style="margin: 0">Öffentliche Ansicht</h3>
+              <span class="text-muted" style="font-size: 13px">Ohne Login: Schiedsrichter erscheinen nur als Kürzel, kein Name und kein Profilbild.</span>
+            </div>
+            <button onClick="{{ toggleReveal }}" class="btn btn-secondary" style="justify-content: flex-start">{{ revealLabel }}</button>
+          </div>
+          <sc-for list="{{ dayGroups }}" as="d" hint-placeholder-count="4">
+            <div style="margin-top: 28px">
+              <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 2px solid var(--color-text); padding-bottom: 8px">
+                <span style="font-family: var(--font-heading); font-weight: 800; font-size: 22px">{{ d.label }}</span>
+                <span class="text-muted" style="font-size: 12px">{{ d.summary }}</span>
+              </div>
+              <table class="table">
+                <thead><tr><th>Zeit</th><th>Liga</th><th>Spiel</th><th>Ort</th><th>Schiedsrichter</th><th>Ersatz</th><th>Status</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ d.publicRows }}" as="g" hint-placeholder-count="2">
+                    <tr>
+                      <td style="white-space: nowrap">{{ g.time }}</td>
+                      <td><span class="tag tag-neutral">{{ g.league }}</span></td>
+                      <td>{{ g.teams }}</td><td class="text-muted">{{ g.place }}</td>
+                      <td>
+                        <span style="display: inline-flex; gap: 8px; align-items: center">
+                          <sc-for list="{{ g.mainChips }}" as="c" hint-placeholder-count="2">
+                            <span style="display: inline-flex; align-items: center; gap: 6px">
+                              <span style="width: 24px; height: 24px; background: {{ c.bg }}; color: var(--color-bg); display: grid; place-items: center; font-size: 10px; font-family: var(--font-heading); font-weight: 800">{{ c.code }}</span>
+                              <span style="font-size: 12px; color: {{ c.fg }}">{{ c.label }}</span>
+                            </span>
+                          </sc-for>
+                        </span>
+                      </td>
+                      <td style="font-size: 13px">{{ g.subLabel }}</td>
+                      <td><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--font-heading); font-weight: 800; color: {{ g.color }}"><span style="width: 8px; height: 8px; background: {{ g.color }}; display: block"></span>{{ g.status }}</span></td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </sc-for>
+          <div style="margin-top: 20px; font-size: 12px; border-left: 3px solid var(--color-divider); padding: 8px 12px" class="text-muted">{{ revealNote }}</div>
+        </sc-if>
+
+        <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+          <div style="max-width: 440px; margin: 50px auto 0">
+            <h2 style="margin-bottom: 4px">Anmelden</h2>
+            <p class="text-muted" style="font-size: 14px">Login-Link per WhatsApp, kein Passwort. Konten legt ausschließlich der Admin an.</p>
+            <hr class="hr">
+            <div class="field" style="margin-bottom: 12px">
+              <label>Telefonnummer</label>
+              <input class="input" defaultValue="+49 151 23456789" style="font-variant-numeric: tabular-nums">
+            </div>
+            <button onClick="{{ doLogin }}" class="btn btn-primary btn-block">Login-Link per WhatsApp senden</button>
+            <div style="margin-top: 20px; border-left: 3px solid var(--color-accent); padding: 8px 12px; font-size: 12px; background: var(--color-accent-100)">Nach dem Login öffnet sich zuletzt: <strong>{{ lastScreenLabel }}</strong>. Beim ersten Login: Kalender &amp; Verlauf.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isDay }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+            <div style="flex: 1; min-width: 280px">
+              <h3 style="margin: 0">Offene Spiele</h3>
+              <span class="text-muted" style="font-size: 13px">Nach Spieltagen getrennt. Ziehen oder blättern wechselt den Tag.</span>
+            </div>
+            <div style="display: flex; gap: 8px">
+              <button onClick="{{ prevDay }}" class="btn btn-secondary">◀ Vortag</button>
+              <button onClick="{{ nextDay }}" class="btn btn-secondary">Nächster Tag ▶</button>
+            </div>
+          </div>
+
+          <sc-if value="{{ hasMoved }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top: 20px; border: 2px solid var(--color-accent); background: var(--color-accent-100); padding: 16px">
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 15px">Spiel verschoben: {{ movedTitle }}</div>
+              <div style="font-size: 13px; margin-top: 4px">{{ movedText }}</div>
+              <div style="display: flex; gap: 10px; margin-top: 12px">
+                <button onClick="{{ movedKeep }}" class="btn btn-primary" style="justify-content: flex-start">Ich bleibe dabei</button>
+                <button onClick="{{ movedCancel }}" class="btn btn-secondary" style="justify-content: flex-start">Absagen</button>
+              </div>
+              <div class="text-muted" style="font-size: 11px; margin-top: 8px">Ersatz erhält die gleiche Nachricht mit Absage-Option.</div>
+            </div>
+          </sc-if>
+
+          <div onPointerDown="{{ onDown }}" onPointerMove="{{ onMove }}" onPointerUp="{{ onUp }}" style="margin-top: 20px; touch-action: pan-y; user-select: none; cursor: grab; transform: translateX({{ dragX }}px)">
+            <div style="display: flex; align-items: baseline; gap: 14px; border-bottom: 2px solid var(--color-text); padding-bottom: 10px">
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 30px">{{ dayLabel }}</div>
+              <div class="text-muted" style="font-size: 13px">{{ daySummary }}</div>
+              <div class="text-muted" style="font-size: 12px; margin-left: auto">{{ dayPos }}</div>
+            </div>
+            <sc-for list="{{ dayGames }}" as="g" hint-placeholder-count="2">
+              <div style="display: grid; grid-template-columns: 100px 1fr 440px; gap: 24px; padding: 22px 0; border-bottom: 1px solid var(--color-divider); align-items: start">
+                <div style="font-family: var(--font-heading); font-weight: 800; font-size: 22px; font-variant-numeric: tabular-nums">{{ g.time }}</div>
+                <div>
+                  <div style="display: flex; gap: 10px; align-items: center">
+                    <span class="tag tag-neutral">{{ g.league }}</span>
+                    <span style="font-size: 12px; color: {{ g.color }}; font-family: var(--font-heading); font-weight: 800">{{ g.status }}</span>
+                  </div>
+                  <div style="font-family: var(--font-heading); font-weight: 800; font-size: 19px; margin-top: 6px">{{ g.teams }}</div>
+                  <div class="text-muted" style="font-size: 13px">{{ g.place }}</div>
+                  <div style="font-size: 12px; margin-top: 8px; color: {{ g.qualColor }}">{{ g.qualNote }}</div>
+                  <div class="text-muted" style="font-size: 12px; margin-top: 4px">{{ g.inLabel }}</div>
+                  <sc-if value="{{ g.showConfirm }}" hint-placeholder-val="{{ false }}">
+                    <div style="margin-top: 12px; border: 2px solid {{ g.confirmBorder }}; background: {{ g.confirmBg }}; padding: 12px">
+                      <div style="font-size: 13px; font-family: var(--font-heading); font-weight: 800">{{ g.confirmTitle }}</div>
+                      <div class="text-muted" style="font-size: 12px; margin-top: 2px">{{ g.confirmText }}</div>
+                      <button onClick="{{ g.confirm }}" class="btn btn-primary" style="margin-top: 10px; justify-content: flex-start; opacity: {{ g.confirmOpacity }}">Ja, habe ich gelesen und mache es</button>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="display: grid; gap: 6px">
+                  <sc-for list="{{ g.slots }}" as="sl" hint-placeholder-count="4">
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 2px solid {{ sl.border }}; background: {{ sl.bg }}">
+                      <span style="font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; width: 92px; flex: none" class="text-muted">{{ sl.role }}</span>
+                      <span style="font-size: 14px; flex: 1; font-family: var(--font-heading); font-weight: {{ sl.weight }}; color: {{ sl.fg }}">{{ sl.who }}</span>
+                      <button onClick="{{ sl.action }}" class="btn {{ sl.btnClass }}" style="justify-content: flex-start; padding: 4px 10px; opacity: {{ sl.btnOpacity }}">{{ sl.btnLabel }}</button>
+                    </div>
+                  </sc-for>
+                  <div style="display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap">
+                    <button onClick="{{ g.requestSub }}" class="btn btn-secondary" style="justify-content: flex-start; opacity: {{ g.subOpacity }}">Ersatz anfordern</button>
+                    <span class="text-muted" style="font-size: 11px; align-self: center; max-width: 240px">{{ g.subNote }}</span>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top: 16px; font-size: 12px; color: #1f7a4d; opacity: {{ toastOpacity }}">{{ toast }}</div>
+        </sc-if>
+
+        <sc-if value="{{ isCal }}" hint-placeholder-val="{{ true }}">
+          <h3>Kalender &amp; Verlauf</h3>
+          <span class="text-muted" style="font-size: 13px">Standardansicht nach dem Login: deine nächsten Spiele.</span>
+          <div style="display: grid; grid-template-columns: 1fr 320px; gap: 32px; margin-top: 20px">
+            <div>
+              <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent)">Nächste Spiele</div>
+              <table class="table" style="margin-top: 8px">
+                <thead><tr><th>Datum</th><th>Zeit</th><th>Spiel</th><th>Ort</th><th>Rolle</th><th>Bestätigung</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ myUpcoming }}" as="g" hint-placeholder-count="4">
+                    <tr>
+                      <td style="white-space: nowrap">{{ g.date }}</td><td>{{ g.time }}</td><td>{{ g.teams }}</td><td class="text-muted">{{ g.place }}</td>
+                      <td><span style="color: {{ g.color }}; font-family: var(--font-heading); font-weight: 800; font-size: 12px">{{ g.role }}</span></td>
+                      <td><span style="font-size: 12px; color: {{ g.confirmColor }}; font-family: var(--font-heading); font-weight: 800">{{ g.confirmState }}</span></td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+              <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); margin-top: 32px">Vergangen</div>
+              <table class="table" style="margin-top: 8px">
+                <thead><tr><th>Datum</th><th>Zeit</th><th>Spiel</th><th>Rolle</th><th>Gezählt</th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ past }}" as="g" hint-placeholder-count="4">
+                    <tr><td style="white-space: nowrap">{{ g.date }}</td><td>{{ g.time }}</td><td>{{ g.teams }}</td><td class="text-muted">{{ g.role }}</td><td><span style="font-size: 12px; color: {{ g.countColor }}">{{ g.counts }}</span></td></tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div style="border: 2px solid var(--color-text); padding: 16px">
+                <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent)">Statistik August 2026</div>
+                <div style="font-size: 52px; font-family: var(--font-heading); font-weight: 800; line-height: 1">7</div>
+                <div class="text-muted" style="font-size: 12px">gepfiffene Spiele (als Schiedsrichter)</div>
+                <div style="margin-top: 10px; font-size: 12px; border-left: 3px solid var(--color-accent); padding: 6px 10px">Gezählt wird nur, wo du als Schiedsrichter auf dem Feld standst. Ersatz-Eintragungen ohne Einsatz zählen nicht — Ersatz mit Einsatz zählt.</div>
+                <hr class="hr">
+                <sc-for list="{{ months }}" as="m" hint-placeholder-count="6">
+                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px">
+                    <span style="width: 34px; font-size: 12px" class="text-muted">{{ m.name }}</span>
+                    <span style="height: 12px; background: var(--color-accent); width: {{ m.width }}px; display: block"></span>
+                    <span style="font-size: 12px; font-variant-numeric: tabular-nums">{{ m.count }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="border: 2px solid var(--color-text); padding: 16px; margin-top: 20px">
+                <div style="font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent)">Ranking Saison</div>
+                <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 6px">
+                  <span style="font-family: var(--font-heading); font-weight: 800; font-size: 40px; line-height: 1">#5</span>
+                  <span class="text-muted" style="font-size: 12px">von 12 Schiedsrichtern</span>
+                </div>
+                <sc-for list="{{ ranking }}" as="r" hint-placeholder-count="6">
+                  <div style="display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--color-divider); background: {{ r.bg }}">
+                    <span style="width: 24px; font-family: var(--font-heading); font-weight: 800; font-size: 12px">{{ r.rank }}</span>
+                    <span style="flex: 1; font-size: 13px; font-weight: {{ r.weight }}">{{ r.name }}</span>
+                    <span style="font-size: 12px; font-variant-numeric: tabular-nums">{{ r.count }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isProfile }}" hint-placeholder-val="{{ false }}">
+          <h3>Profil &amp; Erinnerungen</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 16px; max-width: 1040px">
+            <div>
+              <div style="display: flex; gap: 24px">
+                <div style="width: 120px; flex: none">
+                  <div style="width: 120px; height: 120px; background: var(--color-text); color: var(--color-bg); display: grid; place-items: center; font-family: var(--font-heading); font-weight: 800; font-size: 38px">JK</div>
+                  <button class="btn btn-secondary btn-block">Profilbild ändern</button>
+                </div>
+                <div style="flex: 1; display: grid; gap: 14px">
+                  <div class="field">
+                    <label>Name</label>
+                    <div style="padding: 8px 10px; border: 1px dashed var(--color-divider); font-size: 14px; background: color-mix(in srgb, var(--color-text) 4%, transparent)">Jonas Keller <span class="text-muted" style="font-size: 11px">· nur Admin</span></div>
+                  </div>
+                  <div class="field">
+                    <label>Kürzel (öffentlich)</label>
+                    <div style="padding: 8px 10px; border: 1px dashed var(--color-divider); font-size: 14px; background: color-mix(in srgb, var(--color-text) 4%, transparent)">JK <span class="text-muted" style="font-size: 11px">· nur Admin</span></div>
+                  </div>
+                  <div class="field">
+                    <label>Telefonnummer</label>
+                    <div style="padding: 8px 10px; border: 1px dashed var(--color-divider); font-size: 14px; background: color-mix(in srgb, var(--color-text) 4%, transparent)">+49 151 23456789 <span class="text-muted" style="font-size: 11px">· nur Admin</span></div>
+                  </div>
+                  <div class="field">
+                    <label>Qualifikationen</label>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px">
+                      <sc-for list="{{ myQuals }}" as="q" hint-placeholder-count="5">
+                        <span class="tag" style="border: 2px solid {{ q.border }}; background: {{ q.bg }}; color: {{ q.fg }}">{{ q.name }}</span>
+                      </sc-for>
+                    </div>
+                    <div class="text-muted" style="font-size: 11px; margin-top: 6px">Zuweisung erfolgt im Adminbereich.</div>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top: 24px; padding: 14px; border: 2px solid var(--color-divider); font-size: 13px">
+                Änderungen an Name, Kürzel und Telefonnummer bitte beim Verein melden — die App gibt sie nur dem Admin zur Bearbeitung frei.
+              </div>
+              <button class="btn btn-secondary" style="margin-top: 20px; justify-content: flex-start">Abmelden</button>
+            </div>
+
+            <div style="border-left: 2px solid var(--color-divider); padding-left: 32px">
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 17px">Zusätzliche Erinnerungen</div>
+              <p class="text-muted" style="font-size: 13px; margin: 4px 0 0">Frei wählbar zwischen 7 Tagen und 1 Stunde vor Anpfiff. Die Pflichtbestätigung {{ mandatoryLabel }} vor dem Spiel kommt immer zusätzlich.</p>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px">
+                <sc-for list="{{ reminderPresets }}" as="p" hint-placeholder-count="6">
+                  <span onClick="{{ p.toggle }}" class="tag" style="cursor: pointer; border: 2px solid {{ p.border }}; background: {{ p.bg }}; color: {{ p.fg }}">{{ p.label }}</span>
+                </sc-for>
+              </div>
+
+              <div style="margin-top: 20px; border: 2px solid var(--color-text); padding: 16px">
+                <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-accent)">Eigener Zeitpunkt</div>
+                <div style="display: flex; align-items: center; gap: 14px; margin-top: 10px">
+                  <span style="font-family: var(--font-heading); font-weight: 800; font-size: 24px; min-width: 140px">{{ customLabel }}</span>
+                  <span class="text-muted" style="font-size: 12px">vor Anpfiff</span>
+                </div>
+                <input type="range" min="1" max="168" step="1" value="{{ customValue }}" onChange="{{ setCustom }}" style="width: 100%; margin-top: 12px; accent-color: var(--color-accent)">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-top: 4px" class="text-muted"><span>1 Std</span><span>7 Tage</span></div>
+                <button onClick="{{ addCustom }}" class="btn btn-primary" style="margin-top: 14px; justify-content: flex-start; opacity: {{ addOpacity }}">{{ addLabel }}</button>
+              </div>
+
+              <sc-if value="{{ askConfirm }}" hint-placeholder-val="{{ false }}">
+                <div style="margin-top: 16px; border: 2px solid var(--color-accent); background: var(--color-accent-100); padding: 16px">
+                  <div style="font-family: var(--font-heading); font-weight: 800; font-size: 15px">{{ askTitle }}</div>
+                  <div style="font-size: 13px; margin-top: 4px">Jede Nachricht kostet den Verein Geld. Wirklich eine weitere Erinnerung hinzufügen?</div>
+                  <div style="display: flex; gap: 10px; margin-top: 12px">
+                    <button onClick="{{ askYes }}" class="btn btn-primary" style="justify-content: flex-start">Ja, hinzufügen</button>
+                    <button onClick="{{ askNo }}" class="btn btn-secondary" style="justify-content: flex-start">Abbrechen</button>
+                  </div>
+                </div>
+              </sc-if>
+
+              <div style="display: flex; align-items: baseline; gap: 10px; margin-top: 24px">
+                <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent)">Aktive Erinnerungen</div>
+                <div style="font-size: 12px; margin-left: auto; color: {{ limitColor }}">{{ limitLabel }}</div>
+              </div>
+              <sc-for list="{{ activeReminders }}" as="r" hint-placeholder-count="3">
+                <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--color-divider)">
+                  <span style="width: 8px; height: 8px; background: var(--color-accent); display: block; flex: none"></span>
+                  <div style="flex: 1">
+                    <div style="font-size: 14px; font-family: var(--font-heading); font-weight: 800">{{ r.label }} vor Anpfiff</div>
+                    <div class="text-muted" style="font-size: 12px">{{ r.example }}</div>
+                  </div>
+                  <button onClick="{{ r.remove }}" class="btn btn-ghost" style="padding: 2px 6px">Entfernen</button>
+                </div>
+              </sc-for>
+              <sc-if value="{{ noReminders }}" hint-placeholder-val="{{ false }}">
+                <div style="border: 2px dashed var(--color-divider); padding: 16px; font-size: 12px; margin-top: 8px" class="text-muted">Keine zusätzlichen Erinnerungen. Pflichtbestätigung und Zuteilungsnachricht kommen trotzdem.</div>
+              </sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isDash }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap">
+            <div style="flex: 1"><h3 style="margin: 0">Spielübersicht</h3><span class="text-muted" style="font-size: 13px">Nach Spieltagen getrennt · Saison 2026/27</span></div>
+            <button onClick="{{ goNewGame }}" class="btn btn-primary" style="justify-content: flex-start">+ Spiele anlegen</button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; margin: 20px 0; border: 2px solid var(--color-text)">
+            <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+              <div style="padding: 14px 16px; border-right: 1px solid var(--color-divider)">
+                <div style="font-size: 34px; font-family: var(--font-heading); font-weight: 800; line-height: 1; color: {{ k.color }}">{{ k.value }}</div>
+                <div class="text-muted" style="font-size: 12px; margin-top: 4px">{{ k.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display: flex; gap: 12px; margin-bottom: 8px; flex-wrap: wrap">
+            <button onClick="{{ sendReminder }}" class="btn btn-secondary" style="justify-content: flex-start">Erinnerung an alle offenen Spiele</button>
+            <button onClick="{{ goOpen }}" class="btn btn-primary" style="justify-content: flex-start">Offene Spiele &amp; Meldungen</button>
+            <span style="align-self: center; font-size: 12px; color: #1f7a4d; opacity: {{ toastOpacity }}">{{ toast }}</span>
+          </div>
+          <sc-for list="{{ dayGroups }}" as="d" hint-placeholder-count="4">
+            <div style="margin-top: 28px">
+              <div style="display: flex; align-items: baseline; gap: 12px; border-bottom: 2px solid var(--color-text); padding-bottom: 8px; background: var(--color-bg)">
+                <span style="font-family: var(--font-heading); font-weight: 800; font-size: 22px">{{ d.label }}</span>
+                <span class="text-muted" style="font-size: 12px">{{ d.summary }}</span>
+                <span class="text-muted" style="font-size: 12px; margin-left: auto">{{ d.until }}</span>
+              </div>
+              <table class="table">
+                <thead><tr><th>Zeit</th><th>Liga</th><th>Spiel</th><th>Ort</th><th>Schiedsrichter</th><th>Ersatz</th><th>Bestätigt</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  <sc-for list="{{ d.adminRows }}" as="g" hint-placeholder-count="2">
+                    <tr>
+                      <td style="white-space: nowrap">{{ g.time }}</td>
+                      <td><span class="tag tag-neutral">{{ g.league }}</span></td>
+                      <td>{{ g.teams }}</td><td class="text-muted">{{ g.place }}</td>
+                      <td>{{ g.mainNames }}</td><td class="text-muted">{{ g.subNames }}</td>
+                      <td><span style="font-size: 12px; color: {{ g.confirmColor }}; font-family: var(--font-heading); font-weight: 800">{{ g.confirmState }}</span></td>
+                      <td><span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--font-heading); font-weight: 800; color: {{ g.color }}"><span style="width: 8px; height: 8px; background: {{ g.color }}; display: block"></span>{{ g.status }}</span></td>
+                      <td><button onClick="{{ g.edit }}" class="btn btn-ghost" style="padding: 2px 6px">Bearbeiten</button></td>
+                    </tr>
+                  </sc-for>
+                </tbody>
+              </table>
+            </div>
+          </sc-for>
+        </sc-if>
+
+        <sc-if value="{{ isOpen }}" hint-placeholder-val="{{ false }}">
+          <h3>Offene Spiele &amp; Meldungen</h3>
+          <p class="text-muted" style="font-size: 14px; max-width: 660px">Jede Meldung enthält alles, was zum Handeln nötig ist: fehlende Plätze, Vorlauf, wer qualifiziert ist, wer noch nicht bestätigt hat.</p>
+          <hr class="hr">
+          <sc-for list="{{ adminAlerts }}" as="a" hint-placeholder-count="4">
+            <div style="display: grid; grid-template-columns: 6px 1fr 300px; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--color-divider); align-items: start">
+              <span style="background: {{ a.color }}; align-self: stretch"></span>
+              <div>
+                <div style="display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap">
+                  <span class="tag" style="border: 2px solid {{ a.color }}; color: {{ a.color }}">{{ a.kind }}</span>
+                  <span style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">{{ a.teams }}</span>
+                  <span class="text-muted" style="font-size: 12px">{{ a.when }} · {{ a.league }} · {{ a.place }}</span>
+                </div>
+                <div style="font-size: 13px; margin-top: 8px">{{ a.detail }}</div>
+                <div class="text-muted" style="font-size: 12px; margin-top: 4px">{{ a.meta }}</div>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                <button onClick="{{ a.act }}" class="btn btn-primary" style="justify-content: flex-start; padding: 6px 10px">{{ a.actLabel }}</button>
+                <button onClick="{{ a.edit }}" class="btn btn-secondary" style="justify-content: flex-start; padding: 6px 10px">Bearbeiten</button>
+              </div>
+            </div>
+          </sc-for>
+          <div style="margin-top: 16px; font-size: 12px; color: #1f7a4d; opacity: {{ toastOpacity }}">{{ toast }}</div>
+        </sc-if>
+
+        <sc-if value="{{ isNewGame }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: baseline; gap: 16px">
+            <h3 style="margin: 0">Spiele anlegen</h3>
+            <div class="seg" style="margin-left: auto">
+              <label class="seg-opt" onClick="{{ tabManual }}" style="background: {{ manualBg }}; color: {{ manualFg }}; cursor: pointer">Einzeln</label>
+              <label class="seg-opt" onClick="{{ tabCsv }}" style="background: {{ csvBg }}; color: {{ csvFg }}; cursor: pointer">CSV-Import</label>
+            </div>
+          </div>
+          <hr class="hr">
+          <sc-if value="{{ isManual }}" hint-placeholder-val="{{ true }}">
+            <div style="display: grid; grid-template-columns: 1fr 320px; gap: 40px">
+              <div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+                  <div class="field"><label>Datum</label><input class="input" defaultValue="12.09.2026"></div>
+                  <div class="field"><label>Uhrzeit</label><input class="input" defaultValue="10:30"></div>
+                  <div class="field" style="grid-column: span 2"><label>Ort / Halle</label><input class="input" defaultValue="Sporthalle Nordstadt, Feld 2"></div>
+                  <div class="field"><label>Heim</label><input class="input" defaultValue="BG Nordstadt U14"></div>
+                  <div class="field"><label>Gast</label><input class="input" defaultValue="TV Ostheim U14"></div>
+                </div>
+                <div class="field" style="margin-top: 16px">
+                  <label>Liga / Altersklasse</label>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px">
+                    <sc-for list="{{ leagueChips }}" as="l" hint-placeholder-count="5">
+                      <span onClick="{{ l.pick }}" class="tag" style="cursor: pointer; border: 2px solid {{ l.border }}; background: {{ l.bg }}; color: {{ l.fg }}">{{ l.name }}</span>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 16px; margin-top: 16px">
+                  <div class="field" style="flex: 1"><label>Schiedsrichter pro Spiel</label><input class="input" defaultValue="2"></div>
+                  <div class="field" style="flex: 1"><label>Ersatzplätze</label><input class="input" defaultValue="2"></div>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 24px">
+                  <button class="btn btn-primary" style="justify-content: flex-start">Anlegen &amp; Schiedsrichter benachrichtigen</button>
+                  <button onClick="{{ goDash }}" class="btn btn-secondary" style="justify-content: flex-start">Abbrechen</button>
+                </div>
+              </div>
+              <div style="border-left: 2px solid var(--color-divider); padding-left: 24px">
+                <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent)">Qualifiziert für {{ newLeague }}</div>
+                <sc-for list="{{ qualifiedRefs }}" as="r" hint-placeholder-count="4">
+                  <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--color-divider); font-size: 13px">
+                    <span>{{ r.name }}</span><span class="text-muted">{{ r.note }}</span>
+                  </div>
+                </sc-for>
+                <div class="text-muted" style="font-size: 11px; margin-top: 12px">Wer zuerst einträgt, hat den Platz.</div>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ isCsv }}" hint-placeholder-val="{{ false }}">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 32px">
+              <div>
+                <div class="field">
+                  <label>CSV einfügen oder Datei wählen</label>
+                  <textarea class="input" rows="9" value="{{ csvText }}" onChange="{{ setCsv }}" style="width: 100%; resize: vertical"></textarea>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 12px; align-items: center">
+                  <button class="btn btn-secondary" style="justify-content: flex-start">Datei wählen …</button>
+                  <span class="text-muted" style="font-size: 12px">spielplan_kw37.csv</span>
+                </div>
+                <div style="margin-top: 20px; font-size: 12px; border-left: 3px solid var(--color-divider); padding: 8px 12px" class="text-muted">Spalten: Datum; Zeit; Liga; Heim; Gast; Ort. Semikolon getrennt, erste Zeile Kopfzeile. Doppelte Spiele werden übersprungen.</div>
+              </div>
+              <div>
+                <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent)">Vorschau · {{ csvCount }} Zeilen</div>
+                <table class="table" style="margin-top: 8px">
+                  <thead><tr><th>Datum</th><th>Zeit</th><th>Liga</th><th>Spiel</th><th>Ort</th></tr></thead>
+                  <tbody>
+                    <sc-for list="{{ csvRows }}" as="r" hint-placeholder-count="4">
+                      <tr><td style="white-space: nowrap">{{ r.date }}</td><td>{{ r.time }}</td><td>{{ r.league }}</td><td>{{ r.teams }}</td><td class="text-muted">{{ r.place }}</td></tr>
+                    </sc-for>
+                  </tbody>
+                </table>
+                <button onClick="{{ importCsv }}" class="btn btn-primary" style="margin-top: 16px; justify-content: flex-start">{{ csvCount }} Spiele importieren</button>
+                <div style="margin-top: 12px; font-size: 12px; color: #1f7a4d; opacity: {{ toastOpacity }}">{{ toast }}</div>
+              </div>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ isEdit }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: baseline; gap: 12px">
+            <h3 style="margin: 0">Spiel bearbeiten</h3>
+            <span class="text-muted" style="font-size: 13px">{{ editTitle }}</span>
+          </div>
+          <hr class="hr">
+          <div style="display: grid; grid-template-columns: 1fr 360px; gap: 40px">
+            <div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+                <div class="field"><label>Datum</label><input class="input" defaultValue="{{ editDate }}"></div>
+                <div class="field"><label>Uhrzeit</label><input class="input" defaultValue="{{ editTime }}"></div>
+                <div class="field" style="grid-column: span 2"><label>Ort / Halle</label><input class="input" defaultValue="{{ editPlace }}"></div>
+              </div>
+              <div class="field" style="margin-top: 16px">
+                <label>Grund der Änderung</label>
+                <div class="seg" style="margin-top: 4px">
+                  <label class="seg-opt"><input type="radio" name="grund" defaultChecked="{{ true }}">verschoben</label>
+                  <label class="seg-opt"><input type="radio" name="grund">Halle geändert</label>
+                  <label class="seg-opt"><input type="radio" name="grund">abgesagt</label>
+                </div>
+              </div>
+              <div style="margin-top: 20px; padding: 14px; border: 2px solid var(--color-accent); background: var(--color-accent-100); font-size: 13px">
+                Beim Verschieben erhalten Schiedsrichter und Ersatz eine WhatsApp-Nachricht mit dem neuen Termin und der Option abzusagen. Absagen öffnen den Platz sofort wieder.
+              </div>
+              <div style="margin-top: 20px; display: grid; gap: 12px; max-width: 520px">
+                <sc-for list="{{ overrides }}" as="o" hint-placeholder-count="2">
+                  <div style="display: flex; gap: 16px; align-items: center; padding: 12px; border: 2px solid var(--color-divider)">
+                    <div onClick="{{ o.toggle }}" style="width: 52px; height: 28px; flex: none; border: 2px solid {{ o.border }}; display: flex; align-items: center; padding: 3px; cursor: pointer; justify-content: {{ o.just }}">
+                      <span style="width: 18px; height: 18px; background: {{ o.knob }}; display: block"></span>
+                    </div>
+                    <div style="flex: 1">
+                      <div style="font-size: 14px; font-family: var(--font-heading); font-weight: 800">{{ o.label }}</div>
+                      <div class="text-muted" style="font-size: 12px">{{ o.desc }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display: flex; gap: 12px; margin-top: 24px">
+                <button onClick="{{ saveEdit }}" class="btn btn-primary" style="justify-content: flex-start">Speichern &amp; Beteiligte informieren</button>
+                <button onClick="{{ goDash }}" class="btn btn-secondary" style="justify-content: flex-start">Abbrechen</button>
+              </div>
+              <div style="margin-top: 12px; font-size: 12px; color: #1f7a4d; opacity: {{ toastOpacity }}">{{ toast }}</div>
+            </div>
+            <div style="border-left: 2px solid var(--color-divider); padding-left: 24px">
+              <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent)">Besetzung</div>
+              <sc-for list="{{ editSlots }}" as="sl" hint-placeholder-count="4">
+                <div style="display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--color-divider)">
+                  <span class="text-muted" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; width: 84px">{{ sl.role }}</span>
+                  <div style="flex: 1">
+                    <div style="font-size: 14px; color: {{ sl.fg }}">{{ sl.who }}</div>
+                    <div style="font-size: 11px; color: {{ sl.stateColor }}">{{ sl.state }}</div>
+                  </div>
+                  <button onClick="{{ sl.clear }}" class="btn btn-ghost" style="padding: 2px 6px; opacity: {{ sl.clearOpacity }}">Entfernen</button>
+                </div>
+              </sc-for>
+              <button onClick="{{ requestSubAdmin }}" class="btn btn-secondary btn-block" style="margin-top: 12px">Ersatz anfordern</button>
+              <div class="text-muted" style="font-size: 11px; margin-top: 10px">Entfernen wirft den Schiedsrichter aus dem Spiel, informiert ihn und öffnet den Platz sofort wieder.</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isRefs }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: flex-end; gap: 16px">
+            <div style="flex: 1"><h3 style="margin: 0">Schiedsrichter-Verwaltung</h3><span class="text-muted" style="font-size: 13px">Konten, Kürzel, Telefonnummern und Qualifikationen — nur hier änderbar</span></div>
+            <button class="btn btn-primary" style="justify-content: flex-start">+ Schiedsrichter anlegen</button>
+          </div>
+          <table class="table" style="margin-top: 20px">
+            <thead><tr><th>Name</th><th>Kürzel</th><th>Telefon</th><th>Rolle</th><th>U14</th><th>U16</th><th>U18</th><th>Erwachsene</th><th>Senioren</th><th>Spiele Saison</th><th></th></tr></thead>
+            <tbody>
+              <sc-for list="{{ refs }}" as="r" hint-placeholder-count="6">
+                <tr>
+                  <td style="font-family: var(--font-heading); font-weight: 800">{{ r.name }}</td>
+                  <td><input class="input" defaultValue="{{ r.code }}" style="width: 62px; padding: 4px 6px"></td>
+                  <td><input class="input" defaultValue="{{ r.phone }}" style="width: 150px; padding: 4px 6px; font-variant-numeric: tabular-nums"></td>
+                  <td>{{ r.role }}</td>
+                  <sc-for list="{{ r.quals }}" as="q" hint-placeholder-count="5">
+                    <td><span onClick="{{ q.toggle }}" style="display: grid; place-items: center; width: 20px; height: 20px; border: 2px solid {{ q.border }}; background: {{ q.bg }}; color: var(--color-bg); font-size: 12px; cursor: pointer; font-family: var(--font-heading); font-weight: 800">{{ q.mark }}</span></td>
+                  </sc-for>
+                  <td style="font-variant-numeric: tabular-nums">{{ r.count }}</td>
+                  <td><button class="btn btn-ghost" style="padding: 2px 6px">Speichern</button></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <div class="text-muted" style="font-size: 12px; margin-top: 12px">Nur qualifizierte Schiedsrichter können sich für ein Spiel eintragen oder als Ersatz eintragen.</div>
+        </sc-if>
+
+        <sc-if value="{{ isRules }}" hint-placeholder-val="{{ false }}">
+          <h3>Einstellungen</h3>
+          <p class="text-muted" style="font-size: 14px; max-width: 660px">Eintragen ist immer sofort verbindlich (First come, first served). Hier stellt der Verein Fristen, Pflichtbestätigung und Admin-Meldungen ein.</p>
+          <hr class="hr">
+          <div style="max-width: 760px">
+            <sc-for list="{{ rules }}" as="r" hint-placeholder-count="5">
+              <div style="padding: 16px 0; border-bottom: 1px solid var(--color-divider)">
+                <div style="display: flex; gap: 20px; align-items: flex-start">
+                  <div onClick="{{ r.toggle }}" style="width: 52px; height: 28px; flex: none; border: 2px solid {{ r.border }}; display: flex; align-items: center; padding: 3px; cursor: {{ r.cursor }}; justify-content: {{ r.just }}; opacity: {{ r.opacity }}">
+                    <span style="width: 18px; height: 18px; background: {{ r.knob }}; display: block"></span>
+                  </div>
+                  <div style="flex: 1">
+                    <div style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">{{ r.label }}</div>
+                    <div class="text-muted" style="font-size: 13px">{{ r.desc }}</div>
+                  </div>
+                  <span class="tag tag-neutral" style="flex: none">{{ r.badge }}</span>
+                </div>
+                <sc-if value="{{ r.showWindow }}" hint-placeholder-val="{{ false }}">
+                  <div style="margin: 12px 0 0 72px">
+                    <div style="font-size: 12px; margin-bottom: 6px" class="text-muted">Zeitraum der Rotation</div>
+                    <div class="seg">
+                      <sc-for list="{{ windows }}" as="w" hint-placeholder-count="3">
+                        <label class="seg-opt" onClick="{{ w.pick }}" style="background: {{ w.bg }}; color: {{ w.fg }}; cursor: pointer">{{ w.label }}</label>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+
+            <div style="padding: 18px 0; border-bottom: 1px solid var(--color-divider)">
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">Pflichtbestätigung vor dem Spiel</div>
+              <div class="text-muted" style="font-size: 13px; margin-bottom: 10px">Nachricht mit Bestätigungsknopf „Ja, habe ich gelesen und mache es“. Ohne Bestätigung innerhalb von 24 Stunden geht eine erneute Erinnerung an den Schiedsrichter und eine Meldung an alle Admins.</div>
+              <div class="seg">
+                <sc-for list="{{ mandatoryOptions }}" as="m" hint-placeholder-count="4">
+                  <label class="seg-opt" onClick="{{ m.pick }}" style="background: {{ m.bg }}; color: {{ m.fg }}; cursor: pointer">{{ m.label }}</label>
+                </sc-for>
+              </div>
+              <div class="text-muted" style="font-size: 12px; margin-top: 8px">Aktuell: Bestätigung wird {{ mandatoryLabel }} vor Anpfiff angefordert, Nachfassen nach 24 Stunden.</div>
+            </div>
+
+            <div style="padding: 18px 0; border-bottom: 1px solid var(--color-divider)">
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">Fristen für Schiedsrichter</div>
+              <div style="display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap">
+                <div class="field" style="flex: 1; min-width: 200px"><label>Austragen möglich bis</label><input class="input" defaultValue="3 Wochen vor Anpfiff"></div>
+                <div class="field" style="flex: 1; min-width: 200px"><label>Ersatz anfordern bis</label><input class="input" defaultValue="3 Tage vor Anpfiff"></div>
+                <div class="field" style="flex: 1; min-width: 200px"><label>Max. Erinnerungen pro Schiri</label><input class="input" defaultValue="10"></div>
+              </div>
+              <div class="text-memo text-muted" style="font-size: 12px; margin-top: 8px">Beide Fristen kann der Admin pro Spiel überschreiben (im Spiel bearbeiten).</div>
+            </div>
+
+            <div style="padding: 18px 0; border-bottom: 1px solid var(--color-divider)">
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">Meldungen an Admins</div>
+              <div class="text-muted" style="font-size: 13px; margin-bottom: 10px">Alles rund um offene Spiele — mit Spiel, Liga, Ort, fehlenden Plätzen und Vorlauf in der Nachricht.</div>
+              <sc-for list="{{ adminNotifications }}" as="n" hint-placeholder-count="5">
+                <div style="display: flex; gap: 16px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--color-divider)">
+                  <div onClick="{{ n.toggle }}" style="width: 46px; height: 26px; flex: none; border: 2px solid {{ n.border }}; display: flex; align-items: center; padding: 3px; cursor: pointer; justify-content: {{ n.just }}">
+                    <span style="width: 16px; height: 16px; background: {{ n.knob }}; display: block"></span>
+                  </div>
+                  <div style="flex: 1; font-size: 13px">{{ n.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="padding: 18px 0">
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">Ligen</div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px">
+                <sc-for list="{{ leagues }}" as="l" hint-placeholder-count="5">
+                  <span class="tag tag-neutral">{{ l }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isHelp }}" hint-placeholder-val="{{ false }}">
+          <h3>Regeln</h3>
+          <p class="text-muted" style="font-size: 14px; max-width: 660px">Kurz und verbindlich — die Regularien für Eintragen, Austragen, Ersatz und Bestätigung.</p>
+          <hr class="hr">
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; max-width: 900px">
+            <sc-for list="{{ helpItems }}" as="h" hint-placeholder-count="6">
+              <div>
+                <div style="font-family: var(--font-heading); font-weight: 800; font-size: 16px; border-bottom: 2px solid var(--color-divider); padding-bottom: 6px">{{ h.title }}</div>
+                <p style="font-size: 13px; margin: 10px 0 0">{{ h.body }}</p>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isLegal }}" hint-placeholder-val="{{ false }}">
+          <h3>Impressum &amp; Datenschutz</h3>
+          <hr class="hr">
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 40px; max-width: 900px">
+            <div>
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">Impressum</div>
+              <p style="font-size: 13px; line-height: 1.7; margin-top: 10px">BG Nordstadt e.V.<br>Abteilung Basketball · Jugend<br>Hallenweg 4, 00000 Nordstadt<br>Vertreten durch: [Vorstand]<br>Kontakt: [E-Mail] · [Telefon]<br>Registergericht: [Amtsgericht] · VR [Nummer]</p>
+              <div class="text-muted" style="font-size: 12px; margin-top: 12px">Platzhalter — bitte vom Verein ausfüllen.</div>
+            </div>
+            <div>
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">Datenschutzerklärung</div>
+              <p style="font-size: 13px; line-height: 1.7; margin-top: 10px">Verarbeitet werden: Name, Kürzel, Telefonnummer, Profilbild, Qualifikationen, Eintragungen und Einsatzzahlen. Zweck: Spielplanung und Abrechnung der Einsätze. Nachrichten werden über WhatsApp (Meta Platforms Ireland Ltd.) versendet — die Telefonnummer wird dabei an den Dienst übermittelt. Öffentlich sichtbar ist ausschließlich das Kürzel; Name und Profilbild erst nach Anmeldung. Rechtsgrundlage: Art. 6 Abs. 1 lit. b und f DSGVO. Löschung auf Anfrage beim Verein.</p>
+              <div class="text-muted" style="font-size: 12px; margin-top: 12px">Entwurf — juristische Prüfung erforderlich.</div>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: baseline; gap: 16px; margin: 56px 0 20px; border-top: 2px solid var(--color-divider); padding-top: 32px">
+    <h2 style="margin: 0">Mobile</h2>
+    <span class="text-muted" style="font-size: 13px">Gleiche Funktionen wie Desktop · Zustände sind verbunden</span>
+  </div>
+
+  <div style="display: flex; gap: 28px; flex-wrap: wrap">
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">01 · Öffentliche Ansicht</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider); font-variant-numeric: tabular-nums"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div style="padding: 12px 16px; border-bottom: 2px solid var(--color-divider); display: flex; align-items: center; gap: 8px">
+          <span style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">Spiele</span>
+          <span class="tag tag-neutral" style="margin-left: auto">öffentlich</span>
+        </div>
+        <div class="scr" style="padding: 16px">
+          <sc-for list="{{ dayGroups }}" as="d" hint-placeholder-count="3">
+            <div style="margin-bottom: 18px">
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 14px; border-bottom: 2px solid var(--color-text); padding-bottom: 6px">{{ d.label }}</div>
+              <sc-for list="{{ d.publicRows }}" as="g" hint-placeholder-count="2">
+                <div style="display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--color-divider)">
+                  <span style="width: 4px; flex: none; background: {{ g.color }}"></span>
+                  <div style="flex: 1">
+                    <div style="font-size: 13px; font-family: var(--font-heading); font-weight: 800">{{ g.teams }}</div>
+                    <div class="text-muted" style="font-size: 11px">{{ g.time }} · {{ g.league }} · {{ g.place }}</div>
+                    <div style="display: flex; gap: 6px; margin-top: 6px; align-items: center; flex-wrap: wrap">
+                      <sc-for list="{{ g.mainChips }}" as="c" hint-placeholder-count="2">
+                        <span style="display: inline-flex; align-items: center; gap: 4px">
+                          <span style="width: 20px; height: 20px; background: {{ c.bg }}; color: var(--color-bg); display: grid; place-items: center; font-size: 9px; font-family: var(--font-heading); font-weight: 800">{{ c.code }}</span>
+                          <span style="font-size: 10px; color: {{ c.fg }}">{{ c.label }}</span>
+                        </span>
+                      </sc-for>
+                    </div>
+                  </div>
+                  <span style="font-size: 10px; color: {{ g.color }}; font-family: var(--font-heading); font-weight: 800; white-space: nowrap">{{ g.status }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+          <button onClick="{{ toggleReveal }}" class="btn btn-secondary btn-block" style="min-height: 46px">{{ revealLabel }}</button>
+          <div class="text-muted" style="font-size: 11px; margin-top: 8px">{{ revealNote }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">02 · Login</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider)"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div class="scr" style="padding: 28px 20px">
+          <div style="font-family: var(--font-heading); font-weight: 800; font-size: 20px">SCHIRIPLAN</div>
+          <div class="text-muted" style="font-size: 12px">BG Nordstadt</div>
+          <div style="margin-top: 40px">
+            <h4 style="margin-bottom: 4px">Anmelden</h4>
+            <p class="text-muted" style="font-size: 13px">Login-Link per WhatsApp, kein Passwort.</p>
+            <div class="field" style="margin: 20px 0 12px"><label>Telefonnummer</label><input class="input" defaultValue="+49 151 23456789" style="min-height: 46px"></div>
+            <button onClick="{{ doLogin }}" class="btn btn-primary btn-block" style="min-height: 48px">Link per WhatsApp</button>
+            <div style="margin-top: 20px; font-size: 12px; border-left: 3px solid var(--color-accent); padding: 8px 10px; background: var(--color-accent-100)">Öffnet nach dem Login: {{ lastScreenLabel }}</div>
+            <div class="text-muted" style="font-size: 12px; margin-top: 20px">Ohne Login: Spiele mit Kürzeln sichtbar.</div>
+            <div style="display: flex; gap: 12px; margin-top: 24px; font-size: 12px">
+              <span onClick="{{ goHelp }}" style="cursor: pointer; color: var(--color-accent)">Regeln</span>
+              <span onClick="{{ goLegal }}" style="cursor: pointer; color: var(--color-accent)">Impressum &amp; Datenschutz</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">03 · Offene Spiele</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider)"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div style="padding: 10px 16px; border-bottom: 2px solid var(--color-divider); display: flex; align-items: center; gap: 8px">
+          <span onClick="{{ prevDay }}" style="cursor: pointer; font-size: 14px; color: var(--color-accent)">◀</span>
+          <div style="flex: 1; text-align: center">
+            <div style="font-family: var(--font-heading); font-weight: 800; font-size: 15px">{{ dayLabel }}</div>
+            <div class="text-muted" style="font-size: 10px">{{ dayPos }}</div>
+          </div>
+          <span onClick="{{ nextDay }}" style="cursor: pointer; font-size: 14px; color: var(--color-accent)">▶</span>
+        </div>
+        <div onPointerDown="{{ onDown }}" onPointerMove="{{ onMove }}" onPointerUp="{{ onUp }}" class="scr" style="padding: 16px; touch-action: pan-y; user-select: none; cursor: grab; transform: translateX({{ dragXMobile }}px)">
+          <sc-if value="{{ hasMoved }}" hint-placeholder-val="{{ true }}">
+            <div style="border: 2px solid var(--color-accent); background: var(--color-accent-100); padding: 12px; margin-bottom: 14px">
+              <div style="font-size: 12px; font-family: var(--font-heading); font-weight: 800">Verschoben: {{ movedTitle }}</div>
+              <div style="font-size: 11px; margin-top: 4px">{{ movedText }}</div>
+              <div style="display: flex; gap: 8px; margin-top: 10px">
+                <button onClick="{{ movedKeep }}" class="btn btn-primary" style="flex: 1; min-height: 44px; justify-content: flex-start; font-size: 11px">Bleibe dabei</button>
+                <button onClick="{{ movedCancel }}" class="btn btn-secondary" style="flex: 1; min-height: 44px; justify-content: flex-start; font-size: 11px">Absagen</button>
+              </div>
+            </div>
+          </sc-if>
+          <sc-for list="{{ dayGames }}" as="g" hint-placeholder-count="2">
+            <div style="border: 2px solid var(--color-text); padding: 14px; margin-bottom: 12px">
+              <div style="display: flex; align-items: baseline; gap: 8px">
+                <span style="font-family: var(--font-heading); font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums">{{ g.time }}</span>
+                <span class="tag tag-neutral">{{ g.league }}</span>
+                <span style="font-size: 10px; margin-left: auto; color: {{ g.color }}; font-family: var(--font-heading); font-weight: 800">{{ g.status }}</span>
+              </div>
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 15px; margin-top: 6px; line-height: 1.2">{{ g.teams }}</div>
+              <div class="text-muted" style="font-size: 11px">{{ g.place }}</div>
+              <sc-if value="{{ g.showConfirm }}" hint-placeholder-val="{{ false }}">
+                <div style="border: 2px solid {{ g.confirmBorder }}; background: {{ g.confirmBg }}; padding: 10px; margin-top: 10px">
+                  <div style="font-size: 11px; font-family: var(--font-heading); font-weight: 800">{{ g.confirmTitle }}</div>
+                  <button onClick="{{ g.confirm }}" class="btn btn-primary btn-block" style="min-height: 44px; margin-top: 8px; font-size: 11px; opacity: {{ g.confirmOpacity }}">Ja, habe ich gelesen und mache es</button>
+                </div>
+              </sc-if>
+              <div style="display: grid; gap: 6px; margin-top: 10px">
+                <sc-for list="{{ g.slots }}" as="sl" hint-placeholder-count="4">
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 2px solid {{ sl.border }}; background: {{ sl.bg }}">
+                    <span class="text-muted" style="font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; width: 56px; flex: none">{{ sl.roleShort }}</span>
+                    <span style="font-size: 12px; flex: 1; color: {{ sl.fg }}; font-family: var(--font-heading); font-weight: {{ sl.weight }}">{{ sl.who }}</span>
+                    <button onClick="{{ sl.action }}" class="btn {{ sl.btnClass }}" style="padding: 6px 8px; font-size: 11px; justify-content: flex-start; opacity: {{ sl.btnOpacity }}">{{ sl.btnLabel }}</button>
+                  </div>
+                </sc-for>
+              </div>
+              <button onClick="{{ g.requestSub }}" class="btn btn-secondary btn-block" style="min-height: 44px; margin-top: 10px; opacity: {{ g.subOpacity }}">Ersatz anfordern</button>
+              <div style="font-size: 10px; margin-top: 6px" class="text-muted">{{ g.subNote }}</div>
+              <div style="font-size: 11px; margin-top: 6px; color: {{ g.qualColor }}">{{ g.qualNote }}</div>
+            </div>
+          </sc-for>
+          <div style="font-size: 11px; color: #1f7a4d; opacity: {{ toastOpacity }}">{{ toast }}</div>
+        </div>
+        <div style="flex: none; display: flex; border-top: 2px solid var(--color-divider)">
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px; font-family: var(--font-heading); font-weight: 800; color: var(--color-accent); border-bottom: 3px solid var(--color-accent)">Offene</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Kalender</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Profil</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Regeln</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">04 · Kalender, Statistik &amp; Ranking</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider)"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div style="padding: 12px 16px; border-bottom: 2px solid var(--color-divider); font-family: var(--font-heading); font-weight: 800; font-size: 16px">Kalender &amp; Verlauf</div>
+        <div class="scr" style="padding: 16px">
+          <div style="border: 2px solid var(--color-text); padding: 14px">
+            <div style="display: flex; align-items: flex-end; gap: 14px">
+              <div>
+                <div style="font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent)">August 2026</div>
+                <div style="font-family: var(--font-heading); font-weight: 800; font-size: 38px; line-height: 1">7</div>
+                <div class="text-muted" style="font-size: 11px">gepfiffene Spiele</div>
+              </div>
+              <div style="flex: 1; display: flex; align-items: flex-end; gap: 4px; height: 56px">
+                <sc-for list="{{ months }}" as="m" hint-placeholder-count="6">
+                  <div style="flex: 1; background: var(--color-accent); height: {{ m.barH }}px"></div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="font-size: 11px; margin-top: 10px; border-left: 3px solid var(--color-accent); padding: 6px 8px">Nur Einsätze als Schiedsrichter zählen. Ersatz ohne Einsatz zählt nicht.</div>
+          </div>
+          <div style="border: 2px solid var(--color-text); padding: 14px; margin-top: 14px">
+            <div style="display: flex; align-items: baseline; gap: 8px">
+              <span style="font-family: var(--font-heading); font-weight: 800; font-size: 30px">#5</span>
+              <span class="text-muted" style="font-size: 11px">von 12 · meist gepfiffene Spiele</span>
+            </div>
+            <sc-for list="{{ ranking }}" as="r" hint-placeholder-count="6">
+              <div style="display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--color-divider); background: {{ r.bg }}">
+                <span style="width: 20px; font-size: 11px; font-family: var(--font-heading); font-weight: 800">{{ r.rank }}</span>
+                <span style="flex: 1; font-size: 12px; font-weight: {{ r.weight }}">{{ r.name }}</span>
+                <span style="font-size: 11px">{{ r.count }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); margin: 18px 0 6px">Nächste Spiele</div>
+          <sc-for list="{{ myUpcoming }}" as="g" hint-placeholder-count="4">
+            <div style="display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--color-divider)">
+              <span style="width: 4px; flex: none; background: {{ g.color }}"></span>
+              <div style="flex: 1">
+                <div style="font-size: 13px; font-family: var(--font-heading); font-weight: 800">{{ g.teams }}</div>
+                <div class="text-muted" style="font-size: 11px">{{ g.date }} · {{ g.time }} · {{ g.place }}</div>
+                <div style="font-size: 10px; color: {{ g.confirmColor }}">{{ g.confirmState }}</div>
+              </div>
+              <span style="font-size: 10px; color: {{ g.color }}; font-family: var(--font-heading); font-weight: 800">{{ g.role }}</span>
+            </div>
+          </sc-for>
+          <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); margin: 18px 0 6px">Vergangen</div>
+          <sc-for list="{{ past }}" as="g" hint-placeholder-count="3">
+            <div style="display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--color-divider); opacity: 0.75">
+              <div style="flex: 1">
+                <div style="font-size: 12px">{{ g.teams }}</div>
+                <div class="text-muted" style="font-size: 11px">{{ g.date }} · {{ g.role }}</div>
+              </div>
+              <span style="font-size: 10px; color: {{ g.countColor }}">{{ g.counts }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="flex: none; display: flex; border-top: 2px solid var(--color-divider)">
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Offene</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px; font-family: var(--font-heading); font-weight: 800; color: var(--color-accent); border-bottom: 3px solid var(--color-accent)">Kalender</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Profil</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Regeln</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">05 · Profil &amp; Erinnerungen</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider)"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div style="padding: 12px 16px; border-bottom: 2px solid var(--color-divider); font-family: var(--font-heading); font-weight: 800; font-size: 16px">Profil</div>
+        <div class="scr" style="padding: 16px">
+          <div style="display: flex; gap: 14px; align-items: center">
+            <div style="width: 60px; height: 60px; flex: none; background: var(--color-text); color: var(--color-bg); display: grid; place-items: center; font-family: var(--font-heading); font-weight: 800; font-size: 22px">JK</div>
+            <div>
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">Jonas Keller</div>
+              <div class="text-muted" style="font-size: 11px">Kürzel JK · +49 151 23456789</div>
+              <button class="btn btn-ghost" style="padding-left: 0; font-size: 11px">Profilbild ändern</button>
+            </div>
+          </div>
+          <div style="border: 1px dashed var(--color-divider); padding: 10px; font-size: 11px; margin-top: 12px" class="text-muted">Name, Kürzel und Telefonnummer ändert nur der Admin.</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px">
+            <sc-for list="{{ myQuals }}" as="q" hint-placeholder-count="5">
+              <span class="tag" style="border: 2px solid {{ q.border }}; background: {{ q.bg }}; color: {{ q.fg }}">{{ q.name }}</span>
+            </sc-for>
+          </div>
+          <hr class="hr">
+          <div style="font-family: var(--font-heading); font-weight: 800; font-size: 14px">Erinnerungen</div>
+          <div class="text-muted" style="font-size: 11px">7 Tage bis 1 Stunde vor Anpfiff. Pflichtbestätigung {{ mandatoryLabel }} vorher kommt immer.</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px">
+            <sc-for list="{{ reminderPresets }}" as="p" hint-placeholder-count="6">
+              <span onClick="{{ p.toggle }}" class="tag" style="cursor: pointer; border: 2px solid {{ p.border }}; background: {{ p.bg }}; color: {{ p.fg }}">{{ p.label }}</span>
+            </sc-for>
+          </div>
+          <div style="border: 2px solid var(--color-text); padding: 12px; margin-top: 12px">
+            <div style="display: flex; align-items: baseline; gap: 8px">
+              <span style="font-family: var(--font-heading); font-weight: 800; font-size: 18px">{{ customLabel }}</span>
+              <span class="text-muted" style="font-size: 11px">vor Anpfiff</span>
+            </div>
+            <input type="range" min="1" max="168" step="1" value="{{ customValue }}" onChange="{{ setCustom }}" style="width: 100%; margin-top: 10px; accent-color: var(--color-accent)">
+            <button onClick="{{ addCustom }}" class="btn btn-primary btn-block" style="min-height: 44px; margin-top: 8px; opacity: {{ addOpacity }}">{{ addLabel }}</button>
+          </div>
+          <sc-if value="{{ askConfirm }}" hint-placeholder-val="{{ false }}">
+            <div style="border: 2px solid var(--color-accent); background: var(--color-accent-100); padding: 12px; margin-top: 12px">
+              <div style="font-size: 12px; font-family: var(--font-heading); font-weight: 800">{{ askTitle }}</div>
+              <div style="font-size: 11px; margin-top: 4px">Jede Nachricht kostet Geld. Wirklich hinzufügen?</div>
+              <div style="display: flex; gap: 8px; margin-top: 10px">
+                <button onClick="{{ askYes }}" class="btn btn-primary" style="flex: 1; min-height: 44px; font-size: 11px; justify-content: flex-start">Ja</button>
+                <button onClick="{{ askNo }}" class="btn btn-secondary" style="flex: 1; min-height: 44px; font-size: 11px; justify-content: flex-start">Abbrechen</button>
+              </div>
+            </div>
+          </sc-if>
+          <div style="display: flex; align-items: baseline; margin-top: 16px">
+            <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent)">Aktiv</div>
+            <div style="font-size: 11px; margin-left: auto; color: {{ limitColor }}">{{ limitLabel }}</div>
+          </div>
+          <sc-for list="{{ activeReminders }}" as="r" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--color-divider)">
+              <span style="width: 6px; height: 6px; background: var(--color-accent); display: block; flex: none"></span>
+              <span style="flex: 1; font-size: 12px; font-family: var(--font-heading); font-weight: 800">{{ r.label }} vorher</span>
+              <button onClick="{{ r.remove }}" class="btn btn-ghost" style="padding: 2px 6px; font-size: 11px">Entfernen</button>
+            </div>
+          </sc-for>
+          <button class="btn btn-secondary btn-block" style="min-height: 46px; margin-top: 16px">Abmelden</button>
+        </div>
+        <div style="flex: none; display: flex; border-top: 2px solid var(--color-divider)">
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Offene</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Kalender</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px; font-family: var(--font-heading); font-weight: 800; color: var(--color-accent); border-bottom: 3px solid var(--color-accent)">Profil</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Regeln</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">06 · Admin: Übersicht nach Spieltagen</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider)"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div style="padding: 12px 16px; border-bottom: 2px solid var(--color-divider); display: flex; align-items: center">
+          <span style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">Spiele</span>
+          <span class="tag tag-accent" style="margin-left: auto">Admin</span>
+        </div>
+        <div class="scr" style="padding: 16px">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); border: 2px solid var(--color-text)">
+            <sc-for list="{{ kpis3 }}" as="k" hint-placeholder-count="3">
+              <div style="padding: 10px; border-right: 1px solid var(--color-divider)">
+                <div style="font-family: var(--font-heading); font-weight: 800; font-size: 22px; line-height: 1; color: {{ k.color }}">{{ k.value }}</div>
+                <div class="text-muted" style="font-size: 10px">{{ k.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <sc-for list="{{ dayGroups }}" as="d" hint-placeholder-count="3">
+            <div style="margin-top: 16px">
+              <div style="display: flex; align-items: baseline; gap: 8px; border-bottom: 2px solid var(--color-text); padding-bottom: 6px">
+                <span style="font-family: var(--font-heading); font-weight: 800; font-size: 14px">{{ d.label }}</span>
+                <span class="text-muted" style="font-size: 10px; margin-left: auto">{{ d.until }}</span>
+              </div>
+              <sc-for list="{{ d.adminRows }}" as="g" hint-placeholder-count="2">
+                <div style="display: flex; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--color-divider)">
+                  <span style="width: 4px; flex: none; background: {{ g.color }}"></span>
+                  <div style="flex: 1">
+                    <div style="font-size: 12px; font-family: var(--font-heading); font-weight: 800">{{ g.teams }}</div>
+                    <div class="text-muted" style="font-size: 10px">{{ g.time }} · {{ g.league }} · {{ g.place }}</div>
+                    <div style="font-size: 10px; margin-top: 3px">{{ g.mobileMeta }}</div>
+                    <div style="font-size: 10px; color: {{ g.confirmColor }}">{{ g.confirmState }}</div>
+                  </div>
+                  <span style="font-size: 10px; color: {{ g.color }}; font-family: var(--font-heading); font-weight: 800; white-space: nowrap">{{ g.status }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+          <button onClick="{{ sendReminder }}" class="btn btn-secondary btn-block" style="min-height: 46px; margin-top: 14px">Schiris an offene Spiele erinnern</button>
+          <div style="font-size: 11px; color: #1f7a4d; margin-top: 8px; opacity: {{ toastOpacity }}">{{ toast }}</div>
+        </div>
+        <div style="flex: none; display: flex; border-top: 2px solid var(--color-divider)">
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px; font-family: var(--font-heading); font-weight: 800; color: var(--color-accent); border-bottom: 3px solid var(--color-accent)">Spiele</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Offene</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Neu</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Schiris</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">07 · Admin: Offene Spiele &amp; Meldungen</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider)"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div style="padding: 12px 16px; border-bottom: 2px solid var(--color-divider); display: flex; align-items: center">
+          <span style="font-family: var(--font-heading); font-weight: 800; font-size: 16px">Meldungen</span>
+          <span class="tag tag-accent" style="margin-left: auto">{{ alertCount }}</span>
+        </div>
+        <div class="scr" style="padding: 16px">
+          <sc-for list="{{ adminAlerts }}" as="a" hint-placeholder-count="4">
+            <div style="border-left: 4px solid {{ a.color }}; border-top: 1px solid var(--color-divider); border-right: 1px solid var(--color-divider); border-bottom: 1px solid var(--color-divider); padding: 10px 12px; margin-bottom: 12px">
+              <div style="font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: {{ a.color }}; font-family: var(--font-heading); font-weight: 800">{{ a.kind }}</div>
+              <div style="font-size: 12px; font-family: var(--font-heading); font-weight: 800; margin-top: 4px">{{ a.teams }}</div>
+              <div class="text-muted" style="font-size: 10px">{{ a.when }} · {{ a.league }} · {{ a.place }}</div>
+              <div style="font-size: 11px; margin-top: 6px">{{ a.detail }}</div>
+              <div class="text-muted" style="font-size: 10px; margin-top: 2px">{{ a.meta }}</div>
+              <button onClick="{{ a.act }}" class="btn btn-primary btn-block" style="min-height: 44px; margin-top: 8px; font-size: 11px">{{ a.actLabel }}</button>
+            </div>
+          </sc-for>
+          <div style="font-size: 11px; color: #1f7a4d; opacity: {{ toastOpacity }}">{{ toast }}</div>
+        </div>
+        <div style="flex: none; display: flex; border-top: 2px solid var(--color-divider)">
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Spiele</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px; font-family: var(--font-heading); font-weight: 800; color: var(--color-accent); border-bottom: 3px solid var(--color-accent)">Offene</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Neu</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Schiris</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">08 · Admin: Spiele anlegen / CSV</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider)"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div style="padding: 12px 16px; border-bottom: 2px solid var(--color-divider); font-family: var(--font-heading); font-weight: 800; font-size: 16px">Spiele anlegen</div>
+        <div class="scr" style="padding: 16px">
+          <div class="seg" style="width: 100%">
+            <label class="seg-opt" onClick="{{ tabManual }}" style="flex: 1; background: {{ manualBg }}; color: {{ manualFg }}; cursor: pointer">Einzeln</label>
+            <label class="seg-opt" onClick="{{ tabCsv }}" style="flex: 1; background: {{ csvBg }}; color: {{ csvFg }}; cursor: pointer">CSV-Import</label>
+          </div>
+          <sc-if value="{{ isManual }}" hint-placeholder-val="{{ true }}">
+            <div style="margin-top: 14px">
+              <div style="display: flex; gap: 10px">
+                <div class="field" style="flex: 1"><label>Datum</label><input class="input" defaultValue="12.09.2026" style="min-height: 46px"></div>
+                <div class="field" style="width: 96px"><label>Zeit</label><input class="input" defaultValue="10:30" style="min-height: 46px"></div>
+              </div>
+              <div class="field" style="margin-top: 12px"><label>Ort / Halle</label><input class="input" defaultValue="Sporthalle Nordstadt" style="min-height: 46px"></div>
+              <div class="field" style="margin-top: 12px"><label>Heim</label><input class="input" defaultValue="BG Nordstadt U14" style="min-height: 46px"></div>
+              <div class="field" style="margin-top: 12px"><label>Gast</label><input class="input" defaultValue="TV Ostheim U14" style="min-height: 46px"></div>
+              <div class="field" style="margin-top: 12px">
+                <label>Liga</label>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px">
+                  <sc-for list="{{ leagueChips }}" as="l" hint-placeholder-count="5">
+                    <span onClick="{{ l.pick }}" class="tag" style="cursor: pointer; border: 2px solid {{ l.border }}; background: {{ l.bg }}; color: {{ l.fg }}">{{ l.name }}</span>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="display: flex; gap: 10px; margin-top: 12px">
+                <div class="field" style="flex: 1"><label>Schiris</label><input class="input" defaultValue="2" style="min-height: 46px"></div>
+                <div class="field" style="flex: 1"><label>Ersatz</label><input class="input" defaultValue="2" style="min-height: 46px"></div>
+              </div>
+              <button class="btn btn-primary btn-block" style="min-height: 48px">Anlegen &amp; benachrichtigen</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ isCsv }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top: 14px">
+              <button class="btn btn-secondary btn-block" style="min-height: 46px">Datei wählen …</button>
+              <div class="field" style="margin-top: 12px">
+                <label>oder CSV einfügen</label>
+                <textarea class="input" rows="5" value="{{ csvText }}" onChange="{{ setCsv }}" style="width: 100%"></textarea>
+              </div>
+              <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); margin-top: 14px">Vorschau · {{ csvCount }} Zeilen</div>
+              <sc-for list="{{ csvRows }}" as="r" hint-placeholder-count="4">
+                <div style="padding: 8px 0; border-bottom: 1px solid var(--color-divider)">
+                  <div style="font-size: 12px; font-family: var(--font-heading); font-weight: 800">{{ r.teams }}</div>
+                  <div class="text-muted" style="font-size: 10px">{{ r.date }} · {{ r.time }} · {{ r.league }} · {{ r.place }}</div>
+                </div>
+              </sc-for>
+              <button onClick="{{ importCsv }}" class="btn btn-primary btn-block" style="min-height: 48px; margin-top: 12px">{{ csvCount }} Spiele importieren</button>
+              <div style="font-size: 11px; color: #1f7a4d; margin-top: 8px; opacity: {{ toastOpacity }}">{{ toast }}</div>
+            </div>
+          </sc-if>
+        </div>
+        <div style="flex: none; display: flex; border-top: 2px solid var(--color-divider)">
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Spiele</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Offene</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px; font-family: var(--font-heading); font-weight: 800; color: var(--color-accent); border-bottom: 3px solid var(--color-accent)">Neu</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Schiris</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">09 · Admin: Spiel bearbeiten</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider)"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div style="padding: 12px 16px; border-bottom: 2px solid var(--color-divider); font-family: var(--font-heading); font-weight: 800; font-size: 16px">Spiel bearbeiten</div>
+        <div class="scr" style="padding: 16px">
+          <div style="font-size: 12px; font-family: var(--font-heading); font-weight: 800">{{ editTitle }}</div>
+          <div style="display: flex; gap: 10px; margin-top: 12px">
+            <div class="field" style="flex: 1"><label>Neues Datum</label><input class="input" defaultValue="{{ editDate }}" style="min-height: 46px"></div>
+            <div class="field" style="width: 96px"><label>Zeit</label><input class="input" defaultValue="{{ editTime }}" style="min-height: 46px"></div>
+          </div>
+          <div class="field" style="margin-top: 12px"><label>Halle</label><input class="input" defaultValue="{{ editPlace }}" style="min-height: 46px"></div>
+          <div style="font-size: 11px; margin-top: 12px; border: 2px solid var(--color-accent); background: var(--color-accent-100); padding: 10px">Schiedsrichter und Ersatz erhalten den neuen Termin mit Absage-Option.</div>
+          <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); margin-top: 14px">Besetzung</div>
+          <sc-for list="{{ editSlots }}" as="sl" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--color-divider)">
+              <span class="text-muted" style="font-size: 10px; text-transform: uppercase; width: 54px">{{ sl.roleShort }}</span>
+              <div style="flex: 1">
+                <div style="font-size: 12px; color: {{ sl.fg }}">{{ sl.who }}</div>
+                <div style="font-size: 10px; color: {{ sl.stateColor }}">{{ sl.state }}</div>
+              </div>
+              <button onClick="{{ sl.clear }}" class="btn btn-ghost" style="padding: 4px 6px; font-size: 11px; opacity: {{ sl.clearOpacity }}">Entfernen</button>
+            </div>
+          </sc-for>
+          <sc-for list="{{ overrides }}" as="o" hint-placeholder-count="2">
+            <div style="display: flex; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--color-divider)">
+              <div onClick="{{ o.toggle }}" style="width: 46px; height: 26px; flex: none; border: 2px solid {{ o.border }}; display: flex; align-items: center; padding: 3px; cursor: pointer; justify-content: {{ o.just }}">
+                <span style="width: 16px; height: 16px; background: {{ o.knob }}; display: block"></span>
+              </div>
+              <div style="flex: 1; font-size: 11px">{{ o.label }}</div>
+            </div>
+          </sc-for>
+          <button onClick="{{ requestSubAdmin }}" class="btn btn-secondary btn-block" style="min-height: 46px; margin-top: 12px">Ersatz anfordern</button>
+          <button onClick="{{ saveEdit }}" class="btn btn-primary btn-block" style="min-height: 48px; margin-top: 8px">Speichern &amp; informieren</button>
+          <div style="font-size: 11px; color: #1f7a4d; margin-top: 8px; opacity: {{ toastOpacity }}">{{ toast }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">10 · Admin: Schiedsrichter</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider)"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div style="padding: 12px 16px; border-bottom: 2px solid var(--color-divider); font-family: var(--font-heading); font-weight: 800; font-size: 16px">Schiedsrichter</div>
+        <div class="scr" style="padding: 16px">
+          <sc-for list="{{ refs }}" as="r" hint-placeholder-count="6">
+            <div style="padding: 12px 0; border-bottom: 1px solid var(--color-divider)">
+              <div style="display: flex; align-items: baseline; gap: 8px">
+                <span style="font-family: var(--font-heading); font-weight: 800; font-size: 14px">{{ r.name }}</span>
+                <span class="tag tag-neutral">{{ r.code }}</span>
+                <span class="text-muted" style="font-size: 10px; margin-left: auto">{{ r.count }} Spiele</span>
+              </div>
+              <div style="display: flex; gap: 8px; margin-top: 8px">
+                <input class="input" defaultValue="{{ r.phone }}" style="flex: 1; min-height: 42px; font-size: 12px">
+                <button class="btn btn-secondary" style="min-height: 42px; font-size: 11px">Speichern</button>
+              </div>
+              <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap">
+                <sc-for list="{{ r.quals }}" as="q" hint-placeholder-count="5">
+                  <span onClick="{{ q.toggle }}" class="tag" style="cursor: pointer; border: 2px solid {{ q.border }}; background: {{ q.pillBg }}; color: {{ q.pillFg }}">{{ q.name }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+          <button class="btn btn-primary btn-block" style="min-height: 48px">+ Schiedsrichter anlegen</button>
+        </div>
+        <div style="flex: none; display: flex; border-top: 2px solid var(--color-divider)">
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Spiele</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Offene</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Neu</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px; font-family: var(--font-heading); font-weight: 800; color: var(--color-accent); border-bottom: 3px solid var(--color-accent)">Schiris</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">11 · Admin: Einstellungen</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider)"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div style="padding: 12px 16px; border-bottom: 2px solid var(--color-divider); font-family: var(--font-heading); font-weight: 800; font-size: 16px">Einstellungen</div>
+        <div class="scr" style="padding: 16px">
+          <sc-for list="{{ rules }}" as="r" hint-placeholder-count="5">
+            <div style="padding: 12px 0; border-bottom: 1px solid var(--color-divider)">
+              <div style="display: flex; gap: 12px; align-items: flex-start">
+                <div onClick="{{ r.toggle }}" style="width: 46px; height: 26px; flex: none; border: 2px solid {{ r.border }}; display: flex; align-items: center; padding: 3px; justify-content: {{ r.just }}; cursor: {{ r.cursor }}; opacity: {{ r.opacity }}">
+                  <span style="width: 16px; height: 16px; background: {{ r.knob }}; display: block"></span>
+                </div>
+                <div style="flex: 1">
+                  <div style="font-family: var(--font-heading); font-weight: 800; font-size: 12px">{{ r.label }}</div>
+                  <div class="text-muted" style="font-size: 10px">{{ r.desc }}</div>
+                </div>
+              </div>
+              <sc-if value="{{ r.showWindow }}" hint-placeholder-val="{{ false }}">
+                <div style="margin: 10px 0 0 58px; display: flex; gap: 6px">
+                  <sc-for list="{{ windows }}" as="w" hint-placeholder-count="3">
+                    <div onClick="{{ w.pick }}" style="flex: 1; text-align: center; padding: 10px 0; font-size: 11px; cursor: pointer; border: 2px solid {{ w.borderM }}; background: {{ w.bg }}; color: {{ w.fg }}">{{ w.label }}</div>
+                  </sc-for>
+                </div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); margin-top: 14px">Pflichtbestätigung vorher</div>
+          <div style="display: flex; gap: 6px; margin-top: 8px">
+            <sc-for list="{{ mandatoryOptions }}" as="m" hint-placeholder-count="4">
+              <div onClick="{{ m.pick }}" style="flex: 1; text-align: center; padding: 12px 0; font-size: 11px; cursor: pointer; border: 2px solid {{ m.borderM }}; background: {{ m.bg }}; color: {{ m.fg }}">{{ m.label }}</div>
+            </sc-for>
+          </div>
+          <div class="text-muted" style="font-size: 10px; margin-top: 6px">Ohne Bestätigung in 24 Std: erneute Erinnerung + Meldung an Admins.</div>
+          <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); margin-top: 16px">Meldungen an Admins</div>
+          <sc-for list="{{ adminNotifications }}" as="n" hint-placeholder-count="5">
+            <div style="display: flex; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--color-divider)">
+              <div onClick="{{ n.toggle }}" style="width: 42px; height: 24px; flex: none; border: 2px solid {{ n.border }}; display: flex; align-items: center; padding: 3px; justify-content: {{ n.just }}; cursor: pointer">
+                <span style="width: 14px; height: 14px; background: {{ n.knob }}; display: block"></span>
+              </div>
+              <div style="flex: 1; font-size: 11px">{{ n.label }}</div>
+            </div>
+          </sc-for>
+          <div style="font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: color-mix(in srgb, var(--color-text) 60%, transparent); margin-top: 16px">Ligen</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px">
+            <sc-for list="{{ leagues }}" as="l" hint-placeholder-count="5">
+              <span class="tag tag-neutral">{{ l }}</span>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width: 320px">
+      <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-bottom: 8px">12 · Regeln, Impressum &amp; Datenschutz</div>
+      <div style="width: 320px; height: 680px; border: 2px solid var(--color-text); background: var(--color-bg); display: flex; flex-direction: column; box-shadow: var(--shadow-sm)">
+        <div style="height: 28px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; font-size: 11px; border-bottom: 1px solid var(--color-divider)"><span>9:41</span><span>▮▮▮ ⌁ 82%</span></div>
+        <div style="padding: 12px 16px; border-bottom: 2px solid var(--color-divider); font-family: var(--font-heading); font-weight: 800; font-size: 16px">Regeln</div>
+        <div class="scr" style="padding: 16px">
+          <sc-for list="{{ helpItems }}" as="h" hint-placeholder-count="6">
+            <div style="padding: 12px 0; border-bottom: 1px solid var(--color-divider)">
+              <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px">{{ h.title }}</div>
+              <div style="font-size: 11px; margin-top: 4px; line-height: 1.6">{{ h.body }}</div>
+            </div>
+          </sc-for>
+          <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-top: 18px">Impressum</div>
+          <div style="font-size: 11px; line-height: 1.7; margin-top: 6px">BG Nordstadt e.V. · Hallenweg 4, 00000 Nordstadt · Vertreten durch: [Vorstand] · Kontakt: [E-Mail]</div>
+          <div style="font-family: var(--font-heading); font-weight: 800; font-size: 13px; margin-top: 16px">Datenschutz</div>
+          <div style="font-size: 11px; line-height: 1.7; margin-top: 6px">Gespeichert werden Name, Kürzel, Telefonnummer, Profilbild, Qualifikationen und Einsätze — für Planung und Abrechnung. Nachrichten laufen über WhatsApp. Öffentlich sichtbar ist nur das Kürzel.</div>
+          <div class="text-muted" style="font-size: 10px; margin-top: 10px">Platzhalter — vom Verein zu prüfen.</div>
+        </div>
+        <div style="flex: none; display: flex; border-top: 2px solid var(--color-divider)">
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Offene</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Kalender</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px" class="text-muted">Profil</div>
+          <div style="flex: 1; text-align: center; padding: 12px 0; font-size: 10px; font-family: var(--font-heading); font-weight: 800; color: var(--color-accent); border-bottom: 3px solid var(--color-accent)">Regeln</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400}}">
+const GREEN = '#1f7a4d', AMBER = '#c58a00', RED = 'var(--color-accent)';
+const ME = { code: 'JK', name: 'Jonas Keller' };
+const LEAGUES = ['U14', 'U16', 'U18', 'Erwachsene', 'Senioren'];
+const NAMES = { JK: 'Jonas Keller', LB: 'Lena Brandt', TF: 'Timo Färber', AY: 'Aylin Yildiz', MS: 'Marco Silva', NB: 'Nele Baumann' };
+const SLOT_ROLES = ['Schiedsrichter 1', 'Schiedsrichter 2', 'Ersatz 1', 'Ersatz 2'];
+const SLOT_SHORT = ['Schiri 1', 'Schiri 2', 'Ersatz 1', 'Ersatz 2'];
+const PRESETS = [168, 72, 48, 24, 3, 1];
+const LIMIT = 10;
+const CSV_DEFAULT = 'Datum;Zeit;Liga;Heim;Gast;Ort\n19.09.2026;10:00;U14;BG Nordstadt;TSG Aue;Sporthalle Nordstadt\n19.09.2026;12:00;U16;BG Nordstadt;SG Weiher;Sporthalle Nordstadt\n19.09.2026;14:30;U18;BG Nordstadt;BBC Talheim;Zeppelinhalle\n20.09.2026;11:00;Senioren;BG Nordstadt;TSV Kirchheim;Zeppelinhalle';
+
+const DAYS = [
+  { label: 'Sa 22.08.2026', until: 7, games: [
+    { id: 'g1', time: '10:30', league: 'U14', teams: 'BG Nordstadt — TV Ostheim', place: 'Sporthalle Nordstadt, Feld 2', slots: ['LB', 'JK', null, null], moved: true },
+    { id: 'g2', time: '13:00', league: 'U16', teams: 'BG Nordstadt II — SG Weiher', place: 'Sporthalle Nordstadt, Feld 1', slots: [null, null, null, null] }
+  ] },
+  { label: 'So 23.08.2026', until: 8, games: [
+    { id: 'g3', time: '15:00', league: 'U18', teams: 'BG Nordstadt — BBC Talheim', place: 'Zeppelinhalle', slots: ['TF', null, 'AY', null] }
+  ] },
+  { label: 'Sa 29.08.2026', until: 14, games: [
+    { id: 'g4', time: '11:00', league: 'U14', teams: 'SG Weiher — BG Nordstadt', place: 'Halle am Weiher', slots: ['NB', 'MS', 'JK', 'LB'] },
+    { id: 'g5', time: '14:00', league: 'Erwachsene', teams: 'BG Nordstadt — TSV Kirchheim', place: 'Zeppelinhalle', slots: [null, null, null, null] }
+  ] },
+  { label: 'Sa 05.09.2026', until: 21, games: [
+    { id: 'g6', time: '09:30', league: 'Senioren', teams: 'BG Nordstadt — TSG Aue', place: 'Sporthalle Nordstadt, Feld 2', slots: ['MS', null, null, null] },
+    { id: 'g7', time: '12:00', league: 'U16', teams: 'BG Nordstadt — SG Weiher', place: 'Sporthalle Nordstadt, Feld 1', slots: ['TF', 'LB', 'JK', null] }
+  ] },
+  { label: 'Sa 12.09.2026', until: 28, games: [
+    { id: 'g8', time: '10:30', league: 'U14', teams: 'BG Nordstadt — TV Ostheim', place: 'Sporthalle Nordstadt, Feld 2', slots: [null, null, null, null] }
+  ] }
+];
+
+const SCREEN_LABELS = { public: 'Öffentliche Ansicht', login: 'Anmelden', day: 'Offene Spiele', cal: 'Kalender & Verlauf', profile: 'Profil & Erinnerungen', dash: 'Spielübersicht', open: 'Offene Spiele & Meldungen', new: 'Spiele anlegen', edit: 'Spiel bearbeiten', refs: 'Schiedsrichter', rules: 'Einstellungen', help: 'Regeln', legal: 'Impressum & Datenschutz' };
+
+function hoursLabel(h) {
+  if (h >= 24 && h % 24 === 0) { const d = h / 24; return d === 1 ? '1 Tag' : d + ' Tage'; }
+  if (h >= 24) return Math.floor(h / 24) + ' Tage ' + (h % 24) + ' Std';
+  return h === 1 ? '1 Stunde' : h + ' Stunden';
+}
+function allBase() { return DAYS.reduce((a, d) => a.concat(d.games), []); }
+
+class Component extends DCLogic {
+  state = {
+    role: 'admin', screen: 'dash', dayIdx: 0, dragX: 0, dragging: false,
+    slots: {}, confirmed: { g4: [1, 1, 0, 0] }, reveal: false, toast: '',
+    tab: 'manual', csvText: CSV_DEFAULT, editId: 'g1', newLeague: 'U14',
+    reminders: [48, 3], custom: 12, pending: null,
+    movedState: 'open',
+    rules: { qual: true, oneADay: true, rotation: true, autoSos: true },
+    win: 'Woche', mandatory: 72,
+    overrides: { withdraw: false, subRequest: false },
+    notif: { unfilled: true, noConfirm: true, cancel: true, daily: true, imported: false },
+    quals: {
+      'Jonas Keller': { U14: true, U16: true, U18: true, Erwachsene: false, Senioren: true },
+      'Lena Brandt': { U14: true, U16: true, U18: false, Erwachsene: false, Senioren: false },
+      'Timo Färber': { U14: false, U16: true, U18: true, Erwachsene: true, Senioren: true },
+      'Aylin Yildiz': { U14: true, U16: false, U18: true, Erwachsene: false, Senioren: false },
+      'Marco Silva': { U14: true, U16: true, U18: true, Erwachsene: true, Senioren: true },
+      'Nele Baumann': { U14: true, U16: true, U18: true, Erwachsene: true, Senioren: true }
+    }
+  };
+
+  componentDidMount() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('schiriplan.view') || 'null');
+      if (saved && saved.role && saved.screen) this.setState({ role: saved.role, screen: saved.screen });
+    } catch (e) {}
+  }
+
+  save(role, screen) {
+    try { localStorage.setItem('schiriplan.view', JSON.stringify({ role, screen })); } catch (e) {}
+  }
+
+  goTo(role, screen) { this.setState({ role, screen }); this.save(role, screen); }
+  go(screen) { return () => this.goTo(this.state.role, screen); }
+
+  slotsOf(g) { return this.state.slots[g.id] || g.slots; }
+  confOf(g) { return this.state.confirmed[g.id] || [0, 0, 0, 0]; }
+
+  status(slots) {
+    const mains = slots.slice(0, 2).filter(Boolean).length;
+    if (mains < 2) return { status: mains === 0 ? 'offen' : 'Schiri fehlt', color: RED };
+    if (slots.slice(2).filter(Boolean).length < 2) return { status: 'Ersatz fehlt', color: AMBER };
+    return { status: 'besetzt', color: GREEN };
+  }
+
+  setSlot(gameId, i, value) {
+    const base = allBase().find(g => g.id === gameId);
+    this.setState(s => {
+      const cur = (s.slots[gameId] || base.slots).slice();
+      cur[i] = value;
+      return { slots: { ...s.slots, [gameId]: cur } };
+    });
+  }
+
+  setConfirmed(gameId, i) {
+    this.setState(s => {
+      const cur = (s.confirmed[gameId] || [0, 0, 0, 0]).slice();
+      cur[i] = 1;
+      return { confirmed: { ...s.confirmed, [gameId]: cur } };
+    });
+  }
+
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 3000);
+  }
+
+  toggleReminder(h) {
+    this.setState(s => ({ reminders: s.reminders.indexOf(h) !== -1 ? s.reminders.filter(x => x !== h) : s.reminders.concat([h]) }));
+  }
+
+  addReminder(h) {
+    const s = this.state;
+    if (s.reminders.indexOf(h) !== -1) { this.flash('Diese Erinnerung ist schon aktiv'); return; }
+    if (s.reminders.length >= LIMIT) { this.flash('Hard-Limit von ' + LIMIT + ' Erinnerungen erreicht'); return; }
+    if (s.reminders.length >= 3) { this.setState({ pending: h }); return; }
+    this.toggleReminder(h);
+    this.flash('Erinnerung ' + hoursLabel(h) + ' vor Anpfiff gesetzt');
+  }
+
+  segOn(on) { return on ? { bg: 'var(--color-accent)', fg: 'var(--color-bg)', borderM: 'var(--color-accent)' } : { bg: 'transparent', fg: 'var(--color-text)', borderM: 'var(--color-divider)' }; }
+
+  parseCsv() {
+    return this.state.csvText.split('\n').map(l => l.trim()).filter(Boolean).slice(1).map(line => {
+      const p = line.split(';').map(x => x.trim());
+      return { date: p[0] || '', time: p[1] || '', league: p[2] || '', teams: (p[3] || '') + ' — ' + (p[4] || ''), place: p[5] || '' };
+    });
+  }
+
+  renderVals() {
+    const s = this.state, role = s.role, screen = s.screen;
+    const isPub = role === 'public', isRef = role === 'ref', isAdmin = role === 'admin';
+    const myQualSet = s.quals[ME.name];
+
+    const navSets = {
+      public: [['public', 'Öffentliche Ansicht'], ['login', 'Anmelden']],
+      ref: [['public', 'Öffentliche Ansicht'], ['cal', 'Kalender & Verlauf'], ['day', 'Offene Spiele'], ['profile', 'Profil & Erinnerungen']],
+      admin: [['public', 'Öffentliche Ansicht'], ['dash', 'Spielübersicht'], ['open', 'Offene Spiele & Meldungen'], ['new', 'Spiele anlegen'], ['edit', 'Spiel bearbeiten'], ['refs', 'Schiedsrichter'], ['rules', 'Einstellungen']]
+    };
+
+    const all = [];
+    DAYS.forEach(d => d.games.forEach(g => all.push({ ...g, date: d.label, until: d.until, slots: this.slotsOf(g), conf: this.confOf(g) })));
+    const openCount = all.filter(g => g.slots.slice(0, 2).filter(Boolean).length < 2).length;
+    const unconfirmed = all.filter(g => g.until <= 3 || g.until <= 7).filter(g => g.slots.slice(0, 2).some((w, i) => w && !g.conf[i]));
+
+    const navItems = navSets[role].map(pair => {
+      const key = pair[0], label = pair[1], on = key === screen;
+      const badge = key === 'open' ? String(openCount + 2) : key === 'day' ? String(all.filter(g => g.slots.indexOf(null) !== -1).length) : '';
+      return {
+        key, label, go: this.go(key), badge: badge || '·', badgeOpacity: badge ? 1 : 0,
+        bar: on ? 'var(--color-accent)' : 'transparent', bg: on ? 'var(--color-accent-100)' : 'transparent',
+        fg: on ? 'var(--color-accent-700)' : 'var(--color-text)', weight: on ? 800 : 400
+      };
+    });
+    const footerNav = [['help', 'Regeln'], ['legal', 'Impressum & Datenschutz']].map(p => ({
+      label: p[1], go: this.go(p[0]), fg: screen === p[0] ? 'var(--color-accent)' : 'color-mix(in srgb, var(--color-text) 65%, transparent)'
+    }));
+
+    const reveal = s.reveal;
+    const chip = (code) => ({
+      code: code || '—', bg: code ? 'var(--color-text)' : 'var(--color-neutral-400)',
+      label: code ? (reveal ? NAMES[code] : code) : 'frei',
+      fg: code ? 'var(--color-text)' : 'var(--color-accent-700)'
+    });
+
+    const dayGroups = DAYS.map(d => {
+      const games = d.games.map(g0 => {
+        const slots = this.slotsOf(g0), conf = this.confOf(g0), st = this.status(slots);
+        const subs = slots.slice(2).filter(Boolean);
+        const mainsIn = slots.slice(0, 2).filter(Boolean);
+        const openConf = slots.slice(0, 2).filter((w, i) => w && !conf[i]).length;
+        return {
+          ...g0, ...st, until: d.until, date: d.label,
+          mainChips: [chip(slots[0]), chip(slots[1])],
+          subLabel: subs.length ? subs.map(c => reveal ? NAMES[c] : c).join(', ') : '—',
+          mainNames: mainsIn.length ? mainsIn.map(c => NAMES[c]).join(', ') : '—',
+          subNames: subs.length ? subs.map(c => NAMES[c]).join(', ') : '—',
+          mobileMeta: mainsIn.length + '/2 Schiris · ' + subs.length + '/2 Ersatz',
+          confirmState: mainsIn.length === 0 ? '—' : openConf === 0 ? 'bestätigt' : openConf + ' offen',
+          confirmColor: mainsIn.length === 0 ? 'color-mix(in srgb, var(--color-text) 45%, transparent)' : openConf === 0 ? GREEN : AMBER,
+          edit: () => this.setState({ screen: 'edit', editId: g0.id })
+        };
+      });
+      const filled = games.reduce((n, g) => n + this.slotsOf(g).filter(Boolean).length, 0);
+      return {
+        label: d.label, until: 'in ' + d.until + ' Tagen',
+        summary: d.games.length + ' Spiele · ' + filled + '/' + (d.games.length * 4) + ' Plätze besetzt',
+        publicRows: games, adminRows: games
+      };
+    });
+
+    const day = DAYS[s.dayIdx];
+    const dayGames = day.games.map(g0 => {
+      const slots = this.slotsOf(g0), conf = this.confOf(g0), st = this.status(slots);
+      const qualified = !!myQualSet[g0.league];
+      const myIdx = slots.indexOf(ME.code);
+      const alreadyIn = myIdx !== -1;
+      const canWithdraw = day.until >= 21 || s.overrides.withdraw;
+      const inTime = day.until > 3 || s.overrides.subRequest;
+      const canRequestSub = alreadyIn && inTime;
+      const nextFree = slots.indexOf(null);
+      const needsConfirm = alreadyIn && myIdx < 2 && !conf[myIdx];
+      return {
+        ...g0, ...st,
+        qualNote: (qualified ? 'Qualifiziert für ' + g0.league + '. ' : 'Keine Qualifikation für ' + g0.league + '. ') + 'Plätze werden der Reihe nach vergeben: Schiri 1 → Schiri 2 → Ersatz 1 → Ersatz 2.',
+        qualColor: qualified ? 'color-mix(in srgb, var(--color-text) 60%, transparent)' : 'var(--color-accent-700)',
+        inLabel: 'Anpfiff in ' + day.until + ' Tagen · Austragen ' + (canWithdraw ? 'möglich' : 'gesperrt (nur bis 3 Wochen vorher)'),
+        showConfirm: alreadyIn && myIdx < 2,
+        confirmTitle: needsConfirm ? 'Pflichtbestätigung offen' : 'Bestätigt',
+        confirmText: needsConfirm ? 'Angefordert ' + hoursLabel(s.mandatory) + ' vor Anpfiff. Ohne Antwort innerhalb von 24 Stunden geht eine erneute Erinnerung an dich und eine Meldung an die Admins.' : 'Du hast zugesagt. Die Admins sehen den Haken in der Übersicht.',
+        confirmBorder: needsConfirm ? AMBER : GREEN,
+        confirmBg: needsConfirm ? 'color-mix(in srgb, ' + AMBER + ' 12%, transparent)' : 'color-mix(in srgb, ' + GREEN + ' 10%, transparent)',
+        confirmOpacity: needsConfirm ? 1 : 0.45,
+        confirm: needsConfirm ? () => { this.setConfirmed(g0.id, myIdx); this.flash('Bestätigt: „Ja, habe ich gelesen und mache es“'); } : () => {},
+        requestSub: canRequestSub
+          ? () => this.flash('Ersatz angefordert — alle qualifizierten Schiedsrichter erhalten eine Nachricht')
+          : () => this.flash(alreadyIn ? 'Ersatz anfordern ist ab 3 Tage vor Anpfiff gesperrt — Admin kann freigeben' : 'Ersatz kannst du nur anfordern, wenn du selbst eingetragen bist'),
+        subOpacity: canRequestSub ? 1 : 0.45,
+        subNote: !alreadyIn ? 'Nur möglich, wenn du selbst für dieses Spiel eingetragen bist.' : inTime ? 'Nachricht geht an alle mit Qualifikation ' + g0.league + '.' : 'Gesperrt ab 3 Tage vor Anpfiff (Admin kann überschreiben).',
+        slots: slots.map((who, i) => {
+          const mine = who === ME.code, free = !who, isMain = i < 2;
+          const canTake = free && qualified && !alreadyIn && i === nextFree;
+          return {
+            role: SLOT_ROLES[i], roleShort: SLOT_SHORT[i],
+            who: who ? (mine ? NAMES[who] + ' (du)' : NAMES[who]) : 'frei',
+            weight: who ? 800 : 400,
+            fg: who ? 'var(--color-text)' : 'color-mix(in srgb, var(--color-text) 45%, transparent)',
+            border: mine ? GREEN : who ? 'var(--color-divider)' : 'var(--color-accent)',
+            bg: mine ? 'color-mix(in srgb, ' + GREEN + ' 10%, transparent)' : 'transparent',
+            btnLabel: mine ? 'Austragen' : free ? (canTake ? (isMain ? 'Eintragen' : 'Als Ersatz eintragen') : (alreadyIn ? 'frei' : i === nextFree ? 'nicht möglich' : 'erst danach frei')) : 'belegt',
+            btnClass: mine ? 'btn-secondary' : canTake ? (isMain ? 'btn-primary' : 'btn-secondary') : 'btn-ghost',
+            btnOpacity: mine ? (canWithdraw ? 1 : 0.45) : canTake ? 1 : 0.45,
+            action: mine
+              ? (canWithdraw
+                ? () => { this.setSlot(g0.id, i, null); this.flash('Ausgetragen — Platz ist wieder offen, Admins informiert'); }
+                : () => this.flash('Austragen nur bis 3 Wochen vor Anpfiff — bitte beim Admin melden'))
+              : canTake
+                ? () => { this.setSlot(g0.id, i, ME.code); this.flash((isMain ? 'Eingetragen' : 'Als Ersatz eingetragen') + ': ' + g0.teams); }
+                : () => {}
+          };
+        })
+      };
+    });
+
+    const movedGame = all.find(g => g.moved);
+    const editBase = allBase().find(g => g.id === s.editId) || allBase()[0];
+    const editDay = DAYS.find(d => d.games.some(g => g.id === editBase.id));
+    const editVals = this.slotsOf(editBase), editConf = this.confOf(editBase);
+    const editSlots = editVals.map((who, i) => ({
+      role: SLOT_ROLES[i], roleShort: SLOT_SHORT[i],
+      who: who ? NAMES[who] : 'frei',
+      fg: who ? 'var(--color-text)' : 'var(--color-accent-700)',
+      state: who ? (i < 2 ? (editConf[i] ? 'bestätigt' : 'Bestätigung offen') : 'Ersatz') : 'offen',
+      stateColor: who ? (i < 2 ? (editConf[i] ? GREEN : AMBER) : 'color-mix(in srgb, var(--color-text) 55%, transparent)') : RED,
+      clearOpacity: who ? 1 : 0.35,
+      clear: who ? () => { this.setSlot(editBase.id, i, null); this.flash(NAMES[who] + ' aus dem Spiel entfernt und informiert'); } : () => {}
+    }));
+
+    const ruleDefs = [
+      { key: 'qual', label: 'Qualifikation prüfen', desc: 'Nur passende Liga kann sich eintragen. Pflicht.', badge: 'Pflicht', lock: true },
+      { key: 'oneADay', label: 'Max. 1 Spiel pro Tag und Schiedsrichter', desc: 'Ersatz-Eintragungen am gleichen Tag zählen mit.', badge: 'optional', lock: false },
+      { key: 'rotation', label: 'Faire Rotation', desc: 'Wer länger nichts hatte, wird zuerst angeschrieben.', badge: 'optional', lock: false },
+      { key: 'autoSos', label: 'Automatische Nachfrage bei offenen Spielen', desc: 'Erinnerung an alle Qualifizierten, solange Plätze offen sind.', badge: 'optional', lock: false }
+    ].map(r => {
+      const on = s.rules[r.key];
+      return {
+        ...r, just: on ? 'flex-end' : 'flex-start',
+        border: on ? 'var(--color-accent)' : 'var(--color-divider)',
+        knob: on ? 'var(--color-accent)' : 'var(--color-neutral-400)',
+        opacity: r.lock ? 0.55 : 1, cursor: r.lock ? 'not-allowed' : 'pointer',
+        showWindow: r.key === 'rotation' && on,
+        toggle: r.lock ? () => {} : () => this.setState(p => ({ rules: { ...p.rules, [r.key]: !p.rules[r.key] } }))
+      };
+    });
+
+    const windows = ['pro Woche', 'pro Monat', 'pro Saison'].map(label => {
+      const c = this.segOn(s.win === label);
+      return { label, pick: () => this.setState({ win: label }), bg: c.bg, fg: c.fg, borderM: c.borderM };
+    });
+    const mandatoryOptions = [24, 48, 72, 96].map(h => {
+      const c = this.segOn(s.mandatory === h);
+      return { label: hoursLabel(h), pick: () => this.setState({ mandatory: h }), bg: c.bg, fg: c.fg, borderM: c.borderM };
+    });
+    const overrides = [
+      { key: 'withdraw', label: 'Austragen für dieses Spiel freigeben', desc: 'Überschreibt die 3-Wochen-Frist.' },
+      { key: 'subRequest', label: 'Ersatz anfordern freigeben', desc: 'Überschreibt die Sperre 3 Tage vor Anpfiff.' }
+    ].map(o => {
+      const on = s.overrides[o.key];
+      return {
+        ...o, just: on ? 'flex-end' : 'flex-start',
+        border: on ? 'var(--color-accent)' : 'var(--color-divider)',
+        knob: on ? 'var(--color-accent)' : 'var(--color-neutral-400)',
+        toggle: () => this.setState(p => ({ overrides: { ...p.overrides, [o.key]: !p.overrides[o.key] } }))
+      };
+    });
+    const adminNotifications = [
+      { key: 'unfilled', label: 'Sofort, wenn ein Spiel ohne zwei Schiedsrichter ist' },
+      { key: 'noConfirm', label: 'Wenn eine Pflichtbestätigung 24 Std offen bleibt' },
+      { key: 'cancel', label: 'Bei Austragung oder Absage nach Verschiebung' },
+      { key: 'daily', label: 'Tägliche Zusammenfassung aller offenen Spiele' },
+      { key: 'imported', label: 'Nach jedem CSV-Import' }
+    ].map(n => {
+      const on = s.notif[n.key];
+      return {
+        ...n, just: on ? 'flex-end' : 'flex-start',
+        border: on ? 'var(--color-accent)' : 'var(--color-divider)',
+        knob: on ? 'var(--color-accent)' : 'var(--color-neutral-400)',
+        toggle: () => this.setState(p => ({ notif: { ...p.notif, [n.key]: !p.notif[n.key] } }))
+      };
+    });
+
+    const qualifiedFor = (league) => Object.keys(s.quals).filter(n => s.quals[n][league]);
+    const adminAlerts = [];
+    all.forEach(g => {
+      const mains = g.slots.slice(0, 2).filter(Boolean).length;
+      if (mains < 2) adminAlerts.push({
+        kind: mains === 0 ? 'offen' : 'Schiri fehlt', color: RED, teams: g.teams, when: g.date + ' · ' + g.time, league: g.league, place: g.place,
+        detail: (2 - mains) + ' von 2 Schiedsrichter-Plätzen offen, ' + g.slots.slice(2).filter(x => !x).length + ' Ersatzplätze frei. Anpfiff in ' + g.until + ' Tagen.',
+        meta: qualifiedFor(g.league).length + ' qualifizierte Schiedsrichter · letzte Erinnerung vor 2 Tagen · Rückmeldungen: ' + g.slots.filter(Boolean).length,
+        actLabel: 'Erinnerung senden', act: () => this.flash('Erinnerung an ' + qualifiedFor(g.league).length + ' Schiedsrichter für ' + g.teams + ' gesendet'),
+        edit: () => this.setState({ screen: 'edit', editId: g.id })
+      });
+    });
+    all.forEach(g => {
+      const openConf = g.slots.slice(0, 2).filter((w, i) => w && !g.conf[i]);
+      if (openConf.length && g.until <= 8) adminAlerts.push({
+        kind: 'Bestätigung offen', color: AMBER, teams: g.teams, when: g.date + ' · ' + g.time, league: g.league, place: g.place,
+        detail: openConf.map(c => NAMES[c]).join(', ') + ' hat die Pflichtbestätigung noch nicht beantwortet (angefordert ' + hoursLabel(s.mandatory) + ' vor Anpfiff).',
+        meta: 'Nachfassen automatisch nach 24 Std · danach Meldung an alle Admins',
+        actLabel: 'Jetzt nachfassen', act: () => this.flash('Nachfrage an ' + openConf.map(c => NAMES[c]).join(', ') + ' gesendet'),
+        edit: () => this.setState({ screen: 'edit', editId: g.id })
+      });
+    });
+    all.forEach(g => {
+      if (g.slots.slice(2).filter(Boolean).length < 2 && g.slots.slice(0, 2).filter(Boolean).length === 2) adminAlerts.push({
+        kind: 'Ersatz fehlt', color: AMBER, teams: g.teams, when: g.date + ' · ' + g.time, league: g.league, place: g.place,
+        detail: (2 - g.slots.slice(2).filter(Boolean).length) + ' Ersatzplatz frei. Beide Schiedsrichter sind besetzt.',
+        meta: 'Ersatz anfordern ist ' + (g.until > 3 ? 'möglich' : 'gesperrt (3-Tage-Frist)'),
+        actLabel: 'Ersatz anfordern', act: () => this.flash('Ersatzanfrage für ' + g.teams + ' verschickt'),
+        edit: () => this.setState({ screen: 'edit', editId: g.id })
+      });
+    });
+
+    const counts = { 'Nele Baumann': 12, 'Timo Färber': 11, 'Marco Silva': 9, 'Lena Brandt': 8, 'Jonas Keller': 7, 'Aylin Yildiz': 4 };
+    const phones = { 'Jonas Keller': '+49 151 23456789', 'Lena Brandt': '+49 160 884 210', 'Timo Färber': '+49 171 552 903', 'Aylin Yildiz': '+49 152 337 118', 'Marco Silva': '+49 176 908 442', 'Nele Baumann': '+49 157 220 671' };
+    const codes = { 'Jonas Keller': 'JK', 'Lena Brandt': 'LB', 'Timo Färber': 'TF', 'Aylin Yildiz': 'AY', 'Marco Silva': 'MS', 'Nele Baumann': 'NB' };
+    const refs = Object.keys(s.quals).map(name => ({
+      name, code: codes[name], phone: phones[name], role: name === 'Nele Baumann' ? 'Admin' : 'Schiri', count: counts[name],
+      quals: LEAGUES.map(q => {
+        const on = s.quals[name][q];
+        return {
+          name: q, mark: on ? '✓' : '',
+          border: on ? 'var(--color-accent)' : 'var(--color-divider)',
+          bg: on ? 'var(--color-accent)' : 'transparent',
+          pillBg: on ? 'var(--color-accent)' : 'transparent',
+          pillFg: on ? 'var(--color-bg)' : 'color-mix(in srgb, var(--color-text) 55%, transparent)',
+          toggle: () => this.setState(p => ({ quals: { ...p.quals, [name]: { ...p.quals[name], [q]: !p.quals[name][q] } } }))
+        };
+      })
+    }));
+    const ranking = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).map((name, i) => {
+      const me = name === ME.name;
+      return {
+        rank: '#' + (i + 1), name: me ? 'Du' : 'anonym', count: me ? counts[name] : '—',
+        weight: me ? 800 : 400,
+        bg: me ? 'var(--color-accent-100)' : 'transparent'
+      };
+    });
+
+    const myUpcoming = all.filter(g => g.slots.indexOf(ME.code) !== -1).map(g => {
+      const i = g.slots.indexOf(ME.code);
+      const conf = g.conf[i];
+      return {
+        ...g, role: SLOT_ROLES[i], color: i < 2 ? GREEN : AMBER,
+        confirmState: i < 2 ? (conf ? 'bestätigt' : 'Bestätigung offen') : 'Ersatz — keine Bestätigung nötig',
+        confirmColor: i < 2 ? (conf ? GREEN : AMBER) : 'color-mix(in srgb, var(--color-text) 55%, transparent)'
+      };
+    });
+    const past = [
+      { date: 'Sa 15.08.2026', time: '10:00', teams: 'BG Nordstadt — TSG Aue', role: 'Schiedsrichter 1', counts: 'gezählt', countColor: GREEN },
+      { date: 'So 09.08.2026', time: '14:30', teams: 'BBC Talheim — BG Nordstadt', role: 'Ersatz (Einsatz)', counts: 'gezählt', countColor: GREEN },
+      { date: 'Sa 01.08.2026', time: '11:00', teams: 'BG Nordstadt II — SG Weiher', role: 'Ersatz (kein Einsatz)', counts: 'zählt nicht', countColor: 'color-mix(in srgb, var(--color-text) 50%, transparent)' },
+      { date: 'Sa 25.07.2026', time: '12:00', teams: 'BG Nordstadt — SG Weiher', role: 'Schiedsrichter 2', counts: 'gezählt', countColor: GREEN }
+    ];
+    const months = [['Mär', 3], ['Apr', 5], ['Mai', 4], ['Jun', 6], ['Jul', 2], ['Aug', 7]].map(m => ({ name: m[0], count: m[1], width: m[1] * 16, barH: 10 + m[1] * 6 }));
+
+    const fullCount = all.filter(g => g.slots.filter(Boolean).length === 4).length;
+    const noMain = all.filter(g => g.slots.slice(0, 2).filter(Boolean).length < 2).length;
+    const kpis = [
+      { value: all.length, label: 'Spiele geplant', color: 'var(--color-text)' },
+      { value: fullCount, label: 'voll besetzt', color: GREEN },
+      { value: all.length - fullCount - noMain, label: 'Ersatz fehlt', color: AMBER },
+      { value: noMain, label: 'offen', color: RED }
+    ];
+
+    const segPub = this.segOn(isPub), segRef = this.segOn(isRef), segAdm = this.segOn(isAdmin);
+    const tabM = this.segOn(s.tab === 'manual'), tabC = this.segOn(s.tab === 'csv');
+    const csvRows = this.parseCsv();
+    const atLimit = s.reminders.length >= LIMIT;
+
+    const helpItems = [
+      { title: 'Eintragen', body: 'Zwei gleichwertige Schiedsrichter pro Spiel. Wer zuerst einträgt, hat den Platz — die Eintragung ist sofort verbindlich. Eintragen geht nur mit passender Qualifikation für die Liga.' },
+      { title: 'Als Ersatz eintragen', body: 'Zwei Ersatzplätze pro Spiel. Ersatz springt ein, wenn ein Schiedsrichter ausfällt, und wird bei Verschiebung wie ein Schiedsrichter benachrichtigt.' },
+      { title: 'Austragen', body: 'Bis 3 Wochen vor Anpfiff kannst du dich selbst wieder austragen. Danach nur über den Admin — er kann die Frist pro Spiel freigeben.' },
+      { title: 'Ersatz anfordern', body: 'Bis 3 Tage vor Anpfiff kannst du Ersatz anfordern; alle Qualifizierten erhalten eine Nachricht. Danach ist die Funktion gesperrt, der Admin kann sie freigeben.' },
+      { title: 'Pflichtbestätigung', body: 'Vor jedem Spiel kommt eine Nachricht mit dem Knopf „Ja, habe ich gelesen und mache es“. Ohne Antwort innerhalb von 24 Stunden folgt eine erneute Erinnerung, zusätzlich wird der Admin informiert.' },
+      { title: 'Verschobene Spiele', body: 'Schiedsrichter und Ersatz erhalten den neuen Termin mit Absage-Option. Eine Absage öffnet den Platz sofort wieder für alle Qualifizierten.' },
+      { title: 'Erinnerungen', body: 'Du wählst eigene Zeitpunkte zwischen 7 Tagen und 1 Stunde vor Anpfiff. Ab der vierten Erinnerung fragt die App nach, weil jede Nachricht Geld kostet. Maximal 10 pro Person.' },
+      { title: 'Statistik', body: 'Gezählt werden nur Spiele, die du als Schiedsrichter gepfiffen hast — inklusive Ersatz mit tatsächlichem Einsatz. Ersatz ohne Einsatz zählt nicht.' }
+    ];
+
+    return {
+      isPublic: screen === 'public', isLogin: screen === 'login', isDay: screen === 'day', isCal: screen === 'cal',
+      isProfile: screen === 'profile', isDash: screen === 'dash', isOpen: screen === 'open', isNewGame: screen === 'new',
+      isEdit: screen === 'edit', isRefs: screen === 'refs', isRules: screen === 'rules', isHelp: screen === 'help', isLegal: screen === 'legal',
+      setRolePublic: () => this.goTo('public', 'public'),
+      setRoleRef: () => this.goTo('ref', 'cal'),
+      setRoleAdmin: () => this.goTo('admin', 'dash'),
+      doLogin: () => this.goTo('ref', 'cal'),
+      goHelp: this.go('help'), goLegal: this.go('legal'),
+      lastScreenLabel: SCREEN_LABELS[screen] || 'Kalender & Verlauf',
+      segPubBg: segPub.bg, segPubFg: segPub.fg, segRefBg: segRef.bg, segRefFg: segRef.fg, segAdmBg: segAdm.bg, segAdmFg: segAdm.fg,
+      userName: isPub ? 'nicht angemeldet' : isRef ? 'Jonas Keller' : 'Nele Baumann',
+      userInitials: isPub ? '—' : isRef ? 'JK' : 'NB',
+      avatarBg: isPub ? 'var(--color-neutral-400)' : 'var(--color-text)',
+      navItems, footerNav, dayGroups,
+      toggleReveal: () => this.setState(p => ({ reveal: !p.reveal })),
+      revealLabel: reveal ? 'Namen ausblenden (abgemeldet)' : 'Namen einblenden (angemeldet)',
+      revealNote: reveal ? 'Angemeldet: Name und Profilbild sind sichtbar.' : 'Ohne Login bleiben Name und Profilbild hinter dem Kürzel verborgen.',
+      dayLabel: day.label, dayPos: 'Spieltag ' + (s.dayIdx + 1) + ' von ' + DAYS.length,
+      daySummary: day.games.length + ' Spiele · Anpfiff in ' + day.until + ' Tagen',
+      dayGames, dragX: s.dragX, dragXMobile: Math.round(s.dragX * 0.6),
+      prevDay: () => this.setState(p => ({ dayIdx: Math.max(0, p.dayIdx - 1), dragX: 0 })),
+      nextDay: () => this.setState(p => ({ dayIdx: Math.min(DAYS.length - 1, p.dayIdx + 1), dragX: 0 })),
+      onDown: (e) => { e.currentTarget.setPointerCapture(e.pointerId); this._x = e.clientX; this.setState({ dragging: true }); },
+      onMove: (e) => { if (this.state.dragging) this.setState({ dragX: e.clientX - this._x }); },
+      onUp: () => {
+        const d = this.state.dragX;
+        if (d < -90) this.setState(p => ({ dayIdx: Math.min(DAYS.length - 1, p.dayIdx + 1), dragX: 0, dragging: false }));
+        else if (d > 90) this.setState(p => ({ dayIdx: Math.max(0, p.dayIdx - 1), dragX: 0, dragging: false }));
+        else this.setState({ dragX: 0, dragging: false });
+      },
+      hasMoved: s.movedState === 'open' && !!movedGame,
+      movedTitle: movedGame ? movedGame.teams : '',
+      movedText: movedGame ? 'Neuer Termin: ' + movedGame.date + ', ' + movedGame.time + ' · ' + movedGame.place + '. Du bist als ' + SLOT_ROLES[Math.max(0, movedGame.slots.indexOf(ME.code))] + ' eingetragen.' : '',
+      movedKeep: () => { this.setState({ movedState: 'kept' }); this.flash('Danke — du bleibst eingetragen'); },
+      movedCancel: () => { this.setState({ movedState: 'cancelled' }); if (movedGame) this.setSlot(movedGame.id, movedGame.slots.indexOf(ME.code), null); this.flash('Abgesagt — der Platz ist wieder offen, Admins informiert'); },
+      myUpcoming, past, months, ranking, kpis, kpis3: kpis.slice(1),
+      myQuals: LEAGUES.map(q => {
+        const on = myQualSet[q];
+        return { name: q, border: on ? 'var(--color-accent)' : 'var(--color-divider)', bg: on ? 'var(--color-accent)' : 'transparent', fg: on ? 'var(--color-bg)' : 'color-mix(in srgb, var(--color-text) 50%, transparent)' };
+      }),
+      reminderPresets: PRESETS.map(h => {
+        const on = s.reminders.indexOf(h) !== -1;
+        return {
+          label: hoursLabel(h),
+          toggle: () => on ? this.toggleReminder(h) : this.addReminder(h),
+          border: on ? 'var(--color-accent)' : 'var(--color-divider)',
+          bg: on ? 'var(--color-accent)' : 'transparent',
+          fg: on ? 'var(--color-bg)' : 'color-mix(in srgb, var(--color-text) 60%, transparent)'
+        };
+      }),
+      activeReminders: s.reminders.slice().sort((a, b) => b - a).map(h => ({
+        label: hoursLabel(h),
+        example: h >= 24 ? 'Nachricht ' + Math.floor(h / 24) + ' Tag(e) vor Anpfiff' : 'Nachricht ' + h + ' Std vor Anpfiff',
+        remove: () => this.toggleReminder(h)
+      })),
+      noReminders: s.reminders.length === 0,
+      customValue: s.custom, customLabel: hoursLabel(s.custom),
+      setCustom: (e) => this.setState({ custom: parseInt(e.target.value, 10) }),
+      addCustom: () => atLimit ? this.flash('Hard-Limit von ' + LIMIT + ' Erinnerungen erreicht') : this.addReminder(s.custom),
+      addLabel: atLimit ? 'Limit von 10 erreicht' : 'Zeitpunkt hinzufügen',
+      addOpacity: atLimit ? 0.45 : 1,
+      askConfirm: s.pending !== null,
+      askTitle: 'Du hast schon ' + s.reminders.length + ' Benachrichtigungen',
+      askYes: () => { const h = s.pending; this.setState({ pending: null }); if (h !== null) { this.toggleReminder(h); this.flash('Erinnerung ' + hoursLabel(h) + ' vor Anpfiff gesetzt'); } },
+      askNo: () => this.setState({ pending: null }),
+      limitLabel: s.reminders.length + ' von ' + LIMIT + ' genutzt',
+      limitColor: atLimit ? RED : s.reminders.length >= 3 ? AMBER : 'color-mix(in srgb, var(--color-text) 55%, transparent)',
+      mandatoryLabel: hoursLabel(s.mandatory), mandatoryOptions,
+      rules: ruleDefs, windows, overrides, adminNotifications, leagues: LEAGUES,
+      adminAlerts, alertCount: adminAlerts.length, refs, helpItems,
+      goDash: this.go('dash'), goNewGame: this.go('new'), goOpen: this.go('open'),
+      isManual: s.tab === 'manual', isCsv: s.tab === 'csv',
+      tabManual: () => this.setState({ tab: 'manual' }), tabCsv: () => this.setState({ tab: 'csv' }),
+      manualBg: tabM.bg, manualFg: tabM.fg, csvBg: tabC.bg, csvFg: tabC.fg,
+      leagueChips: LEAGUES.map(l => {
+        const on = s.newLeague === l;
+        return { name: l, pick: () => this.setState({ newLeague: l }), border: on ? 'var(--color-accent)' : 'var(--color-divider)', bg: on ? 'var(--color-accent)' : 'transparent', fg: on ? 'var(--color-bg)' : 'color-mix(in srgb, var(--color-text) 60%, transparent)' };
+      }),
+      newLeague: s.newLeague,
+      qualifiedRefs: qualifiedFor(s.newLeague).map(n => ({ name: n, note: counts[n] + ' Spiele in der Saison' })),
+      csvText: s.csvText, csvRows, csvCount: csvRows.length,
+      setCsv: (e) => this.setState({ csvText: e.target.value }),
+      importCsv: () => this.flash(csvRows.length + ' Spiele importiert · Schiedsrichter benachrichtigt'),
+      editTitle: editBase.teams + ' · ' + (editDay ? editDay.label : '') + ' · ' + editBase.time,
+      editDate: editDay ? editDay.label.slice(3) : '', editTime: editBase.time, editPlace: editBase.place,
+      editSlots, saveEdit: () => this.flash('Verschiebung gespeichert — Schiedsrichter und Ersatz mit Absage-Option informiert'),
+      requestSubAdmin: () => this.flash('Ersatzanfrage an alle qualifizierten Schiedsrichter gesendet'),
+      sendReminder: () => this.flash('Erinnerung an alle Schiedsrichter mit offenen Spielen gesendet'),
+      toast: s.toast, toastOpacity: s.toast ? 1 : 0
+    };
+  }
+}
+
+</script>
+</body>
+</html>
