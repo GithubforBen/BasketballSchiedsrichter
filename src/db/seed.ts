@@ -49,7 +49,7 @@ const run = async (): Promise<void> => {
     for (const game of games) {
       await db.insert(schema.games).values({
         id: game.id,
-        kickoff: toKickoff(game.kickoffLocal, CLUB.timeZone),
+        kickoff: toKickoff(game, CLUB.timeZone),
         leagueId: game.leagueId,
         home: game.home,
         away: game.away,

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { closeDb, latestLoginMessage, loginMessageCount, resetLoginState } from './db';
+import { latestLoginMessage, loginMessageCount, resetLoginState } from './db';
 
 /**
  * Der Anmeldevorgang von Anfang bis Ende, gegen den Produktionsbuild.
@@ -52,9 +52,6 @@ test.describe('Anmeldung', () => {
     await resetLoginState();
   });
 
-  test.afterAll(async () => {
-    await closeDb();
-  });
 
   test('schickt Link und Code und meldet über den Link an', async ({ page }) => {
     await requestAccess(page, ADMIN_PHONE);
@@ -66,7 +63,9 @@ test.describe('Anmeldung', () => {
     await page.goto(link);
 
     await expect(topbar(page)).toContainText(ADMIN_NAME);
-    await expect(page.getByRole('heading', { name: 'Spielplan', level: 1 })).toBeVisible();
+    // Nach dem Login öffnet sich zuerst „Kalender & Verlauf“ — so steht es im
+    // Mockup, und so merkt sich die App später den zuletzt benutzten Bildschirm.
+    await expect(page.getByRole('heading', { name: /Kalender/, level: 1 })).toBeVisible();
   });
 
   test('meldet auch über den Code an', async ({ page }) => {

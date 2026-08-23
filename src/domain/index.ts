@@ -4,6 +4,7 @@ export * from './slots';
 export * from './status';
 export * from './schedule';
 export * from './rules';
+export * from './slot-actions';
 export * from './confirmation';
 export * from './escalation';
 export * from './reminders';

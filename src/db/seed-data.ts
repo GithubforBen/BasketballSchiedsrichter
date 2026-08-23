@@ -5,7 +5,11 @@ import { INITIAL_LEAGUES } from '@/config/club';
  * gebaut wird, die im Handoff zu sehen sind: ein verschobenes Spiel, ein leerer
  * Spieltag, ein voll besetztes Spiel und eine unvollstaendige Bestaetigung.
  *
- * Datum und Uhrzeit stehen in Ortszeit; `toKickoff` rechnet sie nach UTC.
+ * Die Anpfiffzeiten sind **relativ zum heutigen Tag** angegeben und nicht als
+ * feste Kalenderdaten. Mit festen Daten waere der Seed nach wenigen Wochen
+ * wertlos: alle Spiele laegen in der Vergangenheit, und Fristen wie „Austragen
+ * bis 3 Wochen vorher“ waeren gar nicht mehr erreichbar. Die Abstaende
+ * entsprechen denen im Mockup — Anpfiff in 7, 8, 14, 21 und 28 Tagen.
  */
 
 export const SEED_LEAGUES = INITIAL_LEAGUES;
@@ -80,8 +84,10 @@ export const SEED_REFEREES: readonly SeedReferee[] = [
 
 export interface SeedGame {
   id: string;
-  /** Ortszeit im Format `YYYY-MM-DDTHH:mm`. */
-  kickoffLocal: string;
+  /** Tage bis zum Anpfiff, gerechnet ab heute. Negativ heisst: vorbei. */
+  daysAhead: number;
+  /** Ortszeit im Format `HH:mm`. */
+  time: string;
   leagueId: string;
   home: string;
   away: string;
@@ -96,7 +102,8 @@ export interface SeedGame {
 export const SEED_GAMES: readonly SeedGame[] = [
   {
     id: 'g1',
-    kickoffLocal: '2026-08-22T10:30',
+    daysAhead: 7,
+    time: '10:30',
     leagueId: 'U14',
     home: 'BG Nordstadt',
     away: 'TV Ostheim',
@@ -106,7 +113,8 @@ export const SEED_GAMES: readonly SeedGame[] = [
   },
   {
     id: 'g2',
-    kickoffLocal: '2026-08-22T13:00',
+    daysAhead: 7,
+    time: '13:00',
     leagueId: 'U16',
     home: 'BG Nordstadt II',
     away: 'SG Weiher',
@@ -115,7 +123,8 @@ export const SEED_GAMES: readonly SeedGame[] = [
   },
   {
     id: 'g3',
-    kickoffLocal: '2026-08-23T15:00',
+    daysAhead: 8,
+    time: '15:00',
     leagueId: 'U18',
     home: 'BG Nordstadt',
     away: 'BBC Talheim',
@@ -124,7 +133,8 @@ export const SEED_GAMES: readonly SeedGame[] = [
   },
   {
     id: 'g4',
-    kickoffLocal: '2026-08-29T11:00',
+    daysAhead: 14,
+    time: '11:00',
     leagueId: 'U14',
     home: 'SG Weiher',
     away: 'BG Nordstadt',
@@ -134,7 +144,8 @@ export const SEED_GAMES: readonly SeedGame[] = [
   },
   {
     id: 'g5',
-    kickoffLocal: '2026-08-29T14:00',
+    daysAhead: 14,
+    time: '14:00',
     leagueId: 'Erwachsene',
     home: 'BG Nordstadt',
     away: 'TSV Kirchheim',
@@ -143,7 +154,8 @@ export const SEED_GAMES: readonly SeedGame[] = [
   },
   {
     id: 'g6',
-    kickoffLocal: '2026-09-05T09:30',
+    daysAhead: 21,
+    time: '09:30',
     leagueId: 'Senioren',
     home: 'BG Nordstadt',
     away: 'TSG Aue',
@@ -152,7 +164,8 @@ export const SEED_GAMES: readonly SeedGame[] = [
   },
   {
     id: 'g7',
-    kickoffLocal: '2026-09-05T12:00',
+    daysAhead: 21,
+    time: '12:00',
     leagueId: 'U16',
     home: 'BG Nordstadt',
     away: 'SG Weiher',
@@ -161,7 +174,8 @@ export const SEED_GAMES: readonly SeedGame[] = [
   },
   {
     id: 'g8',
-    kickoffLocal: '2026-09-12T10:30',
+    daysAhead: 28,
+    time: '10:30',
     leagueId: 'U14',
     home: 'BG Nordstadt',
     away: 'TV Ostheim',
@@ -174,7 +188,8 @@ export const SEED_GAMES: readonly SeedGame[] = [
 export const SEED_PAST_GAMES: readonly SeedGame[] = [
   {
     id: 'p1',
-    kickoffLocal: '2026-08-15T10:00',
+    daysAhead: -8,
+    time: '10:00',
     leagueId: 'U14',
     home: 'BG Nordstadt',
     away: 'TSG Aue',
@@ -184,7 +199,8 @@ export const SEED_PAST_GAMES: readonly SeedGame[] = [
   },
   {
     id: 'p2',
-    kickoffLocal: '2026-08-09T14:30',
+    daysAhead: -14,
+    time: '14:30',
     leagueId: 'U18',
     home: 'BBC Talheim',
     away: 'BG Nordstadt',
@@ -195,7 +211,8 @@ export const SEED_PAST_GAMES: readonly SeedGame[] = [
   },
   {
     id: 'p3',
-    kickoffLocal: '2026-08-01T11:00',
+    daysAhead: -22,
+    time: '11:00',
     leagueId: 'U16',
     home: 'BG Nordstadt II',
     away: 'SG Weiher',
@@ -211,11 +228,29 @@ export const SEED_SUBSTITUTE_APPEARANCES: readonly { gameId: string; slotIndex: 
   { gameId: 'p2', slotIndex: 2 },
 ];
 
-/** Rechnet Ortszeit in einen UTC-Zeitstempel um. */
-export const toKickoff = (local: string, timeZone: string): Date => {
+/**
+ * Rechnet einen relativen Spieltag in einen Zeitstempel um.
+ * `base` ist der Bezugstag, ueblicherweise heute.
+ */
+export const toKickoff = (
+  game: Pick<SeedGame, 'daysAhead' | 'time'>,
+  timeZone: string,
+  base: Date = new Date(),
+): Date => {
+  const day = new Date(base.getTime() + game.daysAhead * 24 * 60 * 60 * 1000);
+  const localDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(day);
+  return localToUtc(`${localDate}T${game.time}`, timeZone);
+};
+
+/** Deutet eine Ortszeit `YYYY-MM-DDTHH:mm` als Zeitstempel. */
+export const localToUtc = (local: string, timeZone: string): Date => {
   const naive = new Date(`${local}:00Z`);
-  const offset = timeZoneOffsetMs(naive, timeZone);
-  return new Date(naive.getTime() - offset);
+  return new Date(naive.getTime() - timeZoneOffsetMs(naive, timeZone));
 };
 
 const timeZoneOffsetMs = (date: Date, timeZone: string): number => {

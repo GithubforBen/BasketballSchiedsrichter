@@ -194,7 +194,7 @@ Vorbereitungsschritt für den eigenständigen Server war nicht wiederholbar (bei
 entstanden verschachtelte Verzeichnisse), und ein Build ohne vorheriges Aufräumen nahm eine
 gelöschte Route aus dem Zwischenspeicher wieder mit.
 
-### M3 — Schiedsrichter-Bereich
+### M3 — Schiedsrichter-Bereich ✅ fertig
 
 - Offene Spiele mit Tagesnavigation, Wischgeste, Tastaturbedienung
 - Eintragen / Austragen / Als Ersatz eintragen — transaktionssicher
@@ -204,6 +204,27 @@ gelöschte Route aus dem Zwischenspeicher wieder mit.
 - Profil & Erinnerungen inkl. Kostenrückfrage und Limits
 
 **Review-Fokus**: Nebenläufigkeitstest — zwei parallele Eintragungen auf denselben Platz, genau eine gewinnt, die andere bekommt eine verständliche Meldung. Alle Sperrgründe erzeugen eine erklärende Meldung statt eines toten Knopfs.
+
+**Ergebnis des Abschluss-Reviews:** 290 Unit- und Integrationstests, dazu 23 E2E-Tests je
+Geräteklasse für den Schiedsrichter-Bereich. Jede der 33 Regeln trägt weiterhin mindestens
+einen Test mit ihrer Nummer im Namen. Zwei Befunde wurden im Zuge des Reviews behoben:
+
+1. **Der Zweitschnellste hätte eine Fehlerseite bekommen.** Bei zwei gleichzeitigen
+   Eintragungen auf denselben Platz greift der Primärschlüssel — aber der Datenbankfehler
+   kommt aus der Transaktion *eingewickelt* zurück, und die Erkennung sah nur die oberste
+   Ebene. Statt „jemand war schneller" wäre eine unbehandelte Ausnahme herausgefallen. Der
+   Nebenläufigkeitstest hat das beim ersten Lauf aufgedeckt; die Ursachenkette wird jetzt
+   durchsucht, abgesichert durch einen eigenen Test ohne Datenbank.
+2. **Der Seed benutzte feste Kalenderdaten.** Damit rutschten alle Spiele mit der Zeit in die
+   Vergangenheit — und schon zum Zeitpunkt des Reviews lag kein Spiel mehr weit genug
+   entfernt, um die Austragefrist von drei Wochen überhaupt zu erreichen: die Funktion war im
+   Seed nicht mehr erprobbar. Die Anpfiffzeiten liegen jetzt relativ zum heutigen Tag, mit
+   denselben Abständen wie im Mockup (7, 8, 14, 21 und 28 Tage).
+
+Der Kern des Bereichs, die Sichtbarkeit der Aktionen, liegt bewusst in der Regel-Engine
+(`slot-actions.ts`) und nicht in der Oberfläche. Dadurch ist die Zusicherung „kein Knopf ist
+stumm gesperrt" ohne Browser prüfbar — und wird zusätzlich im Browser über alle Plätze
+hinweg nachgeprüft.
 
 ### M4 — Admin-Bereich
 

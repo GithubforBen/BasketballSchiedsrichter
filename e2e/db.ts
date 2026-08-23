@@ -52,3 +52,88 @@ export const loginMessageCount = async (): Promise<number> => {
 export const closeDb = async (): Promise<void> => {
   await sql.end();
 };
+
+/** Setzt die Besetzung aller Spiele auf den Ausgangszustand des Seeds zurück. */
+export const resetAssignments = async (): Promise<void> => {
+  await sql`DELETE FROM assignments`;
+  await sql`DELETE FROM audit_log WHERE action LIKE 'assignment.%' OR action LIKE 'relocation.%'`;
+  await sql`DELETE FROM notification_outbox WHERE kind <> 'login'`;
+  await sql`UPDATE referees SET reminder_hours = '[]'::jsonb`;
+};
+
+/** Trägt eine Person direkt auf einem Platz ein — Aufbau, nicht Prüfung. */
+export const placeReferee = async (
+  gameId: string,
+  slotIndex: number,
+  refereeId: string,
+): Promise<void> => {
+  await sql`INSERT INTO assignments (game_id, slot_index, referee_id)
+            VALUES (${gameId}, ${slotIndex}, ${refereeId})`;
+};
+
+/** Markiert ein Spiel als verschoben. */
+export const markRelocated = async (gameId: string): Promise<void> => {
+  await sql`UPDATE games SET state = 'moved', relocation_version = relocation_version + 1
+            WHERE id = ${gameId}`;
+};
+
+/** Die Kürzel einer Person. */
+export const initialsOf = async (refereeId: string): Promise<string> => {
+  const rows = await sql<{ initials: string }[]>`
+    SELECT initials FROM referees WHERE id = ${refereeId}`;
+  return rows[0]?.initials ?? '';
+};
+
+/** Wie viele Erinnerungen eine Person gesetzt hat. */
+export const reminderCount = async (refereeId: string): Promise<number> => {
+  const rows = await sql<{ n: number }[]>`
+    SELECT jsonb_array_length(reminder_hours)::int AS n FROM referees WHERE id = ${refereeId}`;
+  return rows[0]?.n ?? 0;
+};
+
+/**
+ * Setzt die Erinnerungen einer Person direkt.
+ *
+ * `sql.json` ist noetig: eine als Text uebergebene Zeichenkette landet als
+ * JSON-Zeichenkette in der Spalte, nicht als Feld — die Spalte enthielte dann
+ * einen Skalar statt einer Liste.
+ */
+export const setReminders = async (refereeId: string, hours: readonly number[]): Promise<void> => {
+  await sql`UPDATE referees SET reminder_hours = ${sql.json([...hours])} WHERE id = ${refereeId}`;
+};
+
+/**
+ * Legt ein Spiel mit bekanntem Abstand zum Anpfiff an.
+ *
+ * Tests, die von einer Frist abhaengen, duerfen sich nicht auf die Spiele des
+ * Seeds verlassen: deren Abstand haengt vom heutigen Tag ab.
+ */
+export const createGame = async (
+  id: string,
+  daysAhead: number,
+  league = 'U14',
+): Promise<void> => {
+  await sql`DELETE FROM games WHERE id = ${id}`;
+  await sql`INSERT INTO games (id, kickoff, league_id, home, away, venue)
+            VALUES (${id}, now() + ${`${daysAhead} days`}::interval, ${league},
+                    'Testheim', 'Testgast', 'Testhalle')`;
+};
+
+export const dropGame = async (id: string): Promise<void> => {
+  await sql`DELETE FROM games WHERE id = ${id}`;
+};
+
+/** Die Spiel-Ids der kommenden Spiele, nach Anpfiff sortiert. */
+export const upcomingGameIds = async (): Promise<readonly string[]> => {
+  const rows = await sql<{ id: string }[]>`
+    SELECT id FROM games WHERE kickoff > now() AND state <> 'cancelled' ORDER BY kickoff`;
+  return rows.map((row) => row.id);
+};
+
+/** Der Kalendertag eines Spiels in Vereinszeit, `YYYY-MM-DD`. */
+export const dayKeyOfGame = async (gameId: string): Promise<string> => {
+  const rows = await sql<{ day: string }[]>`
+    SELECT to_char(kickoff AT TIME ZONE 'Europe/Berlin', 'YYYY-MM-DD') AS day
+    FROM games WHERE id = ${gameId}`;
+  return rows[0]?.day ?? '';
+};

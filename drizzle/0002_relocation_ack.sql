@@ -1,0 +1,1 @@
+ALTER TABLE "assignments" ADD COLUMN "acknowledged_relocation" integer DEFAULT 0 NOT NULL;

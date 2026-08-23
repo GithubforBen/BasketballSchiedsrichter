@@ -20,6 +20,7 @@ const launchOptions = chromiumPath ? { launchOptions: { executablePath: chromium
 
 export default defineConfig({
   testDir: './e2e',
+  globalTeardown: './e2e/teardown.ts',
   /*
    * Grosszuegig bemessen: die Testumgebung braucht fuer einen Seitenaufbau
    * mehrere Sekunden, und ein Ablauf mit vier Aufrufen liefe sonst in die

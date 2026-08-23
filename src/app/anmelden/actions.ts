@@ -2,6 +2,7 @@
 
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { loginRoute } from '@/routes';
 import { landingScreen } from '@/server/auth/landing';
 import { requestLogin, redeemCode } from '@/server/auth/login';
 import { normalisePhone } from '@/server/auth/phone';
@@ -27,16 +28,14 @@ export const requestLoginAction = async (formData: FormData): Promise<void> => {
   const result = await requestLogin({ phone, ip: clientIp(requestHeaders) });
 
   if (!result.accepted) {
-    redirect(`/anmelden?fehler=${encodeURIComponent(result.message)}`);
+    redirect(loginRoute({ fehler: result.message }));
   }
 
   // Die Nummer wandert in normalisierter Form weiter, damit der zweite Schritt
   // denselben Datensatz findet, egal wie sie eingetippt wurde.
   const parsed = normalisePhone(phone);
   const carried = parsed.ok ? parsed.phone : phone;
-  redirect(
-    `/anmelden?schritt=code&tel=${encodeURIComponent(carried)}&hinweis=${encodeURIComponent(result.message)}`,
-  );
+  redirect(loginRoute({ schritt: 'code', tel: carried, hinweis: result.message }));
 };
 
 export const submitCodeAction = async (formData: FormData): Promise<void> => {
@@ -46,9 +45,7 @@ export const submitCodeAction = async (formData: FormData): Promise<void> => {
 
   const result = await redeemCode({ phone, code });
   if (!result.ok) {
-    redirect(
-      `/anmelden?schritt=code&tel=${encodeURIComponent(phone)}&fehler=${encodeURIComponent(result.message)}`,
-    );
+    redirect(loginRoute({ schritt: 'code', tel: phone, fehler: result.message }));
   }
 
   await startSession(result.refereeId, result.role);

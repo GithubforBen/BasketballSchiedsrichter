@@ -3,7 +3,7 @@ import { CLUB } from '@/config/club';
 import { buildSlots, nextFreeSlot } from '@/domain/slots';
 import { gameStatus } from '@/domain/status';
 import type { Assignment, SlotIndex } from '@/domain/types';
-import { SEED_GAMES, SEED_REFEREES, toKickoff } from './seed-data';
+import { localToUtc, SEED_GAMES, SEED_REFEREES, toKickoff } from './seed-data';
 
 const slotsOf = (occupants: readonly (string | null)[]) =>
   buildSlots(
@@ -69,7 +69,7 @@ describe('Seed-Daten spiegeln das Mockup', () => {
   it('haelt Regel 6 ein: niemand steht an einem Tag in zwei Spielen', () => {
     const perDay = new Map<string, Set<string>>();
     for (const game of SEED_GAMES) {
-      const day = game.kickoffLocal.slice(0, 10);
+      const day = String(game.daysAhead);
       const seen = perDay.get(day) ?? new Set<string>();
       for (const refereeId of game.slots.filter((s): s is string => s !== null)) {
         expect(seen.has(refereeId), `${refereeId} steht am ${day} in zwei Spielen`).toBe(false);
@@ -85,11 +85,30 @@ describe('Seed-Daten spiegeln das Mockup', () => {
   });
 
   it('rechnet Ortszeit korrekt nach UTC — Sommerzeit eingeschlossen', () => {
-    expect(toKickoff('2026-08-22T10:30', CLUB.timeZone).toISOString()).toBe(
+    expect(localToUtc('2026-08-22T10:30', CLUB.timeZone).toISOString()).toBe(
       '2026-08-22T08:30:00.000Z',
     );
-    expect(toKickoff('2026-01-10T10:30', CLUB.timeZone).toISOString()).toBe(
+    expect(localToUtc('2026-01-10T10:30', CLUB.timeZone).toISOString()).toBe(
       '2026-01-10T09:30:00.000Z',
     );
+  });
+
+  it('liegt immer relativ zum heutigen Tag, nicht auf festen Kalenderdaten', () => {
+    // Mit festen Daten waere der Seed nach wenigen Wochen wertlos.
+    const base = new Date('2030-03-01T09:00:00Z');
+    const game = SEED_GAMES.find((g) => g.id === 'g8');
+    expect(game).toBeDefined();
+    if (!game) return;
+    const kickoff = toKickoff(game, CLUB.timeZone, base);
+    const daysBetween = (kickoff.getTime() - base.getTime()) / (24 * 60 * 60 * 1000);
+    expect(daysBetween).toBeGreaterThan(game.daysAhead - 1);
+    expect(daysBetween).toBeLessThan(game.daysAhead + 1);
+  });
+
+  it('enthaelt Spiele, bei denen sich noch austragen laesst — und solche nicht mehr', () => {
+    // Die Austragefrist liegt bei 21 Tagen. Ohne ein Spiel jenseits davon
+    // waere die Funktion im Seed gar nicht erreichbar.
+    expect(SEED_GAMES.some((g) => g.daysAhead >= 21)).toBe(true);
+    expect(SEED_GAMES.some((g) => g.daysAhead > 0 && g.daysAhead < 21)).toBe(true);
   });
 });

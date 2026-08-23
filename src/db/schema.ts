@@ -119,6 +119,13 @@ export const assignments = pgTable(
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
     /** Tatsaechlicher Einsatz. null = noch nicht entschieden. Regeln 25-27. */
     playedAsReferee: boolean('played_as_referee'),
+    /**
+     * Bis zu welcher Verschiebung diese Person zugesagt hat. Regel 17.
+     * Liegt der Zaehler des Spiels darueber, steht die Rueckmeldung noch aus
+     * und das Banner erscheint. So bleibt die Frage auch nach einem Neuladen
+     * gestellt und verschwindet nicht in einem fluechtigen Zustand.
+     */
+    acknowledgedRelocation: integer('acknowledged_relocation').notNull().default(0),
   },
   (table) => [
     /**

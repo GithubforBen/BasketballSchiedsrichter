@@ -7,9 +7,11 @@ verbindlich — wer zuerst einträgt, hat den Platz. Nachrichten laufen über Wh
 
 ## Stand
 
-Meilenstein 0 bis 2 sind fertig: Fundament, Datenmodell, die vollständige Regel-Engine, die
-öffentliche Spieltagsansicht und die Anmeldung ohne Passwort. Der Schiedsrichter- und der
-Adminbereich entstehen ab Meilenstein 3 — siehe [PLAN.md](PLAN.md).
+Meilenstein 0 bis 3 sind fertig: Fundament, Datenmodell, die vollständige Regel-Engine, die
+öffentliche Spieltagsansicht, die Anmeldung ohne Passwort und der komplette
+Schiedsrichter-Bereich — offene Spiele mit Tageswechsel, Eintragen und Austragen,
+Pflichtbestätigung, Kalender mit Statistik und Ranking sowie die eigenen Erinnerungen.
+Der Adminbereich entsteht in Meilenstein 4 — siehe [PLAN.md](PLAN.md).
 
 ## Loslegen
 
