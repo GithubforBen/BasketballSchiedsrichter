@@ -126,7 +126,7 @@ Jeder Meilenstein ist eine Session und endet mit zwei Review-Stufen:
 - **Stufe A — laufend**: Selbstprüfung pro Datei beim Schreiben.
 - **Stufe B — Abschluss-Review**: eigener Durchgang am Ende gegen die Checkliste unten. Erst wenn der durch ist, gilt der Meilenstein als fertig.
 
-### M0 + M1 — Fundament, Datenmodell, Regel-Engine
+### M0 + M1 — Fundament, Datenmodell, Regel-Engine ✅ fertig
 
 - Next.js-Scaffold, TypeScript strict, Ordnerstruktur, Docker Compose (App + Postgres), `.env.example`
 - Modernist-Tokens als Basis-Stylesheet, App-Shell: Desktop-Sidebar und Mobile-Tabs
@@ -138,6 +138,19 @@ Jeder Meilenstein ist eine Session und endet mit zwei Review-Stufen:
 - Lint inkl. Design-System-Adherence, Vitest, GitHub Actions
 
 **Review-Fokus**: Keine Hex-Werte und keine rohen Pixelwerte außerhalb der Tokens · kein Border-Radius · Button-Labels linksbündig · Fokusring 2px Akzent · jede Regel aus Abschnitt 2 hat mindestens einen Test inkl. Grenzfall (genau 21 Tage, genau 3 Tage, genau 10 Erinnerungen).
+
+**Ergebnis des Abschluss-Reviews:** 176 Tests grün, davon 4 gegen eine echte Postgres-Instanz.
+Alle 33 Regeln tragen mindestens einen Test, der ihre Nummer im Namen führt. Drei Befunde
+wurden im Zuge des Reviews behoben:
+
+1. `describeLeadTime` bildete „in 7 Tage" statt „in 7 Tagen" — die Stundenangabe braucht nach
+   „in" den Dativ. Dafür gibt es jetzt `describeHoursDative`.
+2. Die Duplikaterkennung beim Spielimport griff nicht: `timestamptz` speichert Mikrosekunden,
+   JavaScript liest nur Millisekunden, und ein zurückgeschriebener Zeitstempel traf deshalb
+   nie den Unique-Index. Die Spalte steht jetzt auf Sekundengenauigkeit.
+3. Die Basisklasse `.btn` des Design-Systems zentriert Beschriftungen, obwohl der Leitfaden
+   linksbündige verlangt — das Mockup korrigiert das an jedem einzelnen Button. Die Korrektur
+   steht jetzt einmal zentral in `app.css`.
 
 ### M2 — Öffentliche Ansicht und Anmeldung
 

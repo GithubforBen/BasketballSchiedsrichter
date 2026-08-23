@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: schiriplan
+          POSTGRES_PASSWORD: schiriplan
+          POSTGRES_DB: schiriplan
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U schiriplan"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://schiriplan:schiriplan@localhost:5432/schiriplan
+      TEST_DATABASE_URL: postgres://schiriplan:schiriplan@localhost:5432/schiriplan
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Typen
+        run: npm run typecheck
+
+      - name: Lint und Design-System-Treue
+        run: npm run lint
+
+      - name: Schema einspielen
+        run: npm run db:migrate
+
+      - name: Regel-Engine und Datenbank-Zusicherungen
+        run: npm run test
+
+      - name: Beispieldaten laden
+        run: npm run db:seed
+
+      - name: Build
+        run: npm run build

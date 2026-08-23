@@ -1,0 +1,245 @@
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  smallint,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
+
+/**
+ * Datenmodell. Ein Verein, deshalb ohne Mandantenschluessel (PLAN.md Abschnitt 1).
+ *
+ * Zeitstempel liegen als `timestamptz` in UTC; die Vereinszeitzone gilt nur fuer
+ * die Anzeige und fuer die Tagesgrenze in Regel 6.
+ */
+
+export const leagues = pgTable('leagues', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  active: boolean('active').notNull().default(true),
+  sortOrder: integer('sort_order').notNull().default(0),
+});
+
+export const referees = pgTable(
+  'referees',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    /** Oeffentlich sichtbares Kuerzel. Regel 29. */
+    initials: text('initials').notNull(),
+    /** In E.164, damit der Nachrichtenversand keine Formate raten muss. */
+    phone: text('phone').notNull(),
+    role: text('role', { enum: ['referee', 'admin'] })
+      .notNull()
+      .default('referee'),
+    avatarUrl: text('avatar_url'),
+    active: boolean('active').notNull().default(true),
+    /** Persoenliche Erinnerungen als Vorlauf in Stunden. Regel 21. */
+    reminderHours: jsonb('reminder_hours').$type<number[]>().notNull().default([]),
+    /** Bildschirm, der nach dem Login zuerst geoeffnet wird. */
+    lastScreen: text('last_screen'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('referees_phone_key').on(table.phone),
+    uniqueIndex('referees_initials_key').on(table.initials),
+  ],
+);
+
+export const qualifications = pgTable(
+  'qualifications',
+  {
+    refereeId: text('referee_id')
+      .notNull()
+      .references(() => referees.id, { onDelete: 'cascade' }),
+    leagueId: text('league_id')
+      .notNull()
+      .references(() => leagues.id, { onDelete: 'cascade' }),
+  },
+  (table) => [primaryKey({ columns: [table.refereeId, table.leagueId] })],
+);
+
+export const games = pgTable(
+  'games',
+  {
+    id: text('id').primaryKey(),
+    /**
+     * Auf Sekunden genau. Spiele werden minutengenau angesetzt, und die
+     * Duplikaterkennung unten vergleicht diesen Wert: mit der voreingestellten
+     * Mikrosekunden-Genauigkeit wuerde ein aus der Datenbank gelesener und
+     * erneut geschriebener Zeitstempel nicht mehr auf sich selbst passen,
+     * weil JavaScript nur Millisekunden kennt.
+     */
+    kickoff: timestamp('kickoff', { withTimezone: true, precision: 0 }).notNull(),
+    leagueId: text('league_id')
+      .notNull()
+      .references(() => leagues.id),
+    home: text('home').notNull(),
+    away: text('away').notNull(),
+    venue: text('venue').notNull(),
+    state: text('state', { enum: ['scheduled', 'moved', 'cancelled'] })
+      .notNull()
+      .default('scheduled'),
+    /** Zaehler fuer Verschiebungen — geht in den Idempotenzschluessel der Nachricht. */
+    relocationVersion: integer('relocation_version').notNull().default(0),
+    /** Admin-Freigaben pro Spiel. Regeln 6, 7, 8. */
+    overrideWithdraw: boolean('override_withdraw').notNull().default(false),
+    overrideSubstituteRequest: boolean('override_substitute_request').notNull().default(false),
+    overrideOneGamePerDay: boolean('override_one_game_per_day').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('games_kickoff_idx').on(table.kickoff),
+    /**
+     * Duplikaterkennung fuer den CSV-Import: dasselbe Spiel zur selben Zeit
+     * zwischen denselben Mannschaften gibt es nur einmal.
+     */
+    uniqueIndex('games_natural_key').on(table.kickoff, table.home, table.away),
+  ],
+);
+
+export const assignments = pgTable(
+  'assignments',
+  {
+    gameId: text('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    /** 0 und 1 sind Schiedsrichter, 2 und 3 Ersatz. Regel 1. */
+    slotIndex: smallint('slot_index').notNull(),
+    refereeId: text('referee_id')
+      .notNull()
+      .references(() => referees.id),
+    claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Pflichtbestaetigung. Regeln 10-12. */
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    /** Tatsaechlicher Einsatz. null = noch nicht entschieden. Regeln 25-27. */
+    playedAsReferee: boolean('played_as_referee'),
+  },
+  (table) => [
+    /**
+     * Der Kern von First come, first served: zwei gleichzeitige Eintragungen
+     * auf denselben Platz koennen nicht beide gewinnen. Regel 3.
+     */
+    primaryKey({ columns: [table.gameId, table.slotIndex] }),
+    /** Regel 5: niemand belegt zwei Plaetze im selben Spiel. */
+    uniqueIndex('assignments_one_slot_per_referee').on(table.gameId, table.refereeId),
+  ],
+);
+
+/** Laufende Nachrueck-Anfragen. Regeln 13-15. */
+export const promotionOffers = pgTable(
+  'promotion_offers',
+  {
+    id: text('id').primaryKey(),
+    gameId: text('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    targetSlot: smallint('target_slot').notNull(),
+    substituteSlot: smallint('substitute_slot').notNull(),
+    refereeId: text('referee_id')
+      .notNull()
+      .references(() => referees.id),
+    respondBy: timestamp('respond_by', { withTimezone: true }).notNull(),
+    outcome: text('outcome', { enum: ['pending', 'accepted', 'declined', 'expired'] })
+      .notNull()
+      .default('pending'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('promotion_offers_game_idx').on(table.gameId)],
+);
+
+/** Anmeldung per Magic-Link und Code. Beide Wege teilen sich einen Datensatz. */
+export const loginTokens = pgTable(
+  'login_tokens',
+  {
+    id: text('id').primaryKey(),
+    refereeId: text('referee_id')
+      .notNull()
+      .references(() => referees.id, { onDelete: 'cascade' }),
+    /** Nur Hashes, nie der Klartext — der steht ausschliesslich in der Nachricht. */
+    linkTokenHash: text('link_token_hash').notNull(),
+    codeHash: text('code_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    attempts: integer('attempts').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('login_tokens_referee_idx').on(table.refereeId)],
+);
+
+/**
+ * Ausgehende Nachrichten. Regel 33: jede Zeile ist eine bezahlte Nachricht,
+ * `costUnits` macht die Kosten auswertbar. `key` verhindert Doppelversand.
+ */
+export const notificationOutbox = pgTable(
+  'notification_outbox',
+  {
+    id: text('id').primaryKey(),
+    key: text('key').notNull(),
+    kind: text('kind').notNull(),
+    channel: text('channel', { enum: ['whatsapp', 'email', 'dev'] }).notNull(),
+    recipientId: text('recipient_id')
+      .notNull()
+      .references(() => referees.id, { onDelete: 'cascade' }),
+    gameId: text('game_id').references(() => games.id, { onDelete: 'cascade' }),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    costUnits: integer('cost_units').notNull().default(1),
+    state: text('state', { enum: ['queued', 'sent', 'failed'] })
+      .notNull()
+      .default('queued'),
+    attempts: integer('attempts').notNull().default(0),
+    sendAfter: timestamp('send_after', { withTimezone: true }).notNull().defaultNow(),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    lastError: text('last_error'),
+  },
+  (table) => [
+    uniqueIndex('notification_outbox_key').on(table.key, table.recipientId),
+    index('notification_outbox_due_idx').on(table.state, table.sendAfter),
+  ],
+);
+
+/** Vereinsweite Einstellungen als einzelne Zeile — es gibt genau einen Verein. */
+export const settings = pgTable('settings', {
+  id: smallint('id').primaryKey().default(1),
+  withdrawDeadlineDays: integer('withdraw_deadline_days').notNull().default(21),
+  substituteRequestDeadlineDays: integer('substitute_request_deadline_days').notNull().default(3),
+  confirmationLeadHours: integer('confirmation_lead_hours').notNull().default(72),
+  confirmationFollowUpHours: integer('confirmation_follow_up_hours').notNull().default(24),
+  reminderLimit: integer('reminder_limit').notNull().default(10),
+  reminderCostWarningFrom: integer('reminder_cost_warning_from').notNull().default(4),
+  reminderMinHours: integer('reminder_min_hours').notNull().default(1),
+  reminderMaxHours: integer('reminder_max_hours').notNull().default(168),
+  promotionResponseHours: integer('promotion_response_hours').notNull().default(12),
+  oneGamePerDay: boolean('one_game_per_day').notNull().default(true),
+  rotation: boolean('rotation').notNull().default(true),
+  rotationWindow: text('rotation_window', { enum: ['week', 'month', 'season'] })
+    .notNull()
+    .default('week'),
+  autoNudge: boolean('auto_nudge').notNull().default(true),
+  alertUnfilled: boolean('alert_unfilled').notNull().default(true),
+  alertConfirmationOverdue: boolean('alert_confirmation_overdue').notNull().default(true),
+  alertSubstituteMissing: boolean('alert_substitute_missing').notNull().default(true),
+  alertCancellation: boolean('alert_cancellation').notNull().default(true),
+  alertDailyDigest: boolean('alert_daily_digest').notNull().default(true),
+  alertAfterImport: boolean('alert_after_import').notNull().default(false),
+});
+
+/** Wer hat was geaendert. Jede Admin-Aktion landet hier. */
+export const auditLog = pgTable(
+  'audit_log',
+  {
+    id: text('id').primaryKey(),
+    actorId: text('actor_id').references(() => referees.id, { onDelete: 'set null' }),
+    action: text('action').notNull(),
+    gameId: text('game_id').references(() => games.id, { onDelete: 'cascade' }),
+    subjectId: text('subject_id'),
+    detail: jsonb('detail').$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('audit_log_created_idx').on(table.createdAt)],
+);

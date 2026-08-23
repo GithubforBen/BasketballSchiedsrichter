@@ -1,0 +1,45 @@
+# Betrieb auf dem VPS. Nach aussen ist nichts offen — der Zugriff laeuft
+# ausschliesslich ueber den Cloudflare Tunnel, der als eigener Dienst neben
+# der App laeuft und sie unter ihrem internen Namen erreicht.
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: schiriplan
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-schiriplan}
+      POSTGRES_DB: schiriplan
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U schiriplan']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://schiriplan:${POSTGRES_PASSWORD:-schiriplan}@db:5432/schiriplan
+      NODE_ENV: production
+    env_file:
+      - .env
+    # Kein "ports"-Eintrag: die App ist nur im Compose-Netz erreichbar.
+    expose:
+      - '3000'
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - app
+
+volumes:
+  db-data:

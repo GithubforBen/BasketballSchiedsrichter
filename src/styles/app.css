@@ -1,0 +1,331 @@
+/*
+ * App-Ebene ueber dem Design-System.
+ *
+ * "modernist.css" ist unveraendert aus dem Handoff uebernommen und bleibt es
+ * auch — hier steht nur, was die Anwendung darueber hinaus braucht. Jede Farbe,
+ * jeder Abstand kommt aus den Tokens; ein roher Hex-Wert waere ein Regelbruch.
+ */
+
+:root {
+  /*
+   * Statusfarben. Das Design-System kennt nur einen Akzent, die Ampel braucht
+   * drei Stufen. Gruen und Amber stammen aus dem Mockup und stehen deshalb hier
+   * einmalig als Token — nirgends sonst im Code als Literal.
+   */
+  --status-open: var(--color-accent);
+  --status-substitute-missing: #c58a00;
+  --status-filled: #1f7a4d;
+
+  --status-open-tint: color-mix(in srgb, var(--status-open) 10%, transparent);
+  --status-substitute-missing-tint: color-mix(
+    in srgb,
+    var(--status-substitute-missing) 12%,
+    transparent
+  );
+  --status-filled-tint: color-mix(in srgb, var(--status-filled) 10%, transparent);
+
+  --shell-sidebar-width: 250px;
+  --shell-tabbar-height: 56px;
+  --text-dim: color-mix(in srgb, var(--color-text) 55%, transparent);
+  --text-dimmer: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* — Grundraster: Sidebar am Desktop, Tab-Leiste am Handy — */
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.shell-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 2px solid var(--color-divider);
+}
+
+.shell-brand {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 18px;
+  margin-right: auto;
+}
+
+.shell-brand-mark {
+  color: var(--color-accent);
+}
+
+.shell-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.shell-nav {
+  display: none;
+}
+
+.shell-main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-6) var(--space-8);
+  padding-bottom: calc(var(--shell-tabbar-height) + var(--space-6));
+}
+
+.shell-tabbar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  border-top: 2px solid var(--color-divider);
+  background: var(--color-bg);
+}
+
+.shell-tab {
+  flex: 1;
+  padding: var(--space-3) 0;
+  font-size: 10px;
+  text-align: center;
+  color: var(--text-dim);
+  text-decoration: none;
+  border-bottom: 3px solid transparent;
+}
+
+.shell-tab[aria-current='page'] {
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
+.shell-tab:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+@media (min-width: 1024px) {
+  .shell-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: var(--shell-sidebar-width);
+    flex: none;
+    padding: var(--space-4) 0;
+    border-right: 2px solid var(--color-divider);
+  }
+
+  .shell-main {
+    padding-bottom: var(--space-8);
+  }
+
+  .shell-tabbar {
+    display: none;
+  }
+}
+
+/* — Seitennavigation — */
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 10px var(--space-4);
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--color-text);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+}
+
+.nav-item:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.nav-item[aria-current='page'] {
+  font-weight: var(--font-heading-weight);
+  color: var(--color-accent-700);
+  background: var(--color-accent-100);
+  border-left-color: var(--color-accent);
+}
+
+.nav-item-label {
+  flex: 1;
+}
+
+.nav-footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-4) var(--space-4) 0;
+  border-top: 1px solid var(--color-divider);
+}
+
+.nav-footer a {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.nav-footer a:hover,
+.nav-footer a[aria-current='page'] {
+  color: var(--color-accent);
+}
+
+/* — Kleinteile, die im Mockup mehrfach vorkommen — */
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-6);
+}
+
+.page-head-text {
+  flex: 1;
+  min-width: 280px;
+}
+
+.kicker {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.kicker-accent {
+  color: var(--color-accent);
+  letter-spacing: 0.1em;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 12px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  display: block;
+}
+
+.initials {
+  display: grid;
+  place-items: center;
+  flex: none;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  background: var(--color-text);
+  color: var(--color-bg);
+}
+
+.initials-vacant {
+  background: var(--color-neutral-400);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  flex: none;
+  width: 52px;
+  height: 28px;
+  padding: 3px;
+  background: none;
+  border: 2px solid var(--color-divider);
+  cursor: pointer;
+  justify-content: flex-start;
+}
+
+.toggle[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  justify-content: flex-end;
+}
+
+.toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.toggle-knob {
+  display: block;
+  width: 18px;
+  height: 18px;
+  background: var(--color-neutral-400);
+}
+
+.toggle[aria-pressed='true'] .toggle-knob {
+  background: var(--color-accent);
+}
+
+.note {
+  border-left: 3px solid var(--color-divider);
+  padding: var(--space-2) var(--space-3);
+  font-size: 12px;
+}
+
+.note-accent {
+  border-left-color: var(--color-accent);
+  background: var(--color-accent-100);
+}
+
+.panel {
+  border: 2px solid var(--color-text);
+  padding: var(--space-4);
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.scroll-x {
+  overflow-x: auto;
+}
+
+/* Sichtbar nur fuer Screenreader — fuer Beschriftungen, die visuell aus dem
+   Zusammenhang hervorgehen, aber vorgelesen werden muessen. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/*
+ * Das Design-System schreibt linksbuendige Beschriftungen vor — auch in
+ * Buttons, die breiter sind als ihr Text. Die Basisklasse in modernist.css
+ * zentriert sie noch; das Mockup korrigiert das an jedem einzelnen Button.
+ * Hier steht die Korrektur einmal zentral, statt an jeder Verwendung.
+ */
+.btn {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+/* Icon-Buttons haben keine Beschriftung, die buendig stehen koennte. */
+.btn-icon {
+  justify-content: center;
+}
