@@ -94,6 +94,11 @@ Compose-Verbund ruft ein eigener Dienst den Endpunkt alle fünf Minuten im inter
 | `email` | Übergangskanal über `SMTP_URL`; `MAIL_TEST_RECIPIENT` lenkt alles auf ein Postfach. |
 | `whatsapp` | Meta Cloud API über `WHATSAPP_PHONE_NUMBER_ID` und `WHATSAPP_ACCESS_TOKEN`. |
 
+Für den WhatsApp-Kanal müssen die Nachrichtentexte vorab bei Meta als Vorlagen freigegeben sein.
+Welche das sind, mit welchem Wortlaut und in welcher Kategorie, steht in
+[docs/whatsapp-vorlagen.md](docs/whatsapp-vorlagen.md) — dort auch, was der Code dafür noch
+braucht.
+
 Jede Nachricht kostet den Verein Geld (Regel 33). Deshalb gilt: aussichtslose Fehler — eine
 Nummer ohne WhatsApp, eine abgelehnte Vorlage — werden nicht wiederholt, vorübergehende mit
 wachsendem Abstand bis zu fünfmal. Ein Lauf verschickt höchstens 200 Nachrichten, ein
