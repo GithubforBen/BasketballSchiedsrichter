@@ -54,26 +54,24 @@ const NewGames = async ({ searchParams }: PageProps) => {
       hint={single(params.hinweis)}
       error={single(params.fehler)}
       actions={
+        /*
+         * Der Umschalter ist hier aus Links gebaut, nicht aus Radio-Feldern —
+         * er wechselt die Seite. `aria-current` sagt, welcher gerade gilt; die
+         * Einfaerbung kommt aus `.seg-opt[aria-current]` in app.css und nicht
+         * mehr aus einem Inline-Stil, der die Kontrast-Korrektur umgangen hat.
+         */
         <div className="seg">
           <Link
             href="/anlegen"
             className="seg-opt"
-            style={
-              tab === 'einzeln'
-                ? { background: 'var(--color-accent)', color: 'var(--color-bg)' }
-                : undefined
-            }
+            aria-current={tab === 'einzeln' ? 'page' : undefined}
           >
             Einzeln
           </Link>
           <Link
             href="/anlegen?tab=csv"
             className="seg-opt"
-            style={
-              tab === 'csv'
-                ? { background: 'var(--color-accent)', color: 'var(--color-bg)' }
-                : undefined
-            }
+            aria-current={tab === 'csv' ? 'page' : undefined}
           >
             CSV-Import
           </Link>

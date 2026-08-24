@@ -24,7 +24,11 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
-const COLORS: Record<string, string> = {
+/*
+ * Der Farbbalken links an der Meldung. Er ist Flaeche, keine Schrift, und
+ * behaelt deshalb den vollen Ton aus dem Mockup — Flaechen brauchen 3:1.
+ */
+const BAR_COLORS: Record<string, string> = {
   unfilled: 'var(--status-open)',
   'confirmation-overdue': 'var(--status-substitute-missing)',
   'substitute-missing': 'var(--status-substitute-missing)',
@@ -65,7 +69,7 @@ const Alerts = async ({ searchParams }: PageProps) => {
         <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {alerts.map((alert, index) => {
             const game = gameById.get(alert.gameId);
-            const color = COLORS[alert.kind] ?? 'var(--status-open)';
+            const color = BAR_COLORS[alert.kind] ?? 'var(--status-open)';
             return (
               <li key={`${alert.gameId}-${alert.kind}-${index}`} className="alert">
                 <span className="alert-bar" style={{ background: color }} aria-hidden="true" />

@@ -64,6 +64,3 @@ export const editGameRoute = (gameId: string, result?: { ok: boolean; message: s
     spiel: gameId,
     ...(result ? { [result.ok ? 'hinweis' : 'fehler']: result.message } : {}),
   });
-
-/** Die Spielübersicht, wahlweise auf einem bestimmten Spieltag. */
-export const overviewRoute = (day?: string): Route => withQuery('/uebersicht', { tag: day });

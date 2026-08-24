@@ -1,5 +1,5 @@
 import { slotKind } from './slots';
-import { hours, msUntil } from './time';
+import { hours } from './time';
 import type { ClubSettings, Game, Slot } from './types';
 
 /**
@@ -31,7 +31,7 @@ export const confirmationDueAt = (game: Game, settings: ClubSettings): Date =>
  * selben Augenblick "ueberfaellig", in dem er sich eingetragen hat: er bekaeme
  * Bitte und Mahnung zusammen, zu einer Frage, die ihm nie gestellt wurde.
  */
-export const confirmationRequestedAt = (
+const confirmationRequestedAt = (
   claimedAt: Date,
   game: Game,
   settings: ClubSettings,
@@ -86,10 +86,3 @@ export const openConfirmations = (
     const state = confirmationState(s, game, settings, now);
     return state === 'pending' || state === 'overdue';
   });
-
-/** Verbleibende Zeit bis zur Anforderung — fuer den Scheduler in M5. */
-export const msUntilConfirmationRequest = (
-  game: Game,
-  settings: ClubSettings,
-  now: Date,
-): number => msUntil(confirmationDueAt(game, settings), now);

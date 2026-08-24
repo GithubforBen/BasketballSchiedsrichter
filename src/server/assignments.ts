@@ -6,8 +6,8 @@ import { CLUB } from '@/config/club';
 import { assignmentIntent } from '@/domain/notifications';
 import { canClaimSlot, canRequestSubstitute, canWithdraw } from '@/domain/rules';
 import { buildSlots, nextFreeSlot, slotOf, SLOT_LABELS } from '@/domain/slots';
-import { calendarDay, days } from '@/domain/time';
-import type { ClubSettings, Game, Referee, Slot, SlotIndex } from '@/domain/types';
+import { days } from '@/domain/time';
+import type { ClubSettings, Game, Referee, Slot } from '@/domain/types';
 import { loadSettings } from './queries/settings';
 import { toAssignment, toGame } from './queries/games';
 import { loadReferee } from './queries/referees';
@@ -284,14 +284,6 @@ const writeAudit = async (writer: Writer, entry: AuditEntry): Promise<void> => {
 };
 
 
-/** Der Platz, auf dem diese Person in diesem Spiel steht — oder null. */
-export const ownSlotIndex = (
-  slots: ReturnType<typeof buildSlots>,
-  refereeId: string,
-): SlotIndex | null => slotOf(slots, refereeId)?.index ?? null;
-
-export const calendarDayOf = (game: Game): string => calendarDay(game.kickoff, CLUB.timeZone);
-
 /**
  * Antwort auf eine Verschiebung. Regeln 17-18.
  *
@@ -350,12 +342,3 @@ export const respondToRelocation = async (
   return succeed('Abgesagt — der Platz ist wieder offen und die Admins sind informiert.');
 };
 
-/**
- * Ob fuer diese Person zu diesem Spiel eine Rueckmeldung zur Verschiebung
- * aussteht.
- */
-export const relocationPending = (
-  gameState: Game['state'],
-  relocationVersion: number,
-  acknowledged: number,
-): boolean => gameState === 'moved' && relocationVersion > acknowledged;

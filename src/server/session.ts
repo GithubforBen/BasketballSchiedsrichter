@@ -80,7 +80,7 @@ const parse = (body: string): SessionPayload | null => {
 };
 
 /** Vergleich ohne Laufzeitunterschied, damit die Signatur nicht erratbar wird. */
-export const equalsInConstantTime = (a: string, b: string): boolean => {
+const equalsInConstantTime = (a: string, b: string): boolean => {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
   if (left.length !== right.length) return false;

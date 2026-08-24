@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { adminResultRoute } from '@/routes';
-import { createReferee, setQualification, updateReferee } from '@/server/admin/referees';
+import { createReferee, deleteReferee, setQualification, updateReferee } from '@/server/admin/referees';
 import { requireAdmin } from '@/server/guard';
 
 /** Schiedsrichter-Verwaltung. Regel 30: nur hier änderbar. */
@@ -48,6 +48,29 @@ export const toggleQualificationAction = async (formData: FormData): Promise<voi
     read(formData, 'liga'),
     read(formData, 'wert') === 'an',
   );
+  revalidatePath('/schiris');
+  redirect(adminResultRoute('/schiris', result));
+};
+
+/**
+ * Loescht ein Konto samt allen Daten. Unumkehrbar.
+ *
+ * Die Rueckfrage steht im Formular und wird hier ein zweites Mal geprueft:
+ * ein Knopf, der beim ersten Klick ein Konto samt Verlauf entfernt, waere
+ * fahrlaessig, und eine Rueckfrage, die nur im Browser existiert, ist keine.
+ */
+export const deleteRefereeAction = async (formData: FormData): Promise<void> => {
+  const user = await requireAdmin();
+  if (read(formData, 'bestaetigt') !== 'ja') {
+    revalidatePath('/schiris');
+    redirect(
+      adminResultRoute('/schiris', {
+        ok: false,
+        message: 'Löschen nicht bestätigt — das Konto ist unverändert.',
+      }),
+    );
+  }
+  const result = await deleteReferee(user.id, read(formData, 'person'));
   revalidatePath('/schiris');
   redirect(adminResultRoute('/schiris', result));
 };

@@ -1,10 +1,11 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq, gte, inArray, lt, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, ne } from 'drizzle-orm';
 import { CLUB } from '@/config/club';
 import { db, schema } from '@/db';
 import { promotionOfferIntent, type NotificationIntent } from '@/domain/notifications';
 import { rotationWindowStart } from '@/domain/rotation';
+import { hours } from '@/domain/time';
 import { buildSlots } from '@/domain/slots';
 import {
   planNotifications,
@@ -18,6 +19,7 @@ import type { SlotIndex } from '@/domain/types';
 import { toAssignment, toGame } from './queries/games';
 import { loadAllReferees } from './queries/referees';
 import { loadAlertSettings, loadSettings } from './queries/settings';
+import { applyRetention, type RetentionResult } from './aufbewahrung';
 import { dispatchOutbox, enqueueAll, type DispatchResult } from './outbox';
 
 /**
@@ -29,12 +31,17 @@ import { dispatchOutbox, enqueueAll, type DispatchResult } from './outbox';
  * die Zahlen kommen und wohin das Ergebnis geht.
  */
 
+/** Wie oft aufgeraeumt wird. Taeglich genuegt — die Fristen zaehlen in Tagen. */
+const RETENTION_INTERVAL_HOURS = 24;
+
 export interface SchedulerRun {
   /**
    * Tatsaechlich neu angelegte Nachrichten. Bei einem zweiten Lauf ueber
    * unveraenderten Daten ist das null — die Schluessel gibt es schon.
    */
   queued: number;
+  /** Geloeschte Zeilen, deren Aufbewahrungsfrist abgelaufen war. M6. */
+  pruned: RetentionResult | null;
   /** Abgelaufene Nachrueck-Anfragen. Regel 14. */
   expired: number;
   /** Neu gestellte Nachrueck-Anfragen. Regel 13. */
@@ -187,13 +194,46 @@ export const runScheduler = async (now: Date = new Date()): Promise<SchedulerRun
 
   const queued = await enqueueAll(db, intents);
   const dispatch = await dispatchOutbox({ now });
+  const pruned = await pruneIfDue(now);
 
   return {
     queued,
+    pruned,
     expired: plan.expiredOfferIds.length,
     offered: plan.newOffers.length,
     dispatch,
   };
+};
+
+/**
+ * Raeumt hoechstens einmal am Tag auf.
+ *
+ * Der Zeitgeber laeuft alle fuenf Minuten; bei jedem Lauf vier Loeschabfragen
+ * ueber die groessten Tabellen zu schicken, waere Verschwendung. Der Zeitpunkt
+ * des letzten Laufs steht im Pruefprotokoll — bewusst dort und nicht im
+ * Arbeitsspeicher, damit ein Neustart die Frist nicht zuruecksetzt.
+ */
+const pruneIfDue = async (now: Date): Promise<RetentionResult | null> => {
+  const last = await db
+    .select({ createdAt: schema.auditLog.createdAt })
+    .from(schema.auditLog)
+    .where(eq(schema.auditLog.action, 'aufbewahrung.lauf'))
+    .orderBy(desc(schema.auditLog.createdAt))
+    .limit(1);
+
+  const previous = last[0]?.createdAt;
+  if (previous && now.getTime() - previous.getTime() < hours(RETENTION_INTERVAL_HOURS)) {
+    return null;
+  }
+
+  const pruned = await applyRetention(now);
+  await db.insert(schema.auditLog).values({
+    id: randomUUID(),
+    actorId: null,
+    action: 'aufbewahrung.lauf',
+    detail: { ...pruned },
+  });
+  return pruned;
 };
 
 /**

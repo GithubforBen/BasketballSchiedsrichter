@@ -38,6 +38,16 @@ export const Shell = ({
   children,
 }: ShellProps) => (
   <div className="shell">
+    {/*
+      Sprungmarke. Sichtbar erst beim Tabben, dann als erstes Element der Seite.
+      Ohne sie muesste sich jemand, der mit der Tastatur bedient, auf jeder
+      Seite erneut durch die gesamte Navigation arbeiten, bevor er beim Inhalt
+      ankommt — bei sieben Zielen im Adminbereich sind das sieben Anschlaege
+      pro Seitenwechsel.
+    */}
+    <a className="skip-link" href="#inhalt">
+      Zum Inhalt springen
+    </a>
     <header className="shell-topbar">
       <div className="shell-brand">
         {CLUB.appName} <span className="shell-brand-mark">·</span> {CLUB.shortName}
@@ -91,10 +101,17 @@ export const Shell = ({
         ) : null}
       </nav>
 
-      <main className="shell-main">{children}</main>
+      <main className="shell-main" id="inhalt" tabIndex={-1}>
+        {children}
+      </main>
     </div>
 
-    <nav className="shell-tabbar" aria-label="Hauptnavigation">
+    {/*
+      Eigener Name: die Seitenleiste heisst schon "Hauptnavigation". Zwei
+      Bereiche mit demselben Namen sind fuer einen Screenreader nicht
+      auseinanderzuhalten, auch wenn immer nur einer sichtbar ist.
+    */}
+    <nav className="shell-tabbar" aria-label="Bereiche">
       {tabTargets(nav, tabs).map((item) => (
         <Link
           key={item.href}

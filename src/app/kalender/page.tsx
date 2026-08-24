@@ -20,10 +20,11 @@ import { loadSettings } from '@/server/queries/settings';
 export const metadata: Metadata = { title: `Kalender & Verlauf · ${CLUB.appName}` };
 export const dynamic = 'force-dynamic';
 
+/* Schriftvarianten der Ampel — die vollen Toene sind als Text zu blass. */
 const CONFIRMATION_COLORS: Record<string, string> = {
-  confirmed: 'var(--status-filled)',
-  pending: 'var(--status-substitute-missing)',
-  overdue: 'var(--status-open)',
+  confirmed: 'var(--status-filled-text)',
+  pending: 'var(--status-substitute-missing-text)',
+  overdue: 'var(--status-open-text)',
   scheduled: 'var(--text-dim)',
   'not-required': 'var(--text-dim)',
 };
@@ -123,7 +124,7 @@ const Calendar = async () => {
                     <td className="text-muted">{entry.role}</td>
                     <td
                       style={{
-                        color: entry.countsForStats ? 'var(--status-filled)' : 'var(--text-dim)',
+                        color: entry.countsForStats ? 'var(--status-filled-text)' : 'var(--text-dim)',
                       }}
                     >
                       {entry.countsForStats ? 'gezählt' : 'zählt nicht'}

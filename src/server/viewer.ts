@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
-import type { Viewer } from '@/domain/visibility';
 import { env } from './env';
 import { readSession, SESSION_COOKIE } from './session';
 
@@ -50,8 +49,3 @@ export const currentUser = async (now: Date = new Date()): Promise<CurrentUser |
     lastScreen: row.lastScreen,
   };
 };
-
-export const viewerOf = (user: CurrentUser | null): Viewer =>
-  user === null
-    ? { kind: 'anonymous' }
-    : { kind: user.role === 'admin' ? 'admin' : 'referee', refereeId: user.id };

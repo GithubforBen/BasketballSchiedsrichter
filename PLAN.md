@@ -369,7 +369,7 @@ Bewusst so gebaut:
 Nebenbei: `tsconfig.tsbuildinfo` lag seit M2 in der Versionsverwaltung. Ein reines
 Build-Artefakt, das sich bei jedem Lauf ändert — jetzt in `.gitignore`.
 
-### M6 — Härtung und Abnahme
+### M6 — Härtung und Abnahme ✅ fertig
 
 - Barrierefreiheit: Tastaturbedienung, Kontraste, Fokusreihenfolge, Screenreader-Beschriftungen
 - Responsive-Feinschliff gegen beide Artboards, Screen für Screen
@@ -387,6 +387,71 @@ Build-Artefakt, das sich bei jedem Lauf ändert — jetzt in `.gitignore`.
 - Deployment auf den VPS, Cloudflare Tunnel, Backups, Monitoring
 
 **Review-Fokus — großes Abschluss-Review**: Screen-für-Screen-Abgleich gegen `design/Schiri-Planer Mockup.dc.html` · alle 33 Regeln nachweislich getestet und fachlich richtig · Tests prüfen Verhalten, nicht Implementierung · kein toter Code · Design-System-Treue durchgehend.
+
+**Ergebnis des großen Abschluss-Reviews:** 481 Unit- und Integrationstests, 167 E2E-Tests auf
+Desktop und Handy — zweimal hintereinander grün. Alle **14 Bildschirme** (13 aus dem Mockup plus
+„Spiele nachpflegen") wurden auf beiden Geräteklassen gegen ihre Kernelemente aus Abschnitt 3
+geprüft: alle vollständig, keiner scrollt waagerecht. Alle **33 Regeln** tragen weiterhin einen
+Test mit ihrer Nummer im Namen. Kein roher Hex-Wert außerhalb der Tokens, kein Border-Radius,
+kein `any`, die Regel-Engine bleibt frei von Datenbank und Oberfläche.
+
+Sechs Befunde:
+
+1. **Die Farben des Handoffs halten den Kontrast für Text nicht ein.** Gemessen: gedämpfter Text
+   3,66:1, Tabellenköpfe 4,23:1, der Akzent als Schrift *und* als Fläche hinter heller Schrift
+   3,76:1, Amber als Schrift 2,68:1 — WCAG 2.1 AA verlangt 4,5:1. Jeder einzelne Bildschirm fiel
+   durch. Die Regel dafür steht jetzt in `app.css`: **der Farbton bleibt, die Helligkeit gibt
+   nach, sobald Schrift im Spiel ist.** Punkte, Balken und Rahmen behalten die vollen Töne — sie
+   tragen keinen Text und brauchen nur 3:1. Gerechnet wird gegen den *dunkelsten* Untergrund,
+   auf dem eine Farbe vorkommt: 15 % Abdunklung reichten gegen die Seite, nicht gegen die
+   eingefärbte Tabellenzeile.
+2. **Zwei Navigationsbereiche hießen beide „Hauptnavigation".** Für einen Screenreader sind sie
+   damit nicht auseinanderzuhalten, auch wenn immer nur einer sichtbar ist.
+3. **Es gab keine Sprungmarke.** Wer mit der Tastatur bedient, musste sich auf jeder Seite
+   erneut durch die Navigation arbeiten — im Adminbereich sieben Anschläge pro Seitenwechsel.
+4. **`npm start` konnte einen Build ohne Stylesheets ausliefern, und zwar stumm.** Ohne
+   vorheriges `start:prepare` fehlen die statischen Dateien; der Server antwortet mit 200, die
+   Seite kommt ungestylt. Das hat mich in diesem Review selbst mehrere Minuten gekostet: eine
+   Messung meldete 531 Pixel Überlauf, und der Fehler lag nicht in der App. `start` ruft
+   `start:prepare` jetzt selbst auf.
+5. **Neun tote Exporte** — Funktionen, die niemand mehr aufruft, teils seit M2. Entfernt. Acht
+   weitere waren exportiert, obwohl sie nur im eigenen Modul benutzt werden; sie sind jetzt
+   modulintern.
+6. **`sharp` lag im Auslieferungsstand**, obwohl die Anwendung nirgends `next/image` benutzt.
+   Next legt es unabhängig davon ab. Damit kam ein Paket mit gemeldeten libvips-Lücken ins
+   Abbild, das dort nichts zu tun hat. Über `outputFileTracingExcludes` entfernt: der
+   Auslieferungsstand schrumpft von 81 auf 46 MB.
+
+Bewusst so gebaut:
+
+- **`global-error.tsx` ist die einzige Datei, in der die Design-System-Regeln nicht gelten.** Sie
+  greift, wenn schon das Grundgerüst scheitert; Next ersetzt dann das ganze Dokument samt der
+  Stylesheets, und ein `var(--space-4)` zeigte auf nichts. Der Linter ist dort mit schriftlicher
+  Begründung abgeschaltet.
+- **`src/server/log.ts` ist der einzige Weg ins Serverprotokoll** und nimmt keine freien Texte
+  an — auch keine Fehlermeldung, weil darin eine Telefonnummer aus einer Datenbankabfrage
+  stecken kann. Die ESLint-Regel gegen `console` ist genau für diese eine Datei ausgesetzt,
+  damit die Zusicherung an einer Stelle durchsetzbar bleibt.
+- **Löschen nimmt auch die vergangenen Einsätze mit.** Das ist gemeint, wenn jemand seine
+  Löschung verlangt. Wer nur aufhört und dessen Zahlen bleiben sollen, wird **stillgelegt** —
+  dafür gibt es den Schalter daneben. Wird durch das Löschen ein künftiger Schiedsrichter-Platz
+  frei, zählt die Aktion die Lücke hoch, damit der nächste Lauf ihn ausschreibt.
+- **Der Datenauszug ist Selbstbedienung und nur für die eigenen Daten.** Eine Id aus der Adresse
+  gibt es nicht — sonst wäre der Auskunftsanspruch ein Weg, die Telefonnummer aller anderen
+  abzufragen.
+
+Offen, und zwar bewusst — es kann nur der Verein selbst erledigen:
+
+- Impressum ausfüllen (Anschrift, Vorstand, Kontakt, Registergericht).
+- Datenschutzerklärung juristisch prüfen lassen. Der Entwurf nennt die Fristen, die der Code
+  tatsächlich anwendet.
+- WhatsApp-Vorlagen bei Meta einreichen und freigeben lassen; die Texte stehen geschlossen in
+  `src/notifications/templates.ts`.
+- `SESSION_SECRET`, `CRON_SECRET`, `PUBLIC_BASE_URL` und die Meta-Zugangsdaten setzen.
+- `npm audit` meldet Befunde in `postcss` (über Next) und in der `esbuild`-Kette (über
+  `drizzle-kit`). Beide sind Build-Werkzeuge und im laufenden Betrieb nicht erreichbar;
+  `drizzle-kit` liegt gar nicht im Abbild. Ein Wechsel auf Next 16 wäre ein Breaking Change und
+  gehört nicht in einen Härtungs-Meilenstein.
 
 ---
 

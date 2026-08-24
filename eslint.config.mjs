@@ -81,6 +81,16 @@ export default tseslint.config(
     rules: { 'no-console': 'off' },
   },
   {
+    /*
+     * Der einzige sanktionierte Weg ins Serverprotokoll. Genau deshalb steht
+     * die Regel hier aus: alles andere soll ueber diese Datei gehen, damit die
+     * Zusicherung "keine personenbezogenen Daten im Protokoll" an einer Stelle
+     * durchsetzbar bleibt und nicht an dreissig verstreuten console.log haengt.
+     */
+    files: ['src/server/log.ts'],
+    rules: { 'no-console': 'off' },
+  },
+  {
     files: ['**/*.test.ts', '**/__fixtures__/**'],
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },

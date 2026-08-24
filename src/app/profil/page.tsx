@@ -119,11 +119,24 @@ const Profile = async ({ searchParams }: PageProps) => {
             sie nur dem Admin zur Bearbeitung frei.
           </Note>
 
-          <form action="/abmelden" method="post" style={{ marginTop: 'var(--space-6)' }}>
-            <Button type="submit" variant="secondary">
-              Abmelden
-            </Button>
-          </form>
+          {/*
+            Auskunft nach Artikel 15 DSGVO als Selbstbedienung. Ein Anspruch,
+            für den man erst jemanden ansprechen muss, wird selten eingelöst.
+          */}
+          <div className="row" style={{ marginTop: 'var(--space-6)' }}>
+            <a className="btn" href="/profil/auszug" download>
+              Meine Daten herunterladen
+            </a>
+            <form action="/abmelden" method="post">
+              <Button type="submit" variant="secondary">
+                Abmelden
+              </Button>
+            </form>
+          </div>
+          <p className="text-muted" style={{ fontSize: '12px', marginTop: 'var(--space-2)' }}>
+            Enthält alles, was hier über dich gespeichert ist. Zum Löschen des Kontos wende dich
+            an einen Admin der Abteilung.
+          </p>
         </section>
 
         <section>
@@ -199,9 +212,9 @@ const Profile = async ({ searchParams }: PageProps) => {
                 fontSize: '12px',
                 marginLeft: 'auto',
                 color: atLimit
-                  ? 'var(--status-open)'
+                  ? 'var(--status-open-text)'
                   : active.length >= settings.reminderCostWarningFrom - 1
-                    ? 'var(--status-substitute-missing)'
+                    ? 'var(--status-substitute-missing-text)'
                     : 'var(--text-dim)',
               }}
             >

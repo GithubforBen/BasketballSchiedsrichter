@@ -35,6 +35,15 @@ services:
     # Kein "ports"-Eintrag: die App ist nur im Compose-Netz erreichbar.
     expose:
       - '3000'
+    # Der Healthcheck fragt die Datenbank mit an: ein Prozess, der laeuft, aber
+    # die Datenbank nicht erreicht, kann nichts ausliefern und soll auch nicht
+    # als gesund gelten. busybox-wget statt curl — kein Paket nachzuinstallieren.
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:3000/api/gesundheit || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   # Der Zeitgeber. Er ruft den Cron-Endpunkt der App im internen Netz auf —
   # nicht ueber den Tunnel, damit ein Ausfall von Cloudflare die Erinnerungen
@@ -55,6 +64,32 @@ services:
       --header="authorization: Bearer $$CRON_SECRET"
       http://app:3000/api/cron || echo "Cron-Lauf fehlgeschlagen";
       sleep 300; done'
+
+  # Taegliche Sicherung der Datenbank.
+  #
+  # Sie liegt bewusst als eigener Dienst hier und nicht als Cron-Eintrag auf
+  # dem VPS: so zieht `docker compose up` die Sicherung mit hoch, und wer den
+  # Verbund umzieht, nimmt sie mit. Aufbewahrt werden 14 Staende — genug, um
+  # einen Fehler zu bemerken, der erst nach ein paar Tagen auffaellt.
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-schiriplan}
+    volumes:
+      - ./sicherungen:/sicherungen
+    command: >
+      sh -c 'while true; do
+      ziel="/sicherungen/schiriplan-$$(date +%Y-%m-%d).sql.gz";
+      pg_dump -h db -U schiriplan schiriplan | gzip > "$$ziel.teil"
+      && mv "$$ziel.teil" "$$ziel"
+      && echo "Sicherung: $$ziel"
+      || echo "Sicherung fehlgeschlagen";
+      find /sicherungen -name "schiriplan-*.sql.gz" -mtime +14 -delete;
+      sleep 86400; done'
 
   tunnel:
     image: cloudflare/cloudflared:latest

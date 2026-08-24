@@ -7,6 +7,7 @@ import { isNotificationKind, type NotificationIntent } from '@/domain/notificati
 import { activeChannel, isPermanent, type Channel } from '@/notifications/channel';
 import { renderMessage } from '@/notifications/templates';
 import { startOfLocalDay } from '@/domain/time';
+import { logFailure } from './log';
 import { toGame } from './queries/games';
 import { env } from './env';
 
@@ -304,6 +305,16 @@ export const dispatchOutbox = async (options: DispatchOptions = {}): Promise<Dis
     } catch (error) {
       const giveUp = isPermanent(error) || row.attempts >= MAX_ATTEMPTS;
       await markFailure(row, error, giveUp, now);
+      /*
+       * Ins Protokoll geht die Art des Fehlers, nicht seine Meldung — die kann
+       * die Telefonnummer des Empfaengers enthalten. Der ausfuehrliche Text
+       * steht in der Outbox-Zeile und wird mit der Person geloescht.
+       */
+      logFailure('outbox.versand', error, {
+        art: row.kind,
+        versuche: row.attempts,
+        aufgegeben: giveUp,
+      });
       if (giveUp) result.failed += 1;
       else result.retried += 1;
     }

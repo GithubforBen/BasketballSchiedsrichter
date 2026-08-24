@@ -131,15 +131,16 @@ export const adminGame = async (
                 : 'Bestätigung offen'
             : 'Ersatz'
           : 'offen',
+        /* Schriftvarianten der Ampel — die vollen Toene sind als Text zu blass. */
         stateColor: refereeId
           ? isReferee
             ? state === 'confirmed'
-              ? 'var(--status-filled)'
+              ? 'var(--status-filled-text)'
               : state === 'overdue'
-                ? 'var(--status-open)'
-                : 'var(--status-substitute-missing)'
+                ? 'var(--status-open-text)'
+                : 'var(--status-substitute-missing-text)'
             : 'var(--text-dim)'
-          : 'var(--status-open)',
+          : 'var(--status-open-text)',
       };
     }),
   };

@@ -7,7 +7,7 @@
  */
 
 /** Vorwahl, die bei nationaler Schreibweise ("0151…") angenommen wird. */
-export const DEFAULT_COUNTRY_CODE = '49';
+const DEFAULT_COUNTRY_CODE = '49';
 
 export type PhoneResult =
   | { readonly ok: true; readonly phone: string }

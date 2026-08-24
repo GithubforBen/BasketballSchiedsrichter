@@ -3,6 +3,7 @@ import { Note } from '@/components/primitives';
 import { FOOTER_NAV, PUBLIC_NAV, PUBLIC_TABS } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
+import { DEFAULT_RETENTION } from '@/server/aufbewahrung';
 import { currentUser } from '@/server/viewer';
 
 /**
@@ -67,6 +68,35 @@ const Legal = async () => {
             sind erst nach Anmeldung sichtbar und werden nie ohne Anmeldung ausgeliefert.
             Anmeldungen erfolgen über einen Einmal-Link beziehungsweise einen Einmal-Code, die
             nach 15 Minuten verfallen.
+          </p>
+          <p style={{ fontSize: '13px', lineHeight: 1.7 }}>
+            Beim Aufruf dieser Seite werden keine Daten an Dritte übermittelt: Schriften und alle
+            weiteren Dateien kommen von diesem Server. Externe Schriftdienste, Analysewerkzeuge
+            oder Einbettungen werden nicht verwendet.
+          </p>
+
+          {/*
+            Die Fristen stehen im Code (src/server/aufbewahrung.ts) und hier —
+            beides muss übereinstimmen, sonst behauptet die Seite etwas, das die
+            Anwendung nicht tut.
+          */}
+          <h4 style={{ marginTop: 'var(--space-4)' }}>Aufbewahrung</h4>
+          <ul style={{ fontSize: '13px', lineHeight: 1.7 }}>
+            <li>Anmeldelinks und -codes: {DEFAULT_RETENTION.loginTokensDays} Tage</li>
+            <li>Zähler zum Schutz vor Missbrauch: {DEFAULT_RETENTION.rateLimitsDays} Tage</li>
+            <li>Versandte Nachrichten: {DEFAULT_RETENTION.outboxDays} Tage</li>
+            <li>Protokoll der Admin-Änderungen: {DEFAULT_RETENTION.auditDays} Tage</li>
+            <li>
+              Stammdaten, Eintragungen und Einsatzzahlen: solange das Konto besteht. Beim Löschen
+              des Kontos werden sie vollständig entfernt — auch die vergangenen Einsätze.
+            </li>
+          </ul>
+
+          <h4 style={{ marginTop: 'var(--space-4)' }}>Deine Rechte</h4>
+          <p style={{ fontSize: '13px', lineHeight: 1.7 }}>
+            Angemeldet lädst du unter „Profil“ jederzeit einen vollständigen Auszug deiner Daten
+            herunter. Löschung, Berichtigung und Widerspruch nimmt ein Admin der Abteilung
+            entgegen; die Kontaktdaten stehen im Impressum.
           </p>
           <Note>Entwurf — juristische Prüfung vor dem Echtbetrieb erforderlich.</Note>
         </section>

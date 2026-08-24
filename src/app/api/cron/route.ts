@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
+import { logEvent } from '@/server/log';
 import { runScheduler, previewScheduler } from '@/server/scheduler';
 
 /**
@@ -39,6 +40,21 @@ const denied = (): NextResponse =>
 export const POST = async (request: Request): Promise<NextResponse> => {
   if (!authorised(request)) return denied();
   const run = await runScheduler();
+  /*
+   * Ein Lauf ohne Faelliges bleibt still. Sonst schriebe der Zeitgeber alle
+   * fuenf Minuten eine Zeile, und die eine Zeile, auf die es ankommt, ginge
+   * darin unter.
+   */
+  if (run.queued > 0 || run.dispatch.sent > 0 || run.dispatch.failed > 0) {
+    logEvent('cron.lauf', {
+      angelegt: run.queued,
+      zugestellt: run.dispatch.sent,
+      wiederholt: run.dispatch.retried,
+      aufgegeben: run.dispatch.failed,
+      einheiten: run.dispatch.cost,
+      grenze: run.dispatch.stoppedBy,
+    });
+  }
   return NextResponse.json(run);
 };
 

@@ -26,12 +26,12 @@ export interface IdentifiedReferee extends PublicReferee {
 
 export const canSeeIdentity = (viewer: Viewer): boolean => viewer.kind !== 'anonymous';
 
-export const toPublicReferee = (referee: Referee): PublicReferee => ({
+const toPublicReferee = (referee: Referee): PublicReferee => ({
   id: referee.id,
   initials: referee.initials,
 });
 
-export const toIdentifiedReferee = (referee: Referee): IdentifiedReferee => ({
+const toIdentifiedReferee = (referee: Referee): IdentifiedReferee => ({
   id: referee.id,
   initials: referee.initials,
   name: referee.name,
@@ -47,7 +47,11 @@ export const projectReferee = (
 ): PublicReferee | IdentifiedReferee =>
   canSeeIdentity(viewer) ? toIdentifiedReferee(referee) : toPublicReferee(referee);
 
-/** Felder, die laut Regel 30 ausschliesslich der Admin aendert. */
+/**
+ * Felder, die laut Regel 30 ausschliesslich der Admin aendert.
+ * Bleibt exportiert: die Liste ist die Regel in lesbarer Form, und aus ihr
+ * folgt der Typ darunter — sie enger zu fassen verstecke beides.
+ */
 export const ADMIN_ONLY_FIELDS = ['name', 'initials', 'phone', 'qualifications'] as const;
 export type RefereeField = (typeof ADMIN_ONLY_FIELDS)[number] | 'avatar';
 

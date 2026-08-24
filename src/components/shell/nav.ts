@@ -26,7 +26,7 @@ export const isCurrent = (current: string, href: string): boolean =>
   current === href || (href !== '/' && current.startsWith(`${href}/`));
 
 /** Wie viele Ziele die Tab-Leiste am Handy traegt, ohne zu ueberlaufen. */
-export const MAX_TABS = 4;
+const MAX_TABS = 4;
 
 /**
  * Die Ziele der Tab-Leiste.

@@ -15,6 +15,19 @@ const config: NextConfig = {
   // eslint.config.mjs, die auch die Design-System-Treue prueft. Der Build soll
   // ihn nicht ein zweites Mal mit anderen Regeln anstossen.
   eslint: { ignoreDuringBuilds: true },
+  /*
+   * `sharp` aus dem Auslieferungsstand nehmen.
+   *
+   * Next legt es unabhaengig davon ab, ob es gebraucht wird — es dient allein
+   * der Bildoptimierung von `next/image`, und die verwendet diese Anwendung
+   * nirgends. Mitgeliefert wuerde es ein Paket mit gemeldeten Luecken in
+   * libvips in das Abbild bringen, das dort nichts zu tun hat. Wer spaeter
+   * `next/image` einfuehrt, muss diese Zeile entfernen — der Build sagt es
+   * nicht von selbst, deshalb steht es hier.
+   */
+  outputFileTracingExcludes: {
+    '*': ['node_modules/sharp/**', 'node_modules/@img/**'],
+  },
 };
 
 export default config;

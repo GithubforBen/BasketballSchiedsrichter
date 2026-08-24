@@ -1,10 +1,54 @@
 /*
  * App-Ebene ueber dem Design-System.
  *
- * "modernist.css" ist unveraendert aus dem Handoff uebernommen und bleibt es
- * auch — hier steht nur, was die Anwendung darueber hinaus braucht. Jede Farbe,
- * jeder Abstand kommt aus den Tokens; ein roher Hex-Wert waere ein Regelbruch.
+ * "modernist.css" ist bis auf eine Stelle unveraendert aus dem Handoff
+ * uebernommen — hier steht nur, was die Anwendung darueber hinaus braucht. Jede
+ * Farbe, jeder Abstand kommt aus den Tokens; ein roher Hex-Wert waere ein
+ * Regelbruch.
  */
+
+/*
+ * Archivo, selbst ausgeliefert.
+ *
+ * Im Handoff laedt modernist.css die Schrift per @import von
+ * fonts.googleapis.com. Das hiesse: der Browser jedes Besuchers der
+ * oeffentlichen Seite verbindet sich mit Google, bevor irgendetwas zu sehen
+ * ist — bei einem deutschen Verein mit Impressum und Datenschutzerklaerung der
+ * bekannte Streitpunkt. Es ist zugleich ein fremder Punkt, an dem der
+ * Seitenaufbau haengen bleiben kann: in der Testumgebung wartete jeder Aufbau
+ * zwoelf Sekunden auf diese eine Anfrage.
+ *
+ * Archivo ist eine variable Schrift — ein Datenblatt deckt alle Schnitte von
+ * 100 bis 900 ab. Deshalb genuegen zwei Dateien, je eine pro Zeichenbereich.
+ * Lizenz: SIL Open Font License 1.1, Text unter public/schriften/OFL.txt.
+ */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 100 900;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url('/schriften/archivo-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+/*
+ * Zweiter Bereich fuer Namen, die ueber das lateinische Grundalphabet
+ * hinausgehen — im Verein pfeift auch mal jemand, der Šimon heisst.
+ */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 100 900;
+  font-stretch: 100%;
+  font-display: swap;
+  src: url('/schriften/archivo-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+    U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 
 :root {
   /*
@@ -26,13 +70,114 @@
 
   --shell-sidebar-width: 250px;
   --shell-tabbar-height: 56px;
-  --text-dim: color-mix(in srgb, var(--color-text) 55%, transparent);
-  --text-dimmer: color-mix(in srgb, var(--color-text) 45%, transparent);
+
+  /*
+   * Zurueckgenommene Schrift — und zwar so weit zurueckgenommen, wie es noch
+   * lesbar ist.
+   *
+   * Das Design-System setzt gedaempften Text auf 55 % der Textfarbe. Gemessen
+   * auf dem Seitenhintergrund sind das 3,66:1; WCAG 2.1 AA verlangt fuer
+   * normalen Text 4,5:1. Bei 65 % sind es 4,96:1 — der Ton bleibt erkennbar
+   * gedaempft, ist aber auch bei schlechtem Licht und auf einem Handy im
+   * Freien noch zu lesen. Genau dort wird diese App benutzt.
+   *
+   * `--text-dimmer` ist deshalb kein eigener Wert mehr: 45 % waeren 3,0:1 und
+   * damit selbst fuer grosse Schrift grenzwertig. Es bleibt als Name erhalten,
+   * zeigt aber auf denselben lesbaren Ton.
+   */
+  --text-dim: color-mix(in srgb, var(--color-text) 65%, transparent);
+  --text-dimmer: color-mix(in srgb, var(--color-text) 65%, transparent);
+
+  /*
+   * Der Akzent dort, wo er Schrift traegt.
+   *
+   * #ec3013 ergibt gegen den Hintergrund 3,76:1 — und dieselben 3,76:1, wenn
+   * die helle Schriftfarbe darauf liegt. Fuer Flaechen und Rahmen reicht das
+   * (die verlangen 3:1), fuer Text nicht: WCAG 2.1 AA fordert 4,5:1. Um 20 %
+   * mit der Textfarbe abgedunkelt sind es 5,09:1, und der Rotton bleibt
+   * derselbe.
+   *
+   * Warum 20 und nicht 15: 15 % reichen gegen den Seitenhintergrund (4,72:1),
+   * aber nicht gegen die etwas dunkleren Flaechen — in der abwechselnd
+   * eingefaerbten Tabelle sind es nur noch 4,39:1. Gerechnet wird deshalb
+   * gegen den dunkelsten Untergrund, auf dem die Farbe vorkommt, nicht gegen
+   * den hellsten.
+   *
+   * Die Regel dahinter, und sie gilt fuer alle Farben hier: **der Farbton
+   * bleibt, die Helligkeit gibt nach, sobald Schrift im Spiel ist.** Punkte,
+   * Rahmen und Tints behalten die vollen Toene — sie tragen keinen Text.
+   */
+  --color-accent-strong: color-mix(in srgb, var(--color-text) 20%, var(--color-accent));
+
+  /*
+   * Dieselbe Rechnung fuer die Ampel. Amber ist der kritische Ton: als Schrift
+   * kommt er auf 2,68:1 und braucht 40 % Abdunklung, um auf beiden Untergruenden
+   * (Seite und Flaeche) ueber 4,5:1 zu liegen.
+   */
+  --status-open-text: var(--color-accent-strong);
+  --status-substitute-missing-text: color-mix(
+    in srgb,
+    var(--color-text) 40%,
+    var(--status-substitute-missing)
+  );
+  --status-filled-text: color-mix(in srgb, var(--color-text) 20%, var(--status-filled));
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+}
+
+/*
+ * Kontrast-Korrekturen am Design-System.
+ *
+ * Diese Klassen kommen aus modernist.css und liegen dort unter 4,5:1. Sie
+ * werden hier gehoben, statt in der Handoff-Datei einzugreifen — die bleibt
+ * bis auf die Schrift-Einbindung unveraendert.
+ *
+ * Alle Werte gemessen gegen den jeweils dunkelsten Untergrund, auf dem die
+ * Farbe vorkommt — bei der abwechselnd eingefaerbten Tabelle ist das nicht der
+ * Seitenhintergrund.
+ *
+ *   .text-muted   55 % -> 3,66:1, jetzt 65 % -> 4,96:1
+ *   .table th     60 % -> 4,23:1, jetzt 65 % -> 4,96:1
+ *   .btn-primary  helle Schrift auf #ec3013 -> 3,76:1, jetzt 5,09:1
+ *   .btn-ghost    Akzentschrift -> 3,76:1, jetzt 4,73:1 auf der Zebra-Zeile
+ *   .tag-outline  Akzentschrift -> 3,76:1, jetzt 5,09:1
+ *   .chip-on, .seg-opt  helle Schrift auf Akzentflaeche -> 3,76:1, jetzt 5,09:1
+ */
+.text-muted,
+.table th {
+  color: var(--text-dim);
+}
+
+.btn-primary {
+  background: var(--color-accent-strong);
+}
+
+.btn-ghost {
+  color: var(--color-accent-strong);
+}
+
+.tag-outline {
+  color: var(--color-accent-strong);
+  border-color: var(--color-accent-strong);
+}
+
+/*
+ * Der Umschalter — als Radio-Feld und als Link. Beide Wege fuehren durch
+ * dieselbe Regel, damit die Kontrast-Korrektur nicht an einem Inline-Stil
+ * vorbeilaeuft.
+ */
+.seg-opt:has(input:checked),
+.seg-opt[aria-current='page'] {
+  background: var(--color-accent-strong);
+  color: var(--color-bg);
+}
+
+/* Der nicht gewaehlte Link traegt Akzentschrift und braucht denselben Ton. */
+.seg-opt:not([aria-current='page']) {
+  color: var(--color-accent-strong);
 }
 
 /* — Grundraster: Sidebar am Desktop, Tab-Leiste am Handy — */
@@ -59,7 +204,7 @@ body {
 }
 
 .shell-brand-mark {
-  color: var(--color-accent);
+  color: var(--color-accent-strong);
 }
 
 .shell-body {
@@ -97,10 +242,11 @@ body {
   border-bottom: 3px solid transparent;
 }
 
+/* Schrift im lesbaren Akzent, der Balken darunter im vollen — er ist Flaeche. */
 .shell-tab[aria-current='page'] {
   font-family: var(--font-heading);
   font-weight: var(--font-heading-weight);
-  color: var(--color-accent);
+  color: var(--color-accent-strong);
   border-bottom-color: var(--color-accent);
 }
 
@@ -175,7 +321,7 @@ body {
 
 .nav-footer a:hover,
 .nav-footer a[aria-current='page'] {
-  color: var(--color-accent);
+  color: var(--color-accent-strong);
 }
 
 /* — Kleinteile, die im Mockup mehrfach vorkommen — */
@@ -201,7 +347,7 @@ body {
 }
 
 .kicker-accent {
-  color: var(--color-accent);
+  color: var(--color-accent-strong);
   letter-spacing: 0.1em;
 }
 
@@ -295,6 +441,36 @@ body {
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+/*
+ * Die Sprungmarke.
+ *
+ * Ausserhalb des Bildes geparkt statt versteckt: `display: none` naehme sie
+ * auch der Tastatur. So bleibt sie erreichbar und wird sichtbar, sobald sie
+ * den Fokus bekommt.
+ */
+.skip-link {
+  position: absolute;
+  left: var(--space-2);
+  top: calc(-1 * var(--space-8) * 2);
+  z-index: 100;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  text-decoration: none;
+  transition: top 120ms ease;
+}
+
+.skip-link:focus-visible {
+  top: var(--space-2);
+}
+
+/* Das Ziel der Sprungmarke bekommt den Fokus, soll ihn aber nicht umranden. */
+.shell-main:focus {
+  outline: none;
 }
 
 /*
@@ -736,8 +912,8 @@ body {
 
 .chip[aria-pressed='true'],
 .chip-on {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
+  border-color: var(--color-accent-strong);
+  background: var(--color-accent-strong);
   color: var(--color-bg);
 }
 
@@ -895,6 +1071,20 @@ body {
 .check-inline-lg {
   margin-top: 4px;
   accent-color: var(--color-accent);
+}
+
+/*
+ * Die Loesch-Zelle in der Schiedsrichter-Tabelle.
+ *
+ * Bestaetigung und Knopf stehen nebeneinander, damit beide in einer Zeile der
+ * Tabelle Platz finden. `white-space: nowrap` haelt sie zusammen: umbrechen
+ * wuerde das Kaestchen von dem Knopf trennen, zu dem es gehoert.
+ */
+.delete-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
 }
 
 /*

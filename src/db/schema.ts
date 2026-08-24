@@ -117,9 +117,16 @@ export const assignments = pgTable(
       .references(() => games.id, { onDelete: 'cascade' }),
     /** 0 und 1 sind Schiedsrichter, 2 und 3 Ersatz. Regel 1. */
     slotIndex: smallint('slot_index').notNull(),
+    /*
+     * Loeschen nimmt die Eintragungen mit. Das ist der Kern des Loeschkonzepts:
+     * wer geloescht wird, verschwindet auch aus Statistik und Verlauf — sonst
+     * bliebe seine Spur genau dort, wo sie am aussagekraeftigsten ist. Fuer den
+     * haeufigeren Fall, dass jemand nur aufhoert und die Zahlen bleiben sollen,
+     * gibt es das Stilllegen (PLAN.md Abschnitt 4, M6).
+     */
     refereeId: text('referee_id')
       .notNull()
-      .references(() => referees.id),
+      .references(() => referees.id, { onDelete: 'cascade' }),
     claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
     /** Pflichtbestaetigung. Regeln 10-12. */
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
@@ -156,7 +163,7 @@ export const promotionOffers = pgTable(
     substituteSlot: smallint('substitute_slot').notNull(),
     refereeId: text('referee_id')
       .notNull()
-      .references(() => referees.id),
+      .references(() => referees.id, { onDelete: 'cascade' }),
     respondBy: timestamp('respond_by', { withTimezone: true }).notNull(),
     outcome: text('outcome', { enum: ['pending', 'accepted', 'declined', 'expired'] })
       .notNull()

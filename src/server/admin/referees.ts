@@ -1,7 +1,9 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, gte, sql as sqlRaw } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { slotKind } from '@/domain/slots';
+import type { SlotIndex } from '@/domain/types';
 import { normalisePhone } from '../auth/phone';
 import { isUniqueViolation } from '../assignments';
 import type { AdminResult } from './games';
@@ -137,4 +139,84 @@ export const setQualification = async (
       ? `Qualifikation ${leagueId} erteilt.`
       : `Qualifikation ${leagueId} entzogen. Bestehende Eintragungen bleiben bestehen.`,
   };
+};
+
+/**
+ * Loescht ein Konto samt allem, was daran haengt. Loeschkonzept, M6.
+ *
+ * Was verschwindet: Name, Kuerzel, Telefonnummer, Qualifikationen, alle
+ * Eintragungen — vergangene wie kuenftige —, offene Nachrueck-Anfragen und
+ * wartende Nachrichten. Die Fremdschluessel raeumen das mit; im Pruefprotokoll
+ * bleibt der Vorgang, aber ohne Bezug zur Person.
+ *
+ * Was das heisst: die Person verschwindet auch aus der Statistik und aus dem
+ * Verlauf vergangener Spiele. Genau das ist gemeint, wenn jemand seine Loeschung
+ * verlangt. Wer nur aufhoert und dessen Zahlen bleiben sollen, wird
+ * **stillgelegt** — dafuer gibt es den Schalter daneben.
+ *
+ * Der heikle Teil sind kuenftige Spiele: verschwindet jemand von einem
+ * Schiedsrichter-Platz, ist das Spiel unbesetzt, ohne dass es jemand merkt.
+ * Deshalb zaehlt diese Aktion die Luecke hoch (Regeln 15 und 32) — der naechste
+ * Nachrichtenlauf schreibt den Platz aus, so wie beim Austragen auch.
+ */
+export const deleteReferee = async (
+  actorId: string,
+  refereeId: string,
+): Promise<AdminResult> => {
+  if (actorId === refereeId) {
+    return fail('Das eigene Konto lässt sich hier nicht löschen — bitte von einem anderen Admin.');
+  }
+
+  const rows = await db
+    .select({ name: schema.referees.name, role: schema.referees.role, active: schema.referees.active })
+    .from(schema.referees)
+    .where(eq(schema.referees.id, refereeId))
+    .limit(1);
+  const referee = rows[0];
+  if (!referee) return fail('Dieses Konto gibt es nicht mehr.');
+
+  if (referee.role === 'admin' && referee.active) {
+    const admins = await db
+      .select({ id: schema.referees.id })
+      .from(schema.referees)
+      .where(and(eq(schema.referees.role, 'admin'), eq(schema.referees.active, true)));
+    if (admins.length <= 1) {
+      return fail('Das ist der letzte aktive Admin. Erst einen weiteren anlegen, dann löschen.');
+    }
+  }
+
+  const now = new Date();
+  const affected = await db
+    .select({ gameId: schema.assignments.gameId, slotIndex: schema.assignments.slotIndex })
+    .from(schema.assignments)
+    .innerJoin(schema.games, eq(schema.assignments.gameId, schema.games.id))
+    .where(and(eq(schema.assignments.refereeId, refereeId), gte(schema.games.kickoff, now)));
+
+  const openedSlots = affected.filter((row) => slotKind(row.slotIndex as SlotIndex) === 'referee');
+
+  await db.transaction(async (tx) => {
+    for (const row of openedSlots) {
+      await tx
+        .update(schema.games)
+        .set({ vacancyVersion: sqlRaw`${schema.games.vacancyVersion} + 1` })
+        .where(eq(schema.games.id, row.gameId));
+    }
+    await tx.delete(schema.referees).where(eq(schema.referees.id, refereeId));
+    await tx.insert(schema.auditLog).values({
+      id: randomUUID(),
+      actorId,
+      action: 'referee.delete',
+      subjectId: refereeId,
+      detail: {
+        kuenftigeEintragungen: affected.length,
+        freigewordeneSchiriPlaetze: openedSlots.length,
+      },
+    });
+  });
+
+  const suffix =
+    openedSlots.length === 0
+      ? ''
+      : ` ${openedSlots.length} Schiedsrichter-Platz/Plätze sind dadurch offen und werden ausgeschrieben.`;
+  return { ok: true, message: `Konto gelöscht — alle Daten dieser Person sind entfernt.${suffix}` };
 };

@@ -1,5 +1,11 @@
 /* Modernist — design-system tokens and component classes. This file is the source of truth for the system's look; retune it here and see readme.md. */
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&display=swap');
+
+/*
+ * Einzige Abweichung vom Handoff: hier stand ein @import auf
+ * fonts.googleapis.com. Archivo wird jetzt selbst ausgeliefert — die
+ * @font-face-Regeln stehen in app.css, die Dateien unter public/schriften.
+ * Grund und Abwaegung: PLAN.md, Abschnitt 4, M6.
+ */
 
 :root {
   --color-bg: #f3f2f2;

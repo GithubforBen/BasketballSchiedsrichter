@@ -8,6 +8,7 @@ import { loadLeagues } from '@/server/queries/admin-view';
 import { loadAllReferees } from '@/server/queries/referees';
 import {
   createRefereeAction,
+  deleteRefereeAction,
   toggleQualificationAction,
   updateRefereeAction,
 } from './actions';
@@ -58,6 +59,9 @@ const Referees = async ({ searchParams }: PageProps) => {
               <th>Aktiv</th>
               <th>
                 <span className="visually-hidden">Speichern</span>
+              </th>
+              <th>
+                <span className="visually-hidden">Löschen</span>
               </th>
             </tr>
           </thead>
@@ -134,6 +138,27 @@ const Referees = async ({ searchParams }: PageProps) => {
                     <input type="hidden" name="person" value={referee.id} />
                     <Button type="submit" variant="ghost" className="btn-compact">
                       Speichern
+                    </Button>
+                  </form>
+                </td>
+                <td>
+                  {/*
+                    Löschen ist unumkehrbar und braucht deshalb eine bewusste
+                    Bestätigung. Sie steht als Kästchen im Formular und wird auf
+                    dem Server erneut geprüft — eine Rückfrage, die nur im
+                    Browser existiert, ist keine.
+                  */}
+                  <form action={deleteRefereeAction} className="delete-cell">
+                    <input type="hidden" name="person" value={referee.id} />
+                    <label className="check-inline">
+                      <input type="checkbox" name="bestaetigt" value="ja" />
+                      <span className="visually-hidden">
+                        Löschen von {referee.name} bestätigen
+                      </span>
+                      <span aria-hidden="true">sicher?</span>
+                    </label>
+                    <Button type="submit" variant="ghost" className="btn-compact">
+                      Löschen
                     </Button>
                   </form>
                 </td>

@@ -1,4 +1,4 @@
-import { isAssigned, nextFreeSlot, slotKind, slotOf, substituteSlots, SLOT_LABELS } from './slots';
+import { isAssigned, nextFreeSlot, slotOf, substituteSlots, SLOT_LABELS } from './slots';
 import { calendarDay, days, hasPassed, withinLeadTime } from './time';
 import {
   allow,
@@ -206,7 +206,3 @@ export const qualifiedReferees = (
   referees: readonly Referee[],
   leagueId: string,
 ): readonly Referee[] => referees.filter((r) => r.active && isQualified(r, leagueId));
-
-/** Der fachliche Name eines Platzes, unabhaengig von der Oberflaeche. */
-export const describeSlot = (index: SlotIndex): string =>
-  `${SLOT_LABELS[index]} (${slotKind(index) === 'referee' ? 'Schiedsrichter' : 'Ersatz'})`;

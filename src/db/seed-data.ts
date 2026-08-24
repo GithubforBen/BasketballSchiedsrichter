@@ -1,4 +1,3 @@
-import { INITIAL_LEAGUES } from '@/config/club';
 import { localToUtc } from '@/domain/time';
 
 /**
@@ -12,8 +11,6 @@ import { localToUtc } from '@/domain/time';
  * bis 3 Wochen vorher“ waeren gar nicht mehr erreichbar. Die Abstaende
  * entsprechen denen im Mockup — Anpfiff in 7, 8, 14, 21 und 28 Tagen.
  */
-
-export const SEED_LEAGUES = INITIAL_LEAGUES;
 
 export interface SeedReferee {
   id: string;

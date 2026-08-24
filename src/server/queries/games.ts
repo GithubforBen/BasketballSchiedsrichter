@@ -68,11 +68,3 @@ export const initialsById = async (): Promise<ReadonlyMap<string, string>> => {
     .from(schema.referees);
   return new Map(rows.map((row) => [row.id, row.initials]));
 };
-
-/** Namen aller Personen, nach Id. Nur fuer angemeldete Ansichten. */
-export const namesById = async (): Promise<ReadonlyMap<string, string>> => {
-  const rows = await db
-    .select({ id: schema.referees.id, name: schema.referees.name })
-    .from(schema.referees);
-  return new Map(rows.map((row) => [row.id, row.name]));
-};

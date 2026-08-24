@@ -69,8 +69,9 @@ export const Input = ({ className, ...rest }: InputHTMLAttributes<HTMLInputEleme
 );
 
 /** Die Statusampel. Farbe kommt immer aus der Custom Property des Zustands. */
+/* Punkt im vollen Ton, Schrift im lesbaren — siehe StatusView. */
 export const Status = ({ view }: { view: StatusView }) => (
-  <span className="status" style={{ color: view.colorVar }}>
+  <span className="status" style={{ color: view.textColorVar }}>
     <span className="status-dot" style={{ background: view.colorVar }} aria-hidden="true" />
     {view.label}
   </span>

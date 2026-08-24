@@ -16,3 +16,7 @@ playwright/.cache/
 # Zwischenstand des TypeScript-Compilers. Reines Build-Artefakt: es aendert
 # sich bei jedem Lauf und gehoert nicht in die Versionsverwaltung.
 *.tsbuildinfo
+
+# Datenbanksicherungen des Compose-Verbunds. Sie enthalten Namen und
+# Telefonnummern und gehoeren niemals in die Versionsverwaltung.
+sicherungen/

@@ -12,23 +12,45 @@ export interface StatusView {
   status: GameStatus;
   /** Anzeigetext wie im Mockup. */
   label: string;
-  /** CSS-Custom-Property, aus der die Farbe kommt. Nie ein roher Hex-Wert. */
+  /**
+   * Die Farbe als Flaeche — Punkt, Rahmen, Tint. Nie ein roher Hex-Wert.
+   * Flaechen brauchen 3:1, deshalb bleibt hier der volle Ton aus dem Mockup.
+   */
   colorVar: string;
+  /**
+   * Dieselbe Farbe als Schrift. Text braucht 4,5:1, und Amber kommt als
+   * Schrift nur auf 2,68:1 — es waere neben dem Punkt kaum zu lesen. Deshalb
+   * gibt es zwei Werte statt einem: der Punkt bleibt kraeftig, die Schrift
+   * daneben wird lesbar. Die Toene stehen in app.css.
+   */
+  textColorVar: string;
 }
 
 const VIEWS: Readonly<Record<GameStatus, StatusView>> = {
-  open: { status: 'open', label: 'offen', colorVar: 'var(--status-open)' },
+  open: {
+    status: 'open',
+    label: 'offen',
+    colorVar: 'var(--status-open)',
+    textColorVar: 'var(--status-open-text)',
+  },
   refereeMissing: {
     status: 'refereeMissing',
     label: 'Schiri fehlt',
     colorVar: 'var(--status-open)',
+    textColorVar: 'var(--status-open-text)',
   },
   substituteMissing: {
     status: 'substituteMissing',
     label: 'Ersatz fehlt',
     colorVar: 'var(--status-substitute-missing)',
+    textColorVar: 'var(--status-substitute-missing-text)',
   },
-  filled: { status: 'filled', label: 'besetzt', colorVar: 'var(--status-filled)' },
+  filled: {
+    status: 'filled',
+    label: 'besetzt',
+    colorVar: 'var(--status-filled)',
+    textColorVar: 'var(--status-filled-text)',
+  },
 };
 
 export const gameStatus = (slots: readonly Slot[]): StatusView => {

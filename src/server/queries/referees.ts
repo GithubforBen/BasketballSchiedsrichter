@@ -13,7 +13,7 @@ export interface RefereeRow {
   active: boolean;
 }
 
-export const toReferee = (row: RefereeRow, qualifications: readonly string[]): Referee => ({
+const toReferee = (row: RefereeRow, qualifications: readonly string[]): Referee => ({
   id: row.id,
   name: row.name,
   initials: row.initials,
