@@ -86,6 +86,44 @@ Aus dem Mockup extrahiert und in Session 1 ergänzt. Diese Liste ist die Referen
 32. Der Admin kann per Knopf alle Qualifizierten an **offene Spiele** erinnern (die „Notruf"-Erinnerung aus dem Erst-Briefing).
 33. Jede Nachricht kostet den Verein Geld — Sparsamkeit ist ein Produktziel, kein Detail. Jeder neue Nachrichtenauslöser muss begründet sein und im Kostenzähler auftauchen.
 
+### Anmeldung mit Passwort
+
+Nachgetragen in Session 2. Der Verein hat für WhatsApp nur ein Budget von **2000 Nachrichten
+im Monat**; ein Anmeldeweg, der pro Anmeldung eine Nachricht verbraucht, passt da nicht hinein.
+Die Anmeldung läuft deshalb über ein Passwort. Der Nachrichtenweg bleibt vollständig erhalten
+und ist per Einstellung wieder zuschaltbar.
+
+34. Angemeldet wird mit **Telefonnummer und Passwort**. Die Telefonnummer bleibt die Kennung —
+    sie ist im Verein ohnehin eindeutig und jeder kennt seine eigene.
+35. Ein neues Konto bekommt ein **Start-Passwort aus dem Namen**: Vorname und Nachname
+    zusammengeschrieben, alles klein, Umlaute ausgeschrieben, alles andere entfällt.
+    „Anna-Lena Weiß" ergibt `annalenaweiss`. Es steht **nirgends im Klartext** in der Datenbank
+    — es folgt aus dem Namen und wird dem Admin bei Bedarf neu berechnet angezeigt.
+36. Das Start-Passwort gilt **14 Tage**. Danach ist es wertlos, und ein Admin muss es neu setzen.
+37. Nach der Anmeldung mit dem Start-Passwort **muss** ein eigenes Passwort gesetzt werden. Bis
+    dahin ist außer der Passwortseite und dem Abmelden nichts erreichbar.
+38. Für das eigene Passwort gibt es **keine Längen- oder Zeichenregeln** — bewusst so
+    entschieden, die Schwäche ist bekannt. Zwei Mechaniken bleiben: es darf nicht leer sein, und
+    es muss sich vom bisherigen unterscheiden, sonst wäre der Zwang aus Regel 37 folgenlos.
+39. **Passwörter werden ausschließlich gehasht gespeichert** (scrypt, mit Salz je Konto).
+    Klartext ist überall verboten — in der Datenbank, im Protokoll, im Prüfprotokoll und im
+    Datenauszug.
+40. Ein Admin kann das Passwort **zurücksetzen**. Das Konto fällt damit auf das Start-Passwort
+    aus Regel 35 zurück, mit neuer 14-Tage-Frist und erneutem Änderungszwang.
+41. Sperrt sich ein Admin aus, gibt es einen **Notzugang**: ein Befehl auf dem Server erzeugt für
+    genau diesen Admin einen sehr langen Token, zeigt ihn **einmal** an und speichert nur seinen
+    Hash. Er gilt einmal, ist einzeln widerrufbar und steht im Prüfprotokoll.
+
+### Telefonnummern
+
+42. Die Eingabe akzeptiert **jede übliche Schreibweise** — `+49 151 …`, `0049 151 …`,
+    `0151/23456789`, mit Leerzeichen, Klammern oder Bindestrichen. Daraus wird immer dieselbe
+    Nummer.
+43. **Angezeigt** wird einheitlich die nationale Schreibweise mit führender Null:
+    `0151 23456789`. Gespeichert bleibt E.164 (`+4915123456789`), weil der Nachrichtenversand
+    kein Format raten darf und weil WhatsApp später zurückkommen soll — das ist unter der
+    Oberfläche und für niemanden sichtbar.
+
 ### Statusfarben
 | Zustand | Bedingung | Farbe |
 |---|---|---|
@@ -452,6 +490,102 @@ Offen, und zwar bewusst — es kann nur der Verein selbst erledigen:
   `drizzle-kit`). Beide sind Build-Werkzeuge und im laufenden Betrieb nicht erreichbar;
   `drizzle-kit` liegt gar nicht im Abbild. Ein Wechsel auf Next 16 wäre ein Breaking Change und
   gehört nicht in einen Härtungs-Meilenstein.
+
+### M7 — Anmeldung mit Passwort ✅ fertig
+
+Nachgezogen, nachdem klar wurde, dass das Nachrichtenbudget bei 2000 im Monat liegt: jede
+Anmeldung per Link kostet eine davon. Regeln 34–43.
+
+- Start-Passwort aus dem Namen, vierzehn Tage gültig, erzwungener Wechsel danach
+- Passwort ändern für alle, Zurücksetzen für Admins
+- Notzugang für den Fall, dass kein Admin mehr hineinkommt
+- Telefonnummern in jeder Schreibweise annehmen, einheitlich mit Null anzeigen
+- Der Weg über den Link bleibt vollständig gebaut und geprüft, aber abgeschaltet
+
+**Review-Fokus**: nirgends Klartext · das Hashen bewiesen, nicht behauptet · Frist und Zwang
+tatsächlich wirksam · Notzugang genau einmal gültig · Rate-Limits wirksam · jede neue Regel
+getestet.
+
+**Ergebnis:** 547 Unit- und Integrationstests, 177 E2E-Tests auf Desktop und Handy — grün. Die
+Regeln 34–43 tragen ihre Nummer im Namen eines Tests. Drei Zusicherungen sind maschinell
+belegt statt behauptet: der gespeicherte Wert enthält das Passwort nicht, das Prüfprotokoll
+enthält es nicht, und der Datenauszug nach Artikel 15 nennt nur den *Zustand* des Passworts —
+nie den Hash, denn ein Auszug mit Hash wäre ein Auszug, aus dem sich Passwörter durchprobieren
+lassen.
+
+Sechs Befunde:
+
+1. **Das Limit auf Fehlversuche zählte jede Anmeldung, nicht nur die falschen.** Wer sich an
+   einem Abend neunmal anmeldete, sperrte sich selbst aus. Der Zähler muss vor der Prüfung
+   hochgehen — sonst ließe sich gleichzeitig durchprobieren —, also fällt er bei Erfolg wieder
+   weg. Gezählt wird, wer rät.
+2. **Die Meldung des Rate-Limits passte nicht mehr.** „Für diese Telefonnummer wurden gerade
+   schon 8 Anmeldungen angefordert" — es wurde nichts angefordert, es wurde falsch getippt.
+   Jede Regel trägt ihren Satzteil jetzt selbst. Die Zahl steht nicht mehr darin: sie hilft
+   niemandem weiter und sagt einem Angreifer, wie weit er zählen darf.
+3. **`npm run db:seed` und `seed:admin` wären an `server-only` gescheitert.** Beide brauchen
+   jetzt den Passwort-Hash, und das Paket wirft außerhalb einer Server-Umgebung absichtlich.
+   Ein Skript unter Node ist aber weder Server- noch Client-Komponente. Statt die Markierung
+   im Anwendungscode wegzulassen, ersetzt `tsconfig.skripte.json` sie für genau diese Aufrufe
+   — für alles, was Next übersetzt, gilt die Sperre unverändert.
+4. **Die E2E-Suite hing an einem Wert aus der Entwicklungsumgebung.** `PUBLIC_BASE_URL` zeigte
+   auf Port 3000, der Testserver läuft auf 3100; nach dem Abmelden landete der Browser auf
+   einem Port, auf dem nichts lief, und der Fehler sah aus wie ein Fehler in der Anwendung.
+   Die Playwright-Konfiguration setzt den Wert jetzt selbst.
+5. **`formatPhone` trennte an der falschen Stelle.** Mit `\d{2,4}` griff die Suche gierig und
+   machte aus `+4915123456789` ein `01512 3456789`. Feste drei Ziffern treffen jede
+   Mobilvorwahl; bei Festnetz kann die Trennung danebenliegen, die Nummer bleibt aber
+   vollständig und lesbar.
+6. **Das Start-Passwort stand im Abfrageteil einer Adresse.** Anlegen und Zurücksetzen gaben es
+   in ihrer Rückmeldung zurück, und die reist über die Adresszeile — damit stand ein gültiges
+   Passwort im Verlauf des Browsers und im Zugriffsprotokoll jedes Webservers davor. Gespeichert
+   war es nie, aber protokolliert eben doch. Die Meldung nennt es jetzt nicht mehr; stattdessen
+   hat die Schiedsrichter-Tabelle eine Spalte **Passwort**, die den Zustand zeigt und das
+   Start-Passwort bei jedem Aufruf neu aus dem Namen rechnet. Für den Admin ist das sogar
+   besser: er kann es jederzeit nachschlagen und nicht nur in der einen Sekunde nach dem
+   Klick.
+
+Bewusst so gebaut:
+
+- **Keine Vorgaben zu Länge oder Zeichen (Regel 38).** So entschieden, die Schwäche ist bekannt
+  und steht im Code. Geblieben sind zwei Mechaniken, die keine Komplexitätsregeln sind: leer
+  geht nicht, und es muss sich vom bisherigen unterscheiden — sonst ließe sich der Zwang aus
+  Regel 37 erfüllen, indem man dasselbe noch einmal eintippt.
+- **Der Zwang sitzt in `requireUser`, nicht in jeder Seite.** Damit gilt er auch für jede
+  künftige Seite und jede Server-Aktion, ohne dass jemand daran denken muss. Offen bleiben
+  genau die Wege, die keinen angemeldeten Nutzer verlangen: die öffentliche Ansicht, die
+  Passwortseite und das Abmelden.
+- **Der Passwortzustand kommt aus der Datenbank, nicht aus dem Cookie.** Setzt ein Admin
+  während einer laufenden Sitzung zurück, greift der Zwang beim nächsten Seitenaufruf — nicht
+  erst beim nächsten Anmelden.
+- **Jede Ablehnung sagt dasselbe und dauert gleich lang.** Falsche Nummer, falsches Passwort,
+  stillgelegtes Konto, abgelaufenes Start-Passwort: derselbe Satz, und wo nichts zu prüfen
+  ist, wird trotzdem gerechnet. Sonst wäre die Anmeldeseite ein Verzeichnis, mit dem sich
+  prüfen ließe, wer im Verein pfeift.
+- **Der Notzugang hat keine Frist.** Ein Notzugang, der nach ein paar Wochen stillschweigend
+  abgelaufen ist, ist genau dann wertlos, wenn er gebraucht wird. Stattdessen gilt er einmal
+  und lässt sich jederzeit widerrufen. Eingelöst setzt er das Konto auf das Start-Passwort
+  zurück — derselbe Weg wie Regel 40. Es gibt also keinen zweiten Weg, ein Passwort zu setzen,
+  den man absichern müsste.
+- **Der Notzugang wird auf der Kommandozeile ausgestellt, nicht im Adminbereich.** Wer den
+  Adminbereich erreicht, braucht keinen. Ein Knopf dafür wäre außerdem ein Knopf, mit dem sich
+  ein übernommenes Adminkonto dauerhaft festsetzen ließe.
+- **Die Beispieldaten bekommen ihr Passwort als *eigenes*, nicht als Start-Passwort.** Sonst
+  stünde in der Entwicklung bei jeder Anmeldung der erzwungene Wechsel im Weg. Wie der
+  aussieht, zeigt jedes neu angelegte Konto — das bekommt seinen Zwang über `createReferee`
+  wie im Betrieb.
+
+Offen, und zwar bewusst:
+
+- **Das Start-Passwort ist erratbar.** Es folgt aus dem Namen, und im Verein kennt jeder jeden.
+  Dagegen helfen nur die Frist aus Regel 36 und ein enges Limit auf Fehlversuche — acht in
+  einer Viertelstunde. Das war die ausdrückliche Entscheidung; die Alternative wäre ein
+  zufälliges Start-Passwort, das der Admin weitersagen müsste.
+- **Der Weg über den Link ist abgeschaltet, nicht entfernt.** `LOGIN_MAGIC_LINK=an` schaltet
+  ihn frei, sobald das Nachrichtenbudget es hergibt. Die Anmeldeseite, die Route für den Link
+  und die Hilfsfunktionen der E2E-Suite bleiben dafür stehen.
+
+---
 
 ---
 

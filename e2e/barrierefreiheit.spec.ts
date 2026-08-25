@@ -36,7 +36,7 @@ const expectAccessible = async (page: Page, path: string): Promise<void> => {
 };
 
 test.describe('Öffentliche Bildschirme', () => {
-  for (const path of ['/', '/regeln', '/impressum', '/anmelden']) {
+  for (const path of ['/', '/regeln', '/impressum', '/anmelden', '/notzugang']) {
     test(`${path} erfüllt WCAG 2.1 AA`, async ({ page }) => {
       await page.goto(path);
       await expectAccessible(page, path);
@@ -45,7 +45,7 @@ test.describe('Öffentliche Bildschirme', () => {
 });
 
 test.describe('Bildschirme der Schiedsrichter', () => {
-  for (const path of ['/kalender', '/spiele', '/profil']) {
+  for (const path of ['/kalender', '/spiele', '/profil', '/passwort']) {
     test(`${path} erfüllt WCAG 2.1 AA`, async ({ page }) => {
       await loginAs(page, SEED.jonas.phone);
       await page.goto(path);
@@ -118,7 +118,7 @@ test.describe('Bedienung mit der Tastatur', () => {
     }
 
     expect(reachable.some((entry) => entry.startsWith('input'))).toBe(true);
-    expect(reachable.some((entry) => entry.includes('Zugang anfordern'))).toBe(true);
+    expect(reachable.some((entry) => entry.includes('Anmelden'))).toBe(true);
   });
 
   test('der Fokus bleibt sichtbar — ohne Umrandung ist die Tastatur blind', async ({ page }) => {

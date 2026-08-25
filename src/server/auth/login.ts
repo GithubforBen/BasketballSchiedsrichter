@@ -2,6 +2,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { and, eq, sql as raw } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { mustChangePassword } from '@/domain/password';
 import { loginMessage } from '@/notifications/templates';
 import { env } from '../env';
 import { dispatchOutbox, enqueue } from '../outbox';
@@ -21,6 +22,11 @@ import { checkToken, issueToken, loginLink, MAX_CODE_ATTEMPTS, type StoredToken 
  *
  * Zwei Wege aus derselben Nachricht: ein Link zum Antippen und ein Code zum
  * Eintippen. Beide zeigen auf denselben Datensatz und verbrauchen ihn.
+ *
+ * Dieser Weg ist derzeit **zu**. Jede Anmeldung kostet hier eine Nachricht, und
+ * der Verein hat 2000 im Monat — deshalb laeuft die Anmeldung ueber ein
+ * Passwort (Regel 34). Der Code hier bleibt vollstaendig und geprueft stehen;
+ * `LOGIN_MAGIC_LINK=an` schaltet ihn wieder frei, sobald das Budget es hergibt.
  */
 
 export interface RequestResult {
@@ -113,7 +119,14 @@ export const requestLogin = async (
 };
 
 export type RedeemResult =
-  | { readonly ok: true; readonly refereeId: string; readonly role: 'referee' | 'admin'; readonly lastScreen: string | null }
+  | {
+      readonly ok: true;
+      readonly refereeId: string;
+      readonly role: 'referee' | 'admin';
+      readonly lastScreen: string | null;
+      /** Regel 37: Auch wer ueber den Link kommt, muss das Start-Passwort ablegen. */
+      readonly mustChangePassword: boolean;
+    }
   | { readonly ok: false; readonly message: string };
 
 /** Loest einen Link ein. */
@@ -150,6 +163,8 @@ const redeem = async (
       role: schema.referees.role,
       active: schema.referees.active,
       lastScreen: schema.referees.lastScreen,
+      ownPasswordSetAt: schema.referees.ownPasswordSetAt,
+      startPasswordExpiresAt: schema.referees.startPasswordExpiresAt,
     })
     .from(schema.loginTokens)
     .innerJoin(schema.referees, eq(schema.referees.id, schema.loginTokens.refereeId))
@@ -211,6 +226,13 @@ const redeem = async (
       refereeId: candidate.token.refereeId,
       role: candidate.role,
       lastScreen: candidate.lastScreen,
+      mustChangePassword: mustChangePassword(
+        {
+          ownPasswordSetAt: candidate.ownPasswordSetAt,
+          startPasswordExpiresAt: candidate.startPasswordExpiresAt,
+        },
+        now,
+      ),
     };
   }
 

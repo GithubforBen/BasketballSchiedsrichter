@@ -44,13 +44,31 @@ export const profileResultRoute = (result: { ok: boolean; message: string }): Ro
 export const profileConfirmRoute = (hoursBefore: number): Route =>
   withQuery('/profil', { bestaetigen: String(hoursBefore) });
 
-/** Anmeldeseite in ihren beiden Schritten. */
+/**
+ * Anmeldeseite.
+ *
+ * `tel` fuellt das Feld wieder, damit nach einem Tippfehler im Passwort nicht
+ * auch die Nummer neu eingegeben werden muss. Das Passwort steht hier
+ * selbstverstaendlich nie: eine Adresse landet im Verlauf, in Protokollen und
+ * in der Adresszeile.
+ *
+ * `schritt` gehoert zum Weg ueber den Link, der nur mit `LOGIN_MAGIC_LINK=an`
+ * offensteht.
+ */
 export const loginRoute = (query: {
   schritt?: 'code';
   tel?: string;
   fehler?: string;
   hinweis?: string;
 }): Route => withQuery('/anmelden', query);
+
+/** Notzugang mit Rückmeldung. Regel 41. */
+export const recoveryRoute = (query: { fehler?: string } = {}): Route =>
+  withQuery('/notzugang', query);
+
+/** Passwortseite mit Rückmeldung. Regeln 37 und 38. */
+export const passwordRoute = (query: { fehler?: string; hinweis?: string } = {}): Route =>
+  withQuery('/passwort', query);
 
 /** Adminseiten mit Rückmeldung zur zuletzt ausgeführten Aktion. */
 export const adminResultRoute = (

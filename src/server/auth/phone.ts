@@ -67,17 +67,46 @@ export const normalisePhone = (input: string): PhoneResult => {
   return { ok: true, phone: `+${national}` };
 };
 
-/** Fuer die Anzeige: "+49 151 23456789" statt "+4915123456789". */
+/**
+ * Fuer die Anzeige. Regel 43.
+ *
+ * Gespeichert ist E.164, angezeigt wird die nationale Schreibweise mit Null:
+ * `+4915123456789` wird zu `0151 23456789`. Das ist die Form, die im Verein
+ * jeder auf seinem Handy sieht — die internationale stimmt zwar auch, sieht
+ * aber nach Formular aus.
+ *
+ * Getrennt wird nach drei Ziffern, also nach der Vorwahl `0151`. Das passt auf
+ * jede Mobilnummer, denn deren Vorwahl ist immer dreistellig. Bei einem
+ * Festnetzanschluss kann die Trennung daneben liegen — `0231 …` waere richtig,
+ * `030 …` wird zu `030 …` nur zufaellig. Die Nummer bleibt dabei vollstaendig
+ * und lesbar, und Festnetz kommt hier praktisch nicht vor.
+ *
+ * Nur die eigene Landesvorwahl wird so umgeschrieben. Eine auslaendische Nummer
+ * bleibt international, denn die fuehrende Null gilt dort nicht: aus einer
+ * Schweizer Nummer eine mit Null zu machen, waere schlicht falsch.
+ */
 export const formatPhone = (phone: string): string => {
-  const match = /^\+(\d{2})(\d{3})(\d+)$/.exec(phone);
-  if (!match) return phone;
-  return `+${match[1]} ${match[2]} ${match[3]}`;
+  const national = new RegExp(`^\\+${DEFAULT_COUNTRY_CODE}(\\d{3})(\\d+)$`).exec(phone);
+  if (national) return `0${national[1]} ${national[2]}`;
+
+  // Zwei Ziffern Landesvorwahl deckt Europa ab; alles andere bleibt ungegliedert
+  // stehen, statt an der falschen Stelle getrennt zu werden.
+  const foreign = /^\+(\d{2})(\d{3})(\d+)$/.exec(phone);
+  if (foreign) return `+${foreign[1]} ${foreign[2]} ${foreign[3]}`;
+
+  return phone;
 };
 
-/** Fuer Bestaetigungen, ohne die ganze Nummer preiszugeben: "+49 151 ••• ••89". */
+/**
+ * Fuer Bestaetigungen, ohne die ganze Nummer preiszugeben: "0151 ••• ••89".
+ *
+ * Baut auf der Anzeigeform auf, damit auch die verdeckte Nummer nach Regel 43
+ * aussieht — sonst stuende auf der einen Seite `0151 …` und auf der naechsten
+ * `+49151 …`, und man fragte sich, ob das dieselbe Nummer ist.
+ */
 export const maskPhone = (phone: string): string => {
   if (phone.length < 6) return '•••';
-  const head = phone.slice(0, 6);
-  const tail = phone.slice(-2);
-  return `${head} ••• ••${tail}`;
+  const shown = formatPhone(phone);
+  const head = shown.split(' ')[0] ?? shown;
+  return `${head} ••• ••${shown.slice(-2)}`;
 };

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { adminResultRoute } from '@/routes';
 import { createReferee, deleteReferee, setQualification, updateReferee } from '@/server/admin/referees';
+import { resetPasswordByAdmin } from '@/server/auth/password-login';
 import { requireAdmin } from '@/server/guard';
 
 /** Schiedsrichter-Verwaltung. Regel 30: nur hier änderbar. */
@@ -48,6 +49,24 @@ export const toggleQualificationAction = async (formData: FormData): Promise<voi
     read(formData, 'liga'),
     read(formData, 'wert') === 'an',
   );
+  revalidatePath('/schiris');
+  redirect(adminResultRoute('/schiris', result));
+};
+
+/**
+ * Setzt das Passwort zurueck. Regel 40.
+ *
+ * Danach gilt wieder das Start-Passwort aus dem Namen, mit neuer Frist, und die
+ * Person muss beim naechsten Anmelden ein eigenes setzen. Das ist derzeit der
+ * einzige Weg zurueck, wenn jemand sein Passwort vergisst — der Weg ueber eine
+ * Nachricht kostet Nachrichten, und davon gibt es 2000 im Monat.
+ *
+ * Das Start-Passwort steht in der Rueckmeldung. Es liegt nirgends gespeichert,
+ * sondern folgt aus dem Namen; der Admin liest es ab und sagt es weiter.
+ */
+export const resetPasswordAction = async (formData: FormData): Promise<void> => {
+  const user = await requireAdmin();
+  const result = await resetPasswordByAdmin(user.id, read(formData, 'person'));
   revalidatePath('/schiris');
   redirect(adminResultRoute('/schiris', result));
 };

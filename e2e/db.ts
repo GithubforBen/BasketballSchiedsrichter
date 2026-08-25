@@ -31,7 +31,14 @@ export interface LoginMessage {
   code: string;
 }
 
-/** Link und Code aus der zuletzt abgelegten Anmeldenachricht. */
+/**
+ * Link und Code aus der zuletzt abgelegten Anmeldenachricht.
+ *
+ * Wird derzeit von keinem Test gebraucht: angemeldet wird mit Passwort, und der
+ * Weg ueber einen Link steht zu (`LOGIN_MAGIC_LINK=aus`). Beides bleibt hier
+ * stehen, weil es zu dem Weg gehoert, der wieder aufgeht, sobald das
+ * Nachrichtenbudget es hergibt.
+ */
 export const latestLoginMessage = async (): Promise<LoginMessage> => {
   const rows = await sql<{ body: string | null }[]>`
     SELECT payload->>'body' AS body FROM notification_outbox
@@ -45,11 +52,32 @@ export const latestLoginMessage = async (): Promise<LoginMessage> => {
   return { link, code };
 };
 
-/** Ob überhaupt eine Anmeldenachricht abgelegt wurde. */
+/** Ob überhaupt eine Anmeldenachricht abgelegt wurde. Siehe oben. */
 export const loginMessageCount = async (): Promise<number> => {
   const rows = await sql<{ n: number }[]>`
     SELECT count(*)::int AS n FROM notification_outbox WHERE kind = 'login'`;
   return rows[0]?.n ?? 0;
+};
+
+/** Entfernt ein im Test angelegtes Konto samt allem, was daran haengt. */
+export const dropRefereeByPhone = async (phone: string): Promise<void> => {
+  await sql`DELETE FROM referees WHERE phone = ${phone}`;
+};
+
+/** Der Passwortzustand eines Kontos — fuer die Pruefung der Regeln 36 bis 40. */
+export const passwordStateOf = async (
+  phone: string,
+): Promise<{ hasHash: boolean; own: boolean; expires: Date | null }> => {
+  const rows = await sql<
+    { password_hash: string | null; own_password_set_at: Date | null; start_password_expires_at: Date | null }[]
+  >`SELECT password_hash, own_password_set_at, start_password_expires_at
+    FROM referees WHERE phone = ${phone}`;
+  const row = rows[0];
+  return {
+    hasHash: row?.password_hash != null,
+    own: row?.own_password_set_at != null,
+    expires: row?.start_password_expires_at ?? null,
+  };
 };
 
 export const closeDb = async (): Promise<void> => {

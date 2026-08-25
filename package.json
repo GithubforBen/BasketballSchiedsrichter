@@ -16,9 +16,10 @@
     "test:e2e": "playwright test",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "db:seed": "tsx src/db/seed.ts",
-    "seed:admin": "tsx src/db/seed-admin.ts",
+    "db:migrate": "tsx --tsconfig tsconfig.skripte.json src/db/migrate.ts",
+    "db:seed": "tsx --tsconfig tsconfig.skripte.json src/db/seed.ts",
+    "seed:admin": "tsx --tsconfig tsconfig.skripte.json src/db/seed-admin.ts",
+    "notzugang": "tsx --tsconfig tsconfig.skripte.json src/cli/notzugang.ts",
     "check": "npm run typecheck && npm run lint && npm run test",
     "start:prepare": "rm -rf .next/standalone/public .next/standalone/.next/static && cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/"
   },

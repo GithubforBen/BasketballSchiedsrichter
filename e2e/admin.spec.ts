@@ -1,9 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import {
   auditCount,
   countGamesLike,
   dropGamesLike,
+  dropRefereeByPhone,
   hasQualification,
+  passwordStateOf,
   markRelocated,
   placeReferee,
   resetAssignments,
@@ -262,5 +264,119 @@ test.describe('Adminbereich', () => {
       await page.goto(path);
       await expectNoHorizontalScroll(page, path);
     }
+  });
+});
+
+/**
+ * Der Weg eines neuen Kontos: anlegen, mit dem Start-Passwort anmelden, sofort
+ * ein eigenes setzen. Regeln 35, 37 und 40.
+ *
+ * Absichtlich als einer zusammenhängender Ablauf und nicht als drei Tests: die
+ * drei Schritte hängen aneinander, und getrennt geprüft ließe sich die Lücke
+ * dazwischen — „angelegt, aber nie zum Wechsel gezwungen" — nicht sehen.
+ */
+test.describe('Ein neues Konto von Anfang bis Ende', () => {
+  const NEU = {
+    name: 'Friedrich Merz',
+    initials: 'FME',
+    phone: '0159 20260825',
+    phoneE164: '+4915920260825',
+    start: 'friedrichmerz',
+    eigenes: 'basketball ist schön',
+  };
+
+  test.beforeEach(async () => {
+    await dropRefereeByPhone(NEU.phoneE164);
+  });
+
+  test.afterAll(async () => {
+    await dropRefereeByPhone(NEU.phoneE164);
+  });
+
+  const anlegen = async (page: Page): Promise<void> => {
+    await loginAs(page, SEED.nele.phone);
+    await page.goto('/schiris');
+    /*
+     * Über die Ids und nicht über die Beschriftung: „Kürzel" und
+     * „Telefonnummer" stehen auf dieser Seite auch an jeder Tabellenzeile.
+     */
+    await page.locator('#neu-name').fill(NEU.name);
+    await page.locator('#neu-kuerzel').fill(NEU.initials);
+    await page.locator('#neu-telefon').fill(NEU.phone);
+    await page.getByRole('button', { name: /Schiedsrichter anlegen/ }).click();
+  };
+
+  const anmelden = async (page: Page, password: string): Promise<void> => {
+    await page.context().clearCookies();
+    await page.goto('/anmelden');
+    await page.getByLabel('Telefonnummer').fill(NEU.phone);
+    await page.getByLabel('Passwort').fill(password);
+    await page.getByRole('button', { name: 'Anmelden' }).click();
+  };
+
+  test('nennt beim Anlegen das Start-Passwort und erzwingt danach ein eigenes', async ({ page }) => {
+    await anlegen(page);
+    await expect(formSuccess(page)).toContainText(/angelegt/);
+
+    /*
+     * Regel 35: Das Start-Passwort steht in der Tabelle — es folgt aus dem
+     * Namen und liegt nirgends gespeichert. In der Adresse steht es nicht:
+     * dort landete es im Verlauf des Browsers und im Zugriffsprotokoll.
+     */
+    await expect(page.getByText(NEU.start)).toBeVisible();
+    expect(page.url()).not.toContain(NEU.start);
+
+    await anmelden(page, NEU.start);
+
+    // Regel 37: Es geht auf die Passwortseite und nirgendwo sonst hin.
+    await expect(page).toHaveURL(/\/passwort$/);
+    await expect(page.getByRole('heading', { name: 'Passwort festlegen' })).toBeVisible();
+
+    // Und der Rest der App bleibt zu, auch wenn man die Adresse eintippt.
+    for (const path of ['/kalender', '/spiele', '/profil']) {
+      await page.goto(path);
+      await expect(page, `${path} war trotz Start-Passwort erreichbar`).toHaveURL(/\/passwort$/);
+    }
+
+    await page.getByLabel('Start-Passwort').fill(NEU.start);
+    await page.getByLabel('Neues Passwort', { exact: true }).fill(NEU.eigenes);
+    await page.getByLabel('Neues Passwort wiederholen').fill(NEU.eigenes);
+    await page.getByRole('button', { name: 'Passwort speichern' }).click();
+
+    // Jetzt geht es weiter — und zwar dorthin, wo jeder nach dem Login landet.
+    await expect(page.getByRole('heading', { name: /Kalender/, level: 1 })).toBeVisible();
+
+    const state = await passwordStateOf(NEU.phoneE164);
+    expect(state.own, 'kein eigenes Passwort vermerkt').toBe(true);
+    expect(state.expires, 'die Frist des Start-Passworts steht noch').toBeNull();
+  });
+
+  test('lässt einen Admin zurücksetzen — danach gilt wieder das Start-Passwort', async ({ page }) => {
+    await anlegen(page);
+    await anmelden(page, NEU.start);
+    await page.getByLabel('Start-Passwort').fill(NEU.start);
+    await page.getByLabel('Neues Passwort', { exact: true }).fill(NEU.eigenes);
+    await page.getByLabel('Neues Passwort wiederholen').fill(NEU.eigenes);
+    await page.getByRole('button', { name: 'Passwort speichern' }).click();
+    await expect(page.getByRole('heading', { name: /Kalender/, level: 1 })).toBeVisible();
+
+    // Regel 40: Der Admin setzt zurück.
+    await loginAs(page, SEED.nele.phone);
+    await page.goto('/schiris');
+    await page
+      .getByRole('button', { name: `Passwort von ${NEU.name} zurücksetzen` })
+      .click();
+    await expect(formSuccess(page)).toContainText(/Zurückgesetzt/);
+    await expect(page.getByText(NEU.start)).toBeVisible();
+    expect(page.url()).not.toContain(NEU.start);
+    expect(await auditCount('referee.password-reset')).toBeGreaterThan(0);
+
+    // Das eigene Passwort gilt nicht mehr …
+    await anmelden(page, NEU.eigenes);
+    await expect(formError(page)).toContainText(/stimmt nicht/);
+
+    // … das Start-Passwort wieder, und der Zwang steht erneut.
+    await anmelden(page, NEU.start);
+    await expect(page).toHaveURL(/\/passwort$/);
   });
 });

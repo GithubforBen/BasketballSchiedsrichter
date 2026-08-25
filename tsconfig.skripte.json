@@ -1,0 +1,10 @@
+{
+  "//": "Nur fuer Skripte, die unter tsx laufen (db:migrate, db:seed, seed:admin, notzugang). Sie sind weder Server- noch Client-Komponente; das Paket server-only wirft dort ohne Grund. Fuer alles, was Next uebersetzt, gilt weiterhin tsconfig.json und damit die Sperre.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "server-only": ["./test/server-only-ersatz.ts"]
+    }
+  }
+}

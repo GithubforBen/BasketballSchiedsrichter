@@ -11,8 +11,14 @@ import { createSession, SESSION_COOKIE, sessionCookieOptions } from '@/server/se
  * Ein Aufruf loest den Token ein und setzt die Sitzung. Schlaegt es fehl,
  * landet der Besucher wieder auf der Anmeldeseite — mit Begruendung, aber
  * ohne den Token in der Adresse stehen zu lassen.
+ *
+ * Steht `LOGIN_MAGIC_LINK` auf "aus", gibt es gar keine Links mehr — dann ist
+ * auch dieser Weg zu, damit ein alter Link aus einer Nachricht nicht am
+ * abgeschalteten Verfahren vorbei doch noch hineinfuehrt.
  */
 export const GET = async (request: NextRequest): Promise<NextResponse> => {
+  if (!env.magicLinkEnabled) return redirectTo('/anmelden');
+
   const token = request.nextUrl.searchParams.get('token');
   if (!token) return redirectTo('/anmelden');
 
@@ -21,7 +27,9 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
     return redirectTo(pathWithQuery('/anmelden', { fehler: result.message }));
   }
 
-  const response = redirectTo(landingScreen(result.lastScreen));
+  // Regel 37: Das Start-Passwort oeffnet genau eine Seite — die Passwortseite.
+  const target = result.mustChangePassword ? '/passwort' : landingScreen(result.lastScreen);
+  const response = redirectTo(target);
   response.cookies.set(
     SESSION_COOKIE,
     createSession({ refereeId: result.refereeId, role: result.role }, env.sessionSecret, new Date()),

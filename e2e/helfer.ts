@@ -1,23 +1,6 @@
 import { expect, type Page } from '@playwright/test';
-import { latestLoginMessage, resetLoginState } from './db';
-
-/**
- * Anmeldung als bestimmte Person — Aufbau für die Tests des angemeldeten
- * Bereichs. Der Weg entspricht dem echten: Zugang anfordern, Link aus der
- * Outbox holen, Link öffnen.
- */
-export const loginAs = async (page: Page, phone: string): Promise<void> => {
-  await resetLoginState();
-  // Eine bestehende Sitzung würde die Anmeldeseite überspringen — ein Test,
-  // der die Person wechselt, säße sonst weiter im alten Konto.
-  await page.context().clearCookies();
-  await page.goto('/anmelden');
-  await page.getByLabel('Telefonnummer').fill(phone);
-  await page.getByRole('button', { name: 'Zugang anfordern' }).click();
-  await expect(page.locator('.form-success, p.form-error')).toBeVisible();
-  const { link } = await latestLoginMessage();
-  await page.goto(link);
-};
+import { startPassword } from '@/domain/password';
+import { resetLoginState } from './db';
 
 /** Die Personen aus dem Seed, wie sie in den Tests gebraucht werden. */
 export const SEED = {
@@ -25,6 +8,29 @@ export const SEED = {
   lena: { id: 'r-lb', phone: '0160 884210', name: 'Lena Brandt', initials: 'LB' },
   nele: { id: 'r-nb', phone: '0157 220671', name: 'Nele Baumann', initials: 'NB' },
 } as const;
+
+/**
+ * Anmeldung als bestimmte Person — Aufbau für die Tests des angemeldeten
+ * Bereichs. Der Weg entspricht dem echten: Telefonnummer und Passwort ins
+ * Formular, absenden.
+ *
+ * Das Passwort steht nirgends: es folgt nach Regel 35 aus dem Namen, und der
+ * Seed setzt genau das. Deshalb reicht hier die Nummer — der Rest ergibt sich.
+ */
+export const loginAs = async (page: Page, phone: string): Promise<void> => {
+  const person = Object.values(SEED).find((entry) => entry.phone === phone);
+  if (!person) throw new Error(`Keine Seed-Person mit der Nummer "${phone}"`);
+
+  await resetLoginState();
+  // Eine bestehende Sitzung würde die Anmeldeseite überspringen — ein Test,
+  // der die Person wechselt, säße sonst weiter im alten Konto.
+  await page.context().clearCookies();
+  await page.goto('/anmelden');
+  await page.getByLabel('Telefonnummer').fill(phone);
+  await page.getByLabel('Passwort').fill(startPassword(person.name));
+  await page.getByRole('button', { name: 'Anmelden' }).click();
+  await expect(page.locator('.shell-topbar')).toContainText(person.name);
+};
 
 export const topbar = (page: Page) => page.locator('.shell-topbar');
 export const formError = (page: Page) => page.locator('p.form-error');

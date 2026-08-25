@@ -7,7 +7,7 @@ const ok = (input: string) => {
   return result.ok ? result.phone : '';
 };
 
-describe('Telefonnummern vereinheitlichen', () => {
+describe('Regel 42 — jede übliche Schreibweise wird angenommen', () => {
   it('führt alle üblichen Schreibweisen derselben Nummer zusammen', () => {
     const variants = [
       '+4915123456789',
@@ -56,9 +56,22 @@ describe('Telefonnummern vereinheitlichen', () => {
   });
 });
 
-describe('Anzeige von Telefonnummern', () => {
-  it('gliedert für die Anzeige', () => {
-    expect(formatPhone('+4915123456789')).toBe('+49 151 23456789');
+describe('Regel 43 — angezeigt wird national mit Null', () => {
+  it('macht aus der gespeicherten Form die, die jeder auf dem Handy sieht', () => {
+    expect(formatPhone('+4915123456789')).toBe('0151 23456789');
+    expect(formatPhone('+491761234567')).toBe('0176 1234567');
+  });
+
+  it('ergibt eine Schreibweise, die genau wieder auf dieselbe Nummer führt', () => {
+    // Wer die angezeigte Nummer abschreibt und eintippt, muss beim selben
+    // Datensatz landen — sonst waere die Anzeige eine Falle.
+    for (const phone of ['+4915123456789', '+491761234567', '+4923112345678']) {
+      expect(ok(formatPhone(phone))).toBe(phone);
+    }
+  });
+
+  it('lässt ausländische Nummern international — die Null gilt dort nicht', () => {
+    expect(formatPhone('+41791234567')).toBe('+41 791 234567');
   });
 
   it('gibt Unbekanntes unverändert zurück, statt es zu verstümmeln', () => {
@@ -67,7 +80,7 @@ describe('Anzeige von Telefonnummern', () => {
 
   it('verdeckt die Mitte, wenn nur bestätigt werden soll, wohin die Nachricht ging', () => {
     const masked = maskPhone('+4915123456789');
-    expect(masked).toBe('+49151 ••• ••89');
+    expect(masked).toBe('0151 ••• ••89');
     expect(masked).not.toContain('23456');
   });
 });

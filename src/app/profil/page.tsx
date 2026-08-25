@@ -124,11 +124,15 @@ const Profile = async ({ searchParams }: PageProps) => {
             für den man erst jemanden ansprechen muss, wird selten eingelöst.
           */}
           <div className="row" style={{ marginTop: 'var(--space-6)' }}>
+            {/* Regel 38: Das eigene Passwort ändert jeder selbst. */}
+            <a className="btn btn-secondary" href="/passwort">
+              Passwort ändern
+            </a>
             <a className="btn" href="/profil/auszug" download>
               Meine Daten herunterladen
             </a>
             <form action="/abmelden" method="post">
-              <Button type="submit" variant="secondary">
+              <Button type="submit" variant="ghost">
                 Abmelden
               </Button>
             </form>

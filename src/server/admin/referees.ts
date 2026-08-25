@@ -2,8 +2,10 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { and, eq, gte, sql as sqlRaw } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { START_PASSWORD_VALID_DAYS, hasUsableStartPassword } from '@/domain/password';
 import { slotKind } from '@/domain/slots';
 import type { SlotIndex } from '@/domain/types';
+import { applyStartPassword } from '../auth/password-login';
 import { normalisePhone } from '../auth/phone';
 import { isUniqueViolation } from '../assignments';
 import type { AdminResult } from './games';
@@ -31,7 +33,15 @@ export interface NewRefereeInput {
   role: 'referee' | 'admin';
 }
 
-/** Legt ein Konto an. Eine Selbstregistrierung gibt es bewusst nicht. */
+/**
+ * Legt ein Konto an. Eine Selbstregistrierung gibt es bewusst nicht.
+ *
+ * Das Start-Passwort aus Regel 35 wird gleich mitgesetzt. Es steht **nicht** in
+ * der Rueckmeldung: die geht ueber den Abfrageteil der Adresse zurueck und
+ * landete damit im Verlauf des Browsers und im Zugriffsprotokoll des
+ * Webservers. Ablesen laesst es sich in der Tabelle daneben, die es aus dem
+ * Namen berechnet.
+ */
 export const createReferee = async (
   actorId: string,
   input: NewRefereeInput,
@@ -46,6 +56,10 @@ export const createReferee = async (
   const phone = normalisePhone(input.phone);
   if (!phone.ok) return fail(phone.message);
 
+  if (!hasUsableStartPassword(name)) {
+    return fail('Aus diesem Namen lässt sich kein Start-Passwort bilden — bitte ausschreiben.');
+  }
+
   const id = randomUUID();
   try {
     await db.insert(schema.referees).values({ id, name, initials, phone: phone.phone, role: input.role });
@@ -56,8 +70,14 @@ export const createReferee = async (
     throw error;
   }
 
+  await applyStartPassword(id, name);
   await audit(actorId, 'referee.create', id, { name, initials, role: input.role });
-  return { ok: true, message: `${name} angelegt. Die Anmeldung läuft über die Telefonnummer.` };
+  return {
+    ok: true,
+    message:
+      `${name} angelegt. Das Start-Passwort steht in der Tabelle oben, gilt ` +
+      `${START_PASSWORD_VALID_DAYS} Tage und muss beim ersten Anmelden geändert werden.`,
+  };
 };
 
 export interface RefereeUpdate {

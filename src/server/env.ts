@@ -47,4 +47,15 @@ export const env = {
     }
     return value;
   },
+  /**
+   * Ob der Anmeldelink zusaetzlich zum Passwort angeboten wird.
+   *
+   * Standard aus: der Verein hat fuer WhatsApp nur 2000 Nachrichten im Monat,
+   * und ein Anmeldeweg, der je Anmeldung eine davon verbraucht, passt da nicht
+   * hinein. Der ganze Weg bleibt gebaut und getestet — `LOGIN_MAGIC_LINK=an`
+   * holt ihn zurueck, sobald das Budget steht.
+   */
+  get magicLinkEnabled(): boolean {
+    return (process.env.LOGIN_MAGIC_LINK ?? 'aus').toLowerCase() === 'an';
+  },
 };

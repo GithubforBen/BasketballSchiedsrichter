@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { passwordState, startPassword, type PasswordState } from '@/domain/password';
 import type { Referee } from '@/domain/types';
 
 /** Umrechnung von Datenbankzeilen in den fachlichen Typ. */
@@ -23,6 +24,49 @@ const toReferee = (row: RefereeRow, qualifications: readonly string[]): Referee 
   reminderHours: row.reminderHours,
   active: row.active,
 });
+
+/**
+ * Der Passwortzustand aller Konten, fuer die Schiedsrichter-Verwaltung.
+ *
+ * Getrennt von `loadAllReferees`, weil das den fachlichen Typ `Referee`
+ * liefert und der mit Passwoertern nichts zu tun hat. Hier steht nur der
+ * Zustand — nie ein Hash und nie ein Passwort.
+ */
+export interface PasswordOverview {
+  refereeId: string;
+  state: PasswordState;
+  /**
+   * Das Start-Passwort im Klartext, solange es gilt. Es liegt nirgends
+   * gespeichert: es folgt nach Regel 35 aus dem Namen und wird hier neu
+   * berechnet, damit der Admin es weitersagen kann, ohne dass es je in einer
+   * Adresse, einem Protokoll oder einer Spalte steht.
+   */
+  startPassword: string | null;
+  validUntil: Date | null;
+}
+
+export const loadPasswordOverview = async (
+  now: Date = new Date(),
+): Promise<readonly PasswordOverview[]> => {
+  const rows = await db
+    .select({
+      id: schema.referees.id,
+      name: schema.referees.name,
+      ownPasswordSetAt: schema.referees.ownPasswordSetAt,
+      startPasswordExpiresAt: schema.referees.startPasswordExpiresAt,
+    })
+    .from(schema.referees);
+
+  return rows.map((row) => {
+    const state = passwordState(row, now);
+    return {
+      refereeId: row.id,
+      state,
+      startPassword: state === 'start' ? startPassword(row.name) : null,
+      validUntil: state === 'start' ? row.startPasswordExpiresAt : null,
+    };
+  });
+};
 
 /** Eine Person samt ihrer Qualifikationen. */
 export const loadReferee = async (refereeId: string): Promise<Referee | null> => {

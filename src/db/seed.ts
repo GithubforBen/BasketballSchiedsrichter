@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import { CLUB, INITIAL_LEAGUES } from '@/config/club';
+import { startPassword } from '@/domain/password';
+import { hashPassword } from '@/server/auth/hash';
 import { db, schema, sql } from './index';
 import {
   SEED_GAMES,
@@ -34,6 +37,32 @@ const run = async (): Promise<void> => {
       reminderHours: referee.id === 'r-jk' ? [48, 3] : [24],
     })),
   );
+
+  /*
+   * Jeder Beispiel-Schiri bekommt sein Passwort aus dem Namen — "jonaskeller",
+   * "lenabrandt" und so fort. Ohne das kaeme man in die Beispieldaten gar nicht
+   * hinein.
+   *
+   * Es gilt hier als *eigenes* Passwort und nicht als Start-Passwort: sonst
+   * stuende bei jeder Anmeldung in der Entwicklung zuerst der erzwungene
+   * Wechsel aus Regel 37 im Weg. Wie der aussieht, zeigt jedes neu angelegte
+   * Konto — das bekommt seinen Zwang ueber `createReferee` wie im Betrieb.
+   *
+   * Gespeichert ist auch hier nur der Hash (Regel 39); ein fest eingetragener
+   * Hash im Quelltext waere ein Passwort, das in jeder Installation dasselbe
+   * ist.
+   */
+  const seededAt = new Date();
+  for (const referee of SEED_REFEREES) {
+    await db
+      .update(schema.referees)
+      .set({
+        passwordHash: await hashPassword(startPassword(referee.name)),
+        ownPasswordSetAt: seededAt,
+        startPasswordExpiresAt: null,
+      })
+      .where(eq(schema.referees.id, referee.id));
+  }
 
   await db.insert(schema.qualifications).values(
     SEED_REFEREES.flatMap((referee) =>

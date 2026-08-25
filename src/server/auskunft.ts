@@ -109,6 +109,19 @@ export const buildDataExport = async (refereeId: string): Promise<DataExport | n
       Profilbild: referee.avatarUrl ?? '—',
       'Zuletzt geöffneter Bildschirm': referee.lastScreen ?? '—',
       'Konto angelegt am': timestamp(referee.createdAt),
+      /*
+       * Regel 39: Was hier über das Passwort steht, ist der Zustand — nie das
+       * Passwort und nie sein Hash. Dass ein Passwort gespeichert ist, gehört
+       * in eine vollständige Auskunft; womit es gespeichert ist, ginge über
+       * eine Auskunft hinaus und wäre ein Wegweiser für jeden, der den Auszug
+       * in die Hände bekommt.
+       */
+      Passwort:
+        referee.ownPasswordSetAt !== null
+          ? `selbst gesetzt am ${timestamp(referee.ownPasswordSetAt)}`
+          : referee.startPasswordExpiresAt !== null
+            ? `Start-Passwort, gültig bis ${timestamp(referee.startPasswordExpiresAt)}`
+            : 'keins gesetzt',
     },
     qualifikationen: quals.map((q) => q.leagueId),
     erinnerungen: referee.reminderHours.map((h) => `${describeHours(h)} vor Anpfiff`),

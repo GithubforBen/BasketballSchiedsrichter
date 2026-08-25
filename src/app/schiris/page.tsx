@@ -2,13 +2,19 @@ import type { Metadata } from 'next';
 import { Button, Field, Input, Note, Tag } from '@/components/primitives';
 import { AdminShell, single } from '@/components/admin/AdminShell';
 import { CLUB } from '@/config/club';
+import { dateLabel } from '@/domain/schedule';
 import { formatPhone } from '@/server/auth/phone';
 import { requireAdmin } from '@/server/guard';
 import { loadLeagues } from '@/server/queries/admin-view';
-import { loadAllReferees } from '@/server/queries/referees';
+import {
+  loadAllReferees,
+  loadPasswordOverview,
+  type PasswordOverview,
+} from '@/server/queries/referees';
 import {
   createRefereeAction,
   deleteRefereeAction,
+  resetPasswordAction,
   toggleQualificationAction,
   updateRefereeAction,
 } from './actions';
@@ -28,12 +34,42 @@ interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
+/**
+ * Der Passwortzustand einer Person. Regeln 35 bis 40.
+ *
+ * Das Start-Passwort steht hier im Klartext, und nur hier: es folgt aus dem
+ * Namen und wird bei jedem Aufruf neu gerechnet. Damit muss es nirgends
+ * gespeichert werden und kommt auch nicht — wie zuvor — über den Abfrageteil
+ * einer Adresse in den Verlauf des Browsers.
+ */
+const PasswordCell = ({ entry }: { entry: PasswordOverview | undefined }) => {
+  if (!entry || entry.state === 'own') {
+    return <span className="text-muted">eigenes</span>;
+  }
+  if (entry.state === 'expired') {
+    return <Tag tone="outline">abgelaufen</Tag>;
+  }
+  return (
+    <span style={{ whiteSpace: 'nowrap' }}>
+      <code>{entry.startPassword}</code>
+      <span className="text-muted" style={{ display: 'block', fontSize: '11px' }}>
+        bis {entry.validUntil ? dateLabel(entry.validUntil, CLUB.timeZone) : '—'}
+      </span>
+    </span>
+  );
+};
+
 const Referees = async ({ searchParams }: PageProps) => {
   const user = await requireAdmin();
   const params = await searchParams;
 
-  const [referees, leagues] = await Promise.all([loadAllReferees(), loadLeagues()]);
+  const [referees, leagues, passwords] = await Promise.all([
+    loadAllReferees(),
+    loadLeagues(),
+    loadPasswordOverview(),
+  ]);
   const activeLeagues = leagues.filter((league) => league.active);
+  const passwordOf = new Map(passwords.map((entry) => [entry.refereeId, entry]));
 
   return (
     <AdminShell
@@ -41,7 +77,7 @@ const Referees = async ({ searchParams }: PageProps) => {
       current="/schiris"
       kicker="Adminbereich"
       title="Schiedsrichter"
-      lead="Konten, Kürzel, Telefonnummern und Qualifikationen — nur hier änderbar."
+      lead="Konten, Kürzel, Telefonnummern, Qualifikationen und Passwörter — nur hier änderbar."
       hint={single(params.hinweis)}
       error={single(params.fehler)}
     >
@@ -57,8 +93,12 @@ const Referees = async ({ searchParams }: PageProps) => {
                 <th key={league.id}>{league.name}</th>
               ))}
               <th>Aktiv</th>
+              <th>Passwort</th>
               <th>
                 <span className="visually-hidden">Speichern</span>
+              </th>
+              <th>
+                <span className="visually-hidden">Passwort zurücksetzen</span>
               </th>
               <th>
                 <span className="visually-hidden">Löschen</span>
@@ -123,6 +163,9 @@ const Referees = async ({ searchParams }: PageProps) => {
                   );
                 })}
                 <td>
+                  <PasswordCell entry={passwordOf.get(referee.id)} />
+                </td>
+                <td>
                   <input
                     form={`person-${referee.id}`}
                     type="checkbox"
@@ -138,6 +181,25 @@ const Referees = async ({ searchParams }: PageProps) => {
                     <input type="hidden" name="person" value={referee.id} />
                     <Button type="submit" variant="ghost" className="btn-compact">
                       Speichern
+                    </Button>
+                  </form>
+                </td>
+                <td>
+                  {/*
+                    Regel 40: Das Passwort selbst steht nirgends — auch ein Admin
+                    kann es nicht lesen, nur zurücksetzen. Danach gilt wieder das
+                    Start-Passwort aus dem Namen, und die Person muss ein eigenes
+                    setzen.
+                  */}
+                  <form action={resetPasswordAction}>
+                    <input type="hidden" name="person" value={referee.id} />
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      className="btn-compact"
+                      aria-label={`Passwort von ${referee.name} zurücksetzen`}
+                    >
+                      Passwort
                     </Button>
                   </form>
                 </td>
@@ -184,7 +246,11 @@ const Referees = async ({ searchParams }: PageProps) => {
             <Field label="Kürzel" htmlFor="neu-kuerzel" hint="Zwei bis vier Buchstaben">
               <Input id="neu-kuerzel" name="kuerzel" required placeholder="JK" maxLength={4} />
             </Field>
-            <Field label="Telefonnummer" htmlFor="neu-telefon" hint="Für die Anmeldung">
+            <Field
+              label="Telefonnummer"
+              htmlFor="neu-telefon"
+              hint="Für die Anmeldung — jede Schreibweise, auch mit +49"
+            >
               <Input id="neu-telefon" name="telefon" type="tel" required placeholder="0151 23456789" />
             </Field>
             <Field label="Rolle" htmlFor="neu-rolle">
@@ -200,7 +266,8 @@ const Referees = async ({ searchParams }: PageProps) => {
         </form>
         <p className="text-muted" style={{ fontSize: '12px', marginTop: 'var(--space-3)' }}>
           <Tag tone="neutral">Hinweis</Tag> Qualifikationen werden nach dem Anlegen in der Tabelle
-          oben vergeben.
+          oben vergeben. Das Start-Passwort ist der Name, klein und zusammengeschrieben — es steht
+          nach dem Anlegen in der Rückmeldung und muss beim ersten Anmelden geändert werden.
         </p>
       </section>
     </AdminShell>

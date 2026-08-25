@@ -3,6 +3,7 @@ import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { deleteReferee } from './admin/referees';
 import { applyRetention, DEFAULT_RETENTION } from './aufbewahrung';
+import { applyStartPassword } from './auth/password-login';
 import { buildDataExport, renderDataExport } from './auskunft';
 
 /**
@@ -241,6 +242,23 @@ suite('Datenschutz', () => {
       expect(data?.eintragungen).toHaveLength(1);
       expect(data?.nachrichten).toHaveLength(1);
       expect(data?.anmeldungen).toHaveLength(1);
+    });
+
+    it('nennt den Zustand des Passworts, nie das Passwort und nie seinen Hash', async () => {
+      // Regel 39. Ein Auszug, der den Hash mitliefert, waere ein Auszug, aus
+      // dem sich Passwoerter durchprobieren lassen — von jedem, dem die Datei
+      // in die Haende faellt.
+      await applyStartPassword(person, 'Test Person');
+      const [row] = await sql<{ password_hash: string }[]>`
+        SELECT password_hash FROM referees WHERE id = ${person}`;
+
+      const data = await buildDataExport(person);
+      expect(data?.person['Passwort']).toContain('Start-Passwort');
+
+      const text = renderDataExport(data!);
+      expect(text).not.toContain(row?.password_hash ?? 'kein-hash');
+      expect(text).not.toContain('scrypt');
+      expect(text).not.toContain('testperson');
     });
 
     it('gibt die Stammdaten vollständig heraus — auch die Telefonnummer', async () => {

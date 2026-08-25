@@ -74,6 +74,15 @@ export default defineConfig({
            */
           command: 'npm run start:prepare && PORT=3100 npm run start',
           url: baseURL,
+          /*
+           * Der Server muss unter derselben Adresse von sich wissen, unter der
+           * ihn der Test aufruft. Weiterleitungen werden gegen PUBLIC_BASE_URL
+           * aufgeloest (siehe src/server/http.ts) — steht dort der Port aus der
+           * Entwicklung, landet der Browser nach dem Abmelden auf einem Port,
+           * auf dem nichts laeuft, und der Fehler sieht aus wie ein Fehler in
+           * der Anwendung.
+           */
+          env: { PUBLIC_BASE_URL: baseURL },
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
         },

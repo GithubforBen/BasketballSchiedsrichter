@@ -6,8 +6,9 @@ import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
 import { formatPhone } from '@/server/auth/phone';
 import { CODE_LENGTH, TOKEN_LIFETIME_MINUTES } from '@/server/auth/tokens';
+import { env } from '@/server/env';
 import { currentUser } from '@/server/viewer';
-import { requestLoginAction, submitCodeAction } from './actions';
+import { passwordLoginAction, requestLoginAction, submitCodeAction } from './actions';
 
 export const metadata: Metadata = {
   title: `Anmelden · ${CLUB.appName}`,
@@ -24,10 +25,12 @@ const single = (value: string | string[] | undefined): string | undefined =>
 
 const Login = async ({ searchParams }: PageProps) => {
   const user = await currentUser();
-  if (user) redirect('/');
+  if (user) redirect(user.mustChangePassword ? '/passwort' : '/');
 
   const params = await searchParams;
-  const step = single(params.schritt) === 'code' ? 'code' : 'phone';
+  // Der zweite Schritt gehoert zum Weg ueber den Link. Ist der zu, gibt es ihn
+  // auch dann nicht, wenn jemand die Adresse von Hand eintippt.
+  const step = env.magicLinkEnabled && single(params.schritt) === 'code' ? 'code' : 'password';
   const phone = single(params.tel) ?? '';
   const error = single(params.fehler);
   const hint = single(params.hinweis);
@@ -35,7 +38,7 @@ const Login = async ({ searchParams }: PageProps) => {
   return (
     <Shell nav={PUBLIC_NAV} tabs={PUBLIC_TABS} footerNav={FOOTER_NAV} current="/anmelden">
       <div className="form-page">
-        <div className="kicker kicker-accent">Ohne Passwort</div>
+        <div className="kicker kicker-accent">Telefonnummer und Passwort</div>
         <h1>Anmelden</h1>
 
         {error ? (
@@ -44,13 +47,15 @@ const Login = async ({ searchParams }: PageProps) => {
           </p>
         ) : null}
 
-        {step === 'phone' ? (
+        {step === 'password' ? (
           <>
+            {hint ? <p className="form-success">{hint}</p> : null}
             <p className="text-muted" style={{ fontSize: '14px' }}>
-              Du bekommst einen Link zum Antippen und einen Code zum Eintippen. Konten legt
-              ausschließlich der Admin an — eine eigene Registrierung gibt es nicht.
+              Konten legt ausschließlich der Admin an — eine eigene Registrierung gibt es nicht.
+              Beim ersten Mal ist das Passwort dein Vor- und Nachname, klein und
+              zusammengeschrieben.
             </p>
-            <form action={requestLoginAction}>
+            <form action={passwordLoginAction}>
               <Field label="Telefonnummer" htmlFor="telefon">
                 <Input
                   id="telefon"
@@ -64,10 +69,38 @@ const Login = async ({ searchParams }: PageProps) => {
                   style={{ fontVariantNumeric: 'tabular-nums', minHeight: '46px' }}
                 />
               </Field>
+              <Field label="Passwort" htmlFor="passwort">
+                <Input
+                  id="passwort"
+                  name="passwort"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  style={{ minHeight: '46px' }}
+                />
+              </Field>
               <Button type="submit" variant="primary" block>
-                Zugang anfordern
+                Anmelden
               </Button>
             </form>
+
+            {/*
+              Der Weg über einen zugeschickten Link ist gebaut und geprüft, steht
+              aber zu: jede Anmeldung kostet dabei eine Nachricht. Er erscheint
+              erst, wenn LOGIN_MAGIC_LINK auf "an" steht.
+            */}
+            {env.magicLinkEnabled ? (
+              <form action={requestLoginAction} style={{ marginTop: 'var(--space-4)' }}>
+                <input type="hidden" name="telefon" value={phone} />
+                <Button type="submit" variant="ghost">
+                  Passwort vergessen — Link schicken
+                </Button>
+              </form>
+            ) : (
+              <p className="text-muted" style={{ fontSize: '13px', marginTop: 'var(--space-4)' }}>
+                Passwort vergessen? Ein Admin der Abteilung setzt es zurück.
+              </p>
+            )}
           </>
         ) : (
           <>

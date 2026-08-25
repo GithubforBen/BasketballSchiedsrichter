@@ -2,8 +2,9 @@
  * Rate-Limits fuer die Anmeldung.
  *
  * Zwei Grenzen greifen zugleich: eine pro Telefonnummer, damit niemand eine
- * fremde Nummer mit Nachrichten zumuellen kann (jede kostet Geld — Regel 33),
- * und eine pro IP, damit niemand reihenweise Nummern durchprobiert.
+ * fremde Nummer mit Nachrichten zumuellen kann (jede kostet Geld — Regel 33)
+ * und niemand ein Passwort durchprobiert, und eine pro IP, damit niemand
+ * reihenweise Nummern abklopft.
  *
  * Feste Zeitfenster statt gleitender: sie sind ohne Verlaufsdaten auszurechnen,
  * verstaendlich zu erklaeren ("in 4 Minuten wieder") und fuer diesen Zweck
@@ -14,8 +15,14 @@ export interface RateLimitRule {
   /** Wie viele Versuche das Fenster erlaubt. */
   limit: number;
   windowMs: number;
-  /** Fuer die Meldung an den Nutzer. */
-  subject: string;
+  /**
+   * Was zu viel war, fuer die Meldung: "Zu viele __." Ein ganzer Satzteil statt
+   * eines Stichworts, weil sich die Regeln sonst nicht unterscheiden liessen —
+   * angeforderte Nachrichten und falsch getippte Passwoerter sind zweierlei,
+   * und wer ein falsches Passwort eingibt, versteht "zu viele Anmeldungen
+   * angefordert" nicht.
+   */
+  tooMany: string;
 }
 
 const MINUTE = 60 * 1000;
@@ -23,13 +30,27 @@ const MINUTE = 60 * 1000;
 export const LOGIN_PER_PHONE: RateLimitRule = {
   limit: 3,
   windowMs: 15 * MINUTE,
-  subject: 'diese Telefonnummer',
+  tooMany: 'Anmeldungen für diese Telefonnummer angefordert',
+};
+
+/**
+ * Fehlversuche beim Passwort, je Telefonnummer. Regeln 34-36.
+ *
+ * Enger als es fuer getippte Passwoerter bequem waere, und das mit Absicht: das
+ * Start-Passwort folgt aus dem Namen und ist damit erratbar. Acht Versuche in
+ * einer Viertelstunde reichen fuer jemanden, der sich vertippt, und nicht fuer
+ * jemanden, der eine Liste durchgeht.
+ */
+export const PASSWORD_PER_PHONE: RateLimitRule = {
+  limit: 8,
+  windowMs: 15 * MINUTE,
+  tooMany: 'Fehlversuche für diese Telefonnummer',
 };
 
 export const LOGIN_PER_IP: RateLimitRule = {
   limit: 20,
   windowMs: 15 * MINUTE,
-  subject: 'diesen Anschluss',
+  tooMany: 'Anmeldungen von diesem Anschluss',
 };
 
 /** Beginn des Fensters, in das `now` faellt. */
@@ -62,7 +83,11 @@ export const evaluateRateLimit = (
     return {
       allowed: false,
       retryAfterMs,
-      message: `Für ${rule.subject} wurden gerade schon ${rule.limit} Anmeldungen angefordert. Bitte ${describeWait(retryAfterMs)} erneut versuchen.`,
+      /*
+       * Die Zahl selbst steht bewusst nicht in der Meldung: sie hilft niemandem
+       * beim Weiterkommen und sagt einem Angreifer, wie weit er zaehlen darf.
+       */
+      message: `Zu viele ${rule.tooMany}. Bitte ${describeWait(retryAfterMs)} erneut versuchen.`,
     };
   }
   return { allowed: true, remaining: rule.limit - count - 1 };
@@ -73,4 +98,10 @@ const describeWait = (ms: number): string => {
   return minutes <= 1 ? 'in einer Minute' : `in ${minutes} Minuten`;
 };
 
-export const rateLimitKey = (scope: 'phone' | 'ip', value: string): string => `login:${scope}:${value}`;
+/**
+ * `phone` zaehlt angeforderte Anmeldenachrichten, `pw` die Fehlversuche beim
+ * Passwort. Zwei getrennte Zaehler, weil sie verschiedene Grenzen haben und
+ * sich sonst gegenseitig aufbrauchen wuerden.
+ */
+export const rateLimitKey = (scope: 'phone' | 'pw' | 'ip', value: string): string =>
+  `login:${scope}:${value}`;

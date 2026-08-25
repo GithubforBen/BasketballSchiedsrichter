@@ -77,7 +77,7 @@ export default tseslint.config(
   },
   {
     // Skripte laufen im Terminal und duerfen ihren Fortschritt melden.
-    files: ['src/db/**/*.ts'],
+    files: ['src/db/**/*.ts', 'src/cli/**/*.ts'],
     rules: { 'no-console': 'off' },
   },
   {

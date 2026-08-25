@@ -3,14 +3,19 @@
 Schiedsrichter-Planung für die Basketball-Jugendabteilung der BG Nordstadt.
 
 Zwei gleichwertige Schiedsrichter pro Spiel, zwei Ersatzplätze. Eintragen gilt sofort und
-verbindlich — wer zuerst einträgt, hat den Platz. Nachrichten laufen über WhatsApp.
+verbindlich — wer zuerst einträgt, hat den Platz. Angemeldet wird mit Telefonnummer und
+Passwort. Nachrichten laufen über WhatsApp.
 
 ## Stand
 
 Alle sechs Meilensteine sind fertig: Fundament, Datenmodell, die vollständige Regel-Engine, die
-öffentliche Spieltagsansicht, die Anmeldung ohne Passwort, der Schiedsrichter-Bereich, der
+öffentliche Spieltagsansicht, die Anmeldung, der Schiedsrichter-Bereich, der
 Adminbereich, der Nachrichtenversand und die Härtung — Barrierefreiheit nach WCAG 2.1 AA,
 Datenschutz mit Lösch- und Auskunftskonzept, Fehlerseiten, Sicherungen und Healthcheck.
+
+Danach kam die Anmeldung mit Passwort dazu (Regeln 34–43): Die Anmeldung per Link ist gebaut und
+geprüft, steht aber voreingestellt zu — jeder Link kostet eine WhatsApp-Nachricht, und davon hat
+der Verein 2000 im Monat. `LOGIN_MAGIC_LINK=an` schaltet sie wieder frei.
 
 Vor dem Echtbetrieb bleibt zu tun, was nur der Verein selbst kann: Impressum ausfüllen, die
 Datenschutzerklärung juristisch prüfen lassen, die WhatsApp-Vorlagen bei Meta freigeben und die
@@ -29,8 +34,42 @@ npm run dev
 Der erste Admin entsteht nicht über den Seed, weil Konten sonst ausschließlich Admins anlegen:
 
 ```bash
-npm run seed:admin -- --name "Nele Baumann" --initials NB --phone "+4915722067"
+npm run seed:admin -- --name "Nele Baumann" --initials NB --phone "0157 22067123"
 ```
+
+Der Befehl nennt zum Schluss das Start-Passwort. Es ist der Name, klein und zusammengeschrieben
+(`nelebaumann`), gilt vierzehn Tage und muss beim ersten Anmelden gegen ein eigenes getauscht
+werden. Die Beispieldaten aus `db:seed` haben ihr Passwort nach derselben Regel — `jonaskeller`,
+`lenabrandt`, `nelebaumann` —, dort aber gleich als eigenes gesetzt, damit in der Entwicklung
+nicht bei jeder Anmeldung der erzwungene Wechsel im Weg steht.
+
+## Anmeldung
+
+| Fall | Weg |
+| --- | --- |
+| Gewöhnliche Anmeldung | Telefonnummer und Passwort auf `/anmelden`. Die Nummer darf in jeder Schreibweise stehen: `0151 …`, `+49 151 …`, `0049…`, mit Leerzeichen oder Schrägstrichen. |
+| Neues Konto | Ein Admin legt es unter `/schiris` an; die Rückmeldung nennt das Start-Passwort. |
+| Passwort vergessen | Ein Admin setzt es unter `/schiris` zurück — danach gilt wieder das Start-Passwort. |
+| Passwort ändern | `/passwort`, verlinkt aus dem Profil. Keine Vorgaben zu Länge oder Zeichen; es muss sich nur vom bisherigen unterscheiden. |
+| Kein Admin kommt mehr hinein | Notzugang, siehe unten. |
+
+Gespeichert ist ausschließlich ein scrypt-Hash. Klartext gibt es nirgends — auch ein Admin kann
+ein Passwort nicht lesen, nur zurücksetzen.
+
+### Notzugang
+
+Zurücksetzen kann nur ein Admin. Vergisst der einzige Admin sein Passwort, hilft nur ein Token,
+der vorher ausgestellt wurde:
+
+```bash
+npm run notzugang -- --neu --telefon "0157 22067123" --notiz "Tresor Geschäftsstelle"
+npm run notzugang -- --liste
+npm run notzugang -- --widerrufen <id>
+```
+
+Der Token erscheint genau einmal — gespeichert ist nur eine Ableitung. Aufschreiben und dorthin
+legen, wo der Vereinsschlüssel liegt. Eingelöst wird er unter `/notzugang`; er gilt einmal, setzt
+das Konto auf das Start-Passwort zurück und verlangt sofort ein neues.
 
 ## Befehle
 
@@ -40,6 +79,7 @@ npm run seed:admin -- --name "Nele Baumann" --initials NB --phone "+4915722067"
 | `npm run check` | Typen, Lint und Tests in einem Rutsch |
 | `npm test` | Regel-Engine; mit `TEST_DATABASE_URL` zusätzlich die Datenbank-Zusicherungen |
 | `npm run db:generate` | Migration aus dem Schema erzeugen |
+| `npm run notzugang` | Notzugänge für ausgesperrte Admins ausstellen, auflisten, widerrufen |
 | `npm run test:e2e` | E2E-Tests im Browser, Desktop und Handy (braucht eine gefüllte `DATABASE_URL`) |
 | `npm run build` | Produktionsbuild |
 | `npm start` | Produktionsbuild starten (kopiert vorher die statischen Dateien — ohne das läuft der Server ohne Stylesheets, und zwar stumm) |

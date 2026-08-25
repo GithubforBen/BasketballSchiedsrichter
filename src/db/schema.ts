@@ -41,6 +41,19 @@ export const referees = pgTable(
     active: boolean('active').notNull().default(true),
     /** Persoenliche Erinnerungen als Vorlauf in Stunden. Regel 21. */
     reminderHours: jsonb('reminder_hours').$type<number[]>().notNull().default([]),
+    /**
+     * Passwort, nur als scrypt-Hash. Regel 39 — Klartext ist ueberall verboten.
+     * Null heisst: das Konto hat noch gar kein Passwort und kommt nicht rein.
+     */
+    passwordHash: text('password_hash'),
+    /**
+     * Wann die Person zuletzt **selbst** ein Passwort gesetzt hat. Null heisst:
+     * es gilt noch das Start-Passwort aus dem Namen, und nach der Anmeldung
+     * folgt der Aenderungszwang. Regel 37.
+     */
+    ownPasswordSetAt: timestamp('own_password_set_at', { withTimezone: true }),
+    /** Ende der 14-Tage-Frist des Start-Passworts. Regel 36. */
+    startPasswordExpiresAt: timestamp('start_password_expires_at', { withTimezone: true }),
     /** Bildschirm, der nach dem Login zuerst geoeffnet wird. */
     lastScreen: text('last_screen'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -230,6 +243,30 @@ export const notificationOutbox = pgTable(
     uniqueIndex('notification_outbox_key').on(table.key, table.recipientId),
     index('notification_outbox_due_idx').on(table.state, table.sendAfter),
   ],
+);
+
+/**
+ * Notzugang fuer ausgesperrte Admins. Regel 41.
+ *
+ * Der Token entsteht auf dem Server, wird genau einmal angezeigt und liegt hier
+ * nur als Hash — wie ein Passwort. Er gilt einmal; wer ihn einloest, landet
+ * sofort im Aenderungszwang und setzt ein neues Passwort.
+ */
+export const adminRecoveryTokens = pgTable(
+  'admin_recovery_tokens',
+  {
+    id: text('id').primaryKey(),
+    refereeId: text('referee_id')
+      .notNull()
+      .references(() => referees.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(),
+    /** Freitext des Ausstellers, damit mehrere Token unterscheidbar bleiben. */
+    label: text('label').notNull().default(''),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (table) => [index('admin_recovery_referee_idx').on(table.refereeId)],
 );
 
 /** Vereinsweite Einstellungen als einzelne Zeile — es gibt genau einen Verein. */
