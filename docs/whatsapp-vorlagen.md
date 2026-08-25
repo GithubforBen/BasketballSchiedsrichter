@@ -75,6 +75,26 @@ Code nicht weitergeben. Der Code läuft in 15 Minuten ab."*
 > kein Problem — die Anmeldeseite kann beides, der Code-Weg ist seit M2 gebaut und getestet.
 > Über E-Mail geht weiterhin beides.
 
+#### Kein App-Paketname nötig
+
+Fragt Meta beim Anlegen nach einem **Paketnamen** (`package_name`) und einem **Signaturhash**,
+dann ist die falsche Codeübermittlung ausgewählt. Diese beiden Angaben verlangt Meta
+ausschließlich für **One-Tap Autofill** und **Zero-Tap** — beides setzt eine native
+**Android-App** voraus, die den Code direkt entgegennimmt. Schiriplan ist eine Webseite; es gibt
+keine App, also auch keinen Paketnamen.
+
+Wählen Sie stattdessen den **Kopieren-Button**. Der braucht weder Paketnamen noch Signaturhash:
+die Person tippt auf „Kopieren", wechselt in den Browser und fügt den Code auf der Anmeldeseite
+ein — genau der Ablauf, den die Anwendung seit M2 kann.
+
+Erfinden Sie auf keinen Fall einen Paketnamen, nur um das Feld zu füllen. One-Tap verlangt
+zusätzlich einen Handschlag zwischen App und WhatsApp, der höchstens zehn Minuten zurückliegen
+darf. Der schlüge hier immer fehl; WhatsApp ersetzt den Knopf dann stillschweigend durch einen
+Kopieren-Button — Sie hätten also denselben Ablauf, nur mit einer falschen Angabe in der
+Vorlage und einem Grund mehr, abgelehnt zu werden.
+
+Die zehn UTILITY-Vorlagen fragen ohnehin nie nach einem Paketnamen.
+
 ---
 
 ### 2 · `schiriplan_einsatz_steht` — UTILITY
