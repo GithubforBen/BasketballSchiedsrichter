@@ -124,6 +124,29 @@ und ist per Einstellung wieder zuschaltbar.
     kein Format raten darf und weil WhatsApp später zurückkommen soll — das ist unter der
     Oberfläche und für niemanden sichtbar.
 
+### Nachrichten — allgemeine Regeln
+
+Nachgetragen in Session 3, nachdem die elf Vorlagen zum ersten Mal nebeneinander lagen. Sie
+gelten für **alle** Nachrichten und nicht nur für die, an der sie aufgefallen sind.
+
+44. **Jede Nachricht zu einem Spiel nennt Datum, Uhrzeit *und* den Vorlauf** — „Sa 29.08.2026,
+    10:30 Uhr" und „Anpfiff in 3 Tagen". Das Datum sagt, welches Spiel gemeint ist, der Vorlauf,
+    wie eilig es ist. Das gilt auch für jede einzelne Zeile der Tagesübersicht an die Admins.
+45. **Keine Nachricht stellt einen Nachfolger in Aussicht.** Kein „sonst müssen wir den Platz neu
+    besetzen", kein „ohne Antwort fragen wir den nächsten Ersatz". Wer liest, dass sich ohnehin
+    jemand findet, sagt eher ab. Was ohne Antwort geschieht, ist Sache der Anwendung.
+46. **Jede Antwort läuft über einen eindeutigen Link.** Bitte um Bestätigung, Nachrück-Anfrage und
+    Verschiebung tragen je eine eigene Adresse `…/antwort/<Token>`. Der signierte Token benennt
+    Vorgang, Spiel, Person und den Schlüssel der Nachricht und gilt bis zum Anpfiff. Eine
+    Bestätigung trifft damit genau das Spiel, um das gebeten wurde, und die Seite kann sagen, ob
+    **genau dieses** Spiel schon bestätigt ist. Der Token steht am Ende des Pfades, weil ein
+    dynamischer URL-Knopf bei Meta genau eine Variable erlaubt — und nur dort.
+47. **Zwei Nachrichten sind im Adminbereich schaltbar:** die Quittung nach dem Eintragen (Regel 31)
+    ganz an oder aus, und die Ausschreibung eines offenen Platzes (Regeln 15 und 32) an *alle
+    Qualifizierten*, *nur die Admins* oder *aus*. Die Ausschreibung ist die einzige Nachricht an
+    viele Personen auf einmal und bestimmt die Kosten fast allein (Regel 33); der Verein
+    entscheidet darüber, nicht der Code.
+
 ### Statusfarben
 | Zustand | Bedingung | Farbe |
 |---|---|---|
@@ -389,9 +412,12 @@ Scroll-Rahmen ohnehin abschneidet, sonst wäre jede breite Tabelle ein Fehlalarm
 
 Bewusst so gebaut:
 
-- **Die erste Ausschreibung hängt nicht am Schalter für die automatische Nachfrage.** Ohne sie
-  erführe niemand von der Lücke (Regel 15). Nur die Wiederholungen sind abschaltbar, denn sie
-  kosten erneut Geld.
+- **Die erste Ausschreibung hängt nicht am Schalter für die automatische Nachfrage** — der
+  steuert nur die Wiederholungen, denn sie kosten erneut Geld. Ob überhaupt ausgeschrieben wird
+  und an wen, entscheidet seit Session 3 die Einstellung *Offene Plätze ausschreiben an*
+  (Regel 47): alle Qualifizierten, nur die Admins oder niemand. Vorher ging die erste
+  Ausschreibung immer an alle, weil sonst niemand von der Lücke erführe; mit „nur Admins" gibt es
+  dafür jetzt einen leiseren Weg und mit „aus" eine bewusste Entscheidung des Vereins.
 - **Der Trockenlauf ist der lesende Weg.** `GET /api/cron` zeigt, was ein Lauf täte; `POST`
   führt ihn aus. Ein vorausschauender Browser oder ein Linkprüfer darf nichts auslösen, was
   Geld kostet.

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import {
+  answerLinkFor,
   createGame,
   dayKeyOfGame,
   dropGame,
@@ -326,5 +327,45 @@ test.describe('Zugangsschutz', () => {
       await expect(page).toHaveURL(/\/anmelden/);
     }
     await expect(topbar(page)).toContainText('nicht angemeldet');
+  });
+});
+
+test.describe('Der Antwortlink aus der Nachricht', () => {
+  /*
+   * Die Nachricht kommt aufs Telefon, und die Bestätigung soll nicht an einem
+   * vergessenen Passwort scheitern — deshalb ohne Anmeldung. Geprüft wird das
+   * Entscheidende: der Link trifft genau das Spiel, um das gebeten wurde, und
+   * sagt beim zweiten Öffnen, dass genau dieses Spiel schon bestätigt ist.
+   */
+  test.beforeEach(async ({ page }) => {
+    await resetAssignments();
+    await page.context().clearCookies();
+  });
+
+  test('bestätigt genau dieses Spiel, ohne Anmeldung', async ({ page }) => {
+    const [game] = await upcomingGameIds();
+    await placeReferee(game ?? '', 0, SEED.jonas.id);
+    const link = await answerLinkFor('confirm', game ?? '', SEED.jonas.id);
+
+    await page.goto(link);
+    await expect(
+      page.getByRole('heading', { name: 'Bestätigst du deinen Einsatz?', level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByText('Deine Bestätigung steht noch aus.')).toBeVisible();
+
+    await page.getByRole('button', { name: /Ja, habe ich gelesen/ }).click();
+    await expect(formSuccess(page)).toContainText(/Bestätigt/);
+
+    // Zweiter Aufruf desselben Links: kein zweiter Knopf, sondern der Stand.
+    await page.goto(link);
+    await expect(page.getByText('Dieses Spiel hast du bereits bestätigt.')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Ja, habe ich gelesen/ })).toHaveCount(0);
+  });
+
+  test('erklärt einen Link, der nicht gilt, statt ihn wirken zu lassen', async ({ page }) => {
+    await page.goto('/antwort/kein-echter-token');
+    await expect(
+      page.getByRole('heading', { name: 'Dieser Link führt nicht weiter', level: 1 }),
+    ).toBeVisible();
   });
 });

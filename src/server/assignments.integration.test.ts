@@ -5,6 +5,7 @@ import {
   claimNextSlot,
   confirmAssignment,
   requestSubstitute,
+  respondToPromotion,
   respondToRelocation,
   withdraw,
 } from './assignments';
@@ -64,6 +65,12 @@ suite('Besetzung', () => {
   const makeGame = async (id: string, kickoff: Date, league = 'U14') => {
     await sql`INSERT INTO games (id, kickoff, league_id, home, away, venue)
               VALUES (${id}, ${kickoff}, ${league}, 'Heim', 'Gast', 'Halle')`;
+  };
+
+  /** Schaltet die Quittung nach dem Eintragen um (Vorlage 2). */
+  const setReceipt = async (on: boolean) => {
+    await sql`INSERT INTO settings (id, assignment_receipt) VALUES (1, ${on})
+              ON CONFLICT (id) DO UPDATE SET assignment_receipt = ${on}`;
   };
 
   const occupants = async (id = gameId) => {
@@ -267,5 +274,103 @@ suite('Besetzung', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.kind).toBe('assignment');
     expect(rows[0]?.recipient_id).toBe(a);
+  });
+
+  it('schweigt bei der Eintragung, wenn der Verein die Quittung abgeschaltet hat', async () => {
+    await setReceipt(false);
+    try {
+      await makeGame(gameId, inDays(30));
+      await claimNextSlot(gameId, a);
+      const rows = await sql<{ kind: string }[]>`
+        SELECT kind FROM notification_outbox WHERE game_id = ${gameId}`;
+      expect(rows).toHaveLength(0);
+      // Die Eintragung selbst bleibt davon unberührt.
+      expect(await occupants()).toEqual([`0:${a.replace(`${prefix}-`, '')}`]);
+    } finally {
+      await setReceipt(true);
+    }
+  });
+
+  describe('Regeln 13 bis 16: die Antwort auf eine Nachrück-Anfrage', () => {
+    /** Ein Spiel mit freiem Schiedsrichter-Platz und einem Ersatz, plus Anfrage. */
+    const withOffer = async (respondBy: Date) => {
+      await makeGame(gameId, inDays(30));
+      await sql`INSERT INTO assignments (game_id, slot_index, referee_id)
+                VALUES (${gameId}, 2, ${b})`;
+      const offerId = `${prefix}-offer`;
+      await sql`INSERT INTO promotion_offers
+                  (id, game_id, target_slot, substitute_slot, referee_id, respond_by)
+                VALUES (${offerId}, ${gameId}, 0, 2, ${b}, ${respondBy})`;
+      return offerId;
+    };
+
+    const outcomeOf = async (offerId: string) => {
+      const rows = await sql<{ outcome: string }[]>`
+        SELECT outcome FROM promotion_offers WHERE id = ${offerId}`;
+      return rows[0]?.outcome;
+    };
+
+    afterEach(async () => {
+      await sql`DELETE FROM promotion_offers WHERE id LIKE ${`${prefix}%`}`;
+    });
+
+    it('rückt die Person vom Ersatz- auf den Schiedsrichter-Platz', async () => {
+      const offerId = await withOffer(inDays(1));
+      const result = await respondToPromotion(offerId, b, 'accept');
+      expect(result.ok).toBe(true);
+      expect(await occupants()).toEqual([`0:${b.replace(`${prefix}-`, '')}`]);
+      expect(await outcomeOf(offerId)).toBe('accepted');
+    });
+
+    it('setzt die Pflichtbestätigung zurück — sie gilt für den neuen Platz', async () => {
+      const offerId = await withOffer(inDays(1));
+      await sql`UPDATE assignments SET confirmed_at = now()
+                WHERE game_id = ${gameId} AND referee_id = ${b}`;
+      await respondToPromotion(offerId, b, 'accept');
+      const rows = await sql<{ confirmed_at: Date | null }[]>`
+        SELECT confirmed_at FROM assignments WHERE game_id = ${gameId} AND referee_id = ${b}`;
+      expect(rows[0]?.confirmed_at).toBeNull();
+    });
+
+    it('lässt bei einer Absage alles, wie es war', async () => {
+      const offerId = await withOffer(inDays(1));
+      const result = await respondToPromotion(offerId, b, 'decline');
+      expect(result.ok).toBe(true);
+      expect(await occupants()).toEqual([`2:${b.replace(`${prefix}-`, '')}`]);
+      expect(await outcomeOf(offerId)).toBe('declined');
+    });
+
+    it('nimmt keine zweite Antwort auf dieselbe Anfrage an', async () => {
+      const offerId = await withOffer(inDays(1));
+      await respondToPromotion(offerId, b, 'decline');
+      const again = await respondToPromotion(offerId, b, 'accept');
+      expect(again.ok).toBe(false);
+      expect(again.message).toContain('abgeschlossen');
+    });
+
+    it('nimmt nach der Frist nichts mehr an', async () => {
+      const offerId = await withOffer(new Date(Date.now() - 1000));
+      const result = await respondToPromotion(offerId, b, 'accept');
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('verstrichen');
+    });
+
+    it('nimmt die Antwort einer anderen Person nicht an', async () => {
+      const offerId = await withOffer(inDays(1));
+      const result = await respondToPromotion(offerId, c, 'accept');
+      expect(result.ok).toBe(false);
+    });
+
+    it('erklärt es, wenn der Platz inzwischen besetzt ist — Regel 3', async () => {
+      const offerId = await withOffer(inDays(1));
+      await claimNextSlot(gameId, a);
+      const result = await respondToPromotion(offerId, b, 'accept');
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('besetzt');
+      expect(await occupants()).toEqual([
+        `0:${a.replace(`${prefix}-`, '')}`,
+        `2:${b.replace(`${prefix}-`, '')}`,
+      ]);
+    });
   });
 });

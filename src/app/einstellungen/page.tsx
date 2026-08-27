@@ -4,6 +4,7 @@ import { AdminShell, single } from '@/components/admin/AdminShell';
 import { CLUB } from '@/config/club';
 import { ROTATION_WINDOW_LABELS } from '@/domain/rotation';
 import { describeHours } from '@/domain/time';
+import type { OpenSlotVisibility } from '@/domain/types';
 import { requireAdmin } from '@/server/guard';
 import { loadLeagues } from '@/server/queries/admin-view';
 import { loadAlertSettings, loadSettings } from '@/server/queries/settings';
@@ -25,6 +26,14 @@ interface PageProps {
 }
 
 const CONFIRMATION_CHOICES = [24, 48, 72, 96];
+
+const OPEN_SLOT_CHOICES: readonly OpenSlotVisibility[] = ['all', 'admins', 'off'];
+
+const OPEN_SLOT_LABELS: Readonly<Record<OpenSlotVisibility, string>> = {
+  all: 'alle Qualifizierten (in Rotationsreihenfolge)',
+  admins: 'nur die Admins',
+  off: 'niemanden — Ausschreibung aus',
+};
 
 const Switch = ({
   name,
@@ -129,9 +138,43 @@ const Settings = async ({ searchParams }: PageProps) => {
         <Switch
           name="autoNachfrage"
           label="Automatische Nachfrage bei offenen Spielen"
-          description="Erinnerung an alle Qualifizierten, solange Plätze offen sind."
+          description="Wiederholt die Ausschreibung 14, 7, 3 und 1 Tag vor Anpfiff. Wirkt nur, wenn die Ausschreibung nicht auf „aus“ steht."
           checked={settings.autoNudge}
         />
+
+        <h2 className="kicker" style={{ marginTop: 'var(--space-6)' }}>
+          Nachrichten an Schiedsrichter
+        </h2>
+        <Switch
+          name="quittungEintragung"
+          label="Quittung nach dem Eintragen"
+          description="„Du stehst als Schiedsrichter 1 für …“ — direkt nach der eigenen Eintragung. Der Bildschirm quittiert sie ohnehin schon; abgeschaltet spart der Verein je Eintragung eine Nachricht."
+          checked={settings.assignmentReceipt}
+        />
+        <Field
+          label="Offene Plätze ausschreiben an"
+          htmlFor="ausschreibung"
+          hint="Die einzige Nachricht, die auf einen Schlag an viele geht — und damit der größte Kostenposten."
+        >
+          <select
+            id="ausschreibung"
+            name="ausschreibung"
+            className="input"
+            defaultValue={settings.openSlotVisibility}
+            style={{ maxWidth: '320px' }}
+          >
+            {OPEN_SLOT_CHOICES.map((choice) => (
+              <option key={choice} value={choice}>
+                {OPEN_SLOT_LABELS[choice]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <p className="text-muted" style={{ fontSize: '12px' }}>
+          Steht die Ausschreibung auf „aus“, erfährt niemand von einer Lücke — sie steht dann nur
+          in der Übersicht und in den Meldungen. Die Nachrück-Anfragen an Ersatzleute laufen
+          unabhängig davon weiter.
+        </p>
 
         <h2 className="kicker" style={{ marginTop: 'var(--space-6)' }}>
           Pflichtbestätigung vor dem Spiel

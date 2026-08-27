@@ -5,6 +5,7 @@ import { describeHours, describeLeadTime } from '@/domain/time';
 import type { NotificationKind } from '@/domain/notifications';
 import type { Game, SlotIndex } from '@/domain/types';
 import { TOKEN_LIFETIME_MINUTES } from '@/server/auth/tokens';
+import { answerLink } from './action-links';
 
 /**
  * Die Texte der ausgehenden Nachrichten.
@@ -17,6 +18,16 @@ import { TOKEN_LIFETIME_MINUTES } from '@/server/auth/tokens';
  * Versand und fuer die Vorschau unter /dev/outbox. Was dort steht, geht auch
  * genau so raus — es gibt keinen zweiten Weg, auf dem ein anderer Text
  * entstehen koennte.
+ *
+ * Zwei Regeln gelten fuer **jede** Nachricht zu einem Spiel:
+ *
+ * 1. **Datum und Vorlauf stehen immer beide drin** — "Sa 29.08.2026, 10:30 Uhr"
+ *    sagt, welches Spiel gemeint ist, "Anpfiff in 3 Tagen" sagt, wie eilig es
+ *    ist. Wer nur das eine liest, muss nicht nachrechnen oder nachschlagen.
+ * 2. **Kein Hinweis auf einen moeglichen Nachfolger.** Kein "sonst besetzen wir
+ *    den Platz neu", kein "sonst fragen wir den naechsten Ersatz". Wer liest,
+ *    dass sich ohnehin jemand findet, sagt eher ab. Was passiert, wenn niemand
+ *    antwortet, ist eine Sache der Anwendung und nicht der Nachricht.
  */
 
 export interface RenderedMessage {
@@ -59,6 +70,14 @@ export interface MessageContext {
   baseUrl: string;
   timeZone: string;
   now: Date;
+  /**
+   * Der eindeutige Antwortlink dieser Nachricht, schon signiert.
+   *
+   * Er benennt Vorgang, Spiel und Person — damit eine Bestaetigung genau das
+   * Spiel trifft, um das gebeten wurde, und kein anderes. Nachrichten ohne
+   * Rueckfrage haben keinen; sie verweisen auf den Kalender.
+   */
+  answerToken: string | null;
 }
 
 /** "Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim". */
@@ -89,6 +108,35 @@ const signature = (baseUrl: string, path: string, hint: string): readonly string
 ];
 
 /**
+ * Setzt die Zeilen einer Nachricht zusammen.
+ *
+ * `null` heisst "diese Angabe gibt es hier nicht" und faellt weg; der leere
+ * Text ist eine gewollte Leerzeile und bleibt stehen. Vorher fielen beide weg,
+ * weil die Zusammensetzung jede leere Zeile aussortierte — die Nachrichten
+ * hatten dadurch keinen einzigen Absatz.
+ */
+const paragraphs = (...linesOfText: readonly (string | null)[]): string =>
+  linesOfText.filter((entry): entry is string => entry !== null).join('\n');
+
+/**
+ * Der Knopf ans Ende der Nachricht.
+ *
+ * Erwartet die Nachricht eine Antwort, fuehrt er auf ihren eindeutigen Link —
+ * genau dieses Spiel, genau diese Person, genau dieser Vorgang. Fehlt der
+ * Token, bleibt der Kalender als Weg: eine Nachricht ohne jeden Verweis waere
+ * schlechter als eine mit einem allgemeinen.
+ */
+const answerSignature = (
+  ctx: MessageContext,
+  hint: string,
+  fallbackPath: string,
+): readonly string[] => [
+  '',
+  hint,
+  ctx.answerToken ? answerLink(ctx.baseUrl, ctx.answerToken) : `${ctx.baseUrl}${fallbackPath}`,
+];
+
+/**
  * Der Text einer Nachricht.
  *
  * Fehlt das Spiel — etwa weil es zwischen Anlegen und Versand geloescht wurde —
@@ -97,7 +145,7 @@ const signature = (baseUrl: string, path: string, hint: string): readonly string
 export const renderMessage = (kind: NotificationKind, ctx: MessageContext): RenderedMessage => {
   const { game, timeZone, baseUrl, recipientName } = ctx;
   const line = game ? gameLine(game, timeZone) : 'ein Spiel, das inzwischen entfallen ist';
-  const venue = game ? `Ort: ${game.venue}` : '';
+  const venue = game ? `Ort: ${game.venue}` : null;
   const lead = game ? describeLeadTime(game.kickoff, ctx.now) : '';
 
   switch (kind) {
@@ -115,40 +163,37 @@ export const renderMessage = (kind: NotificationKind, ctx: MessageContext): Rend
     case 'assignment':
       return {
         subject: 'Dein Einsatz steht',
-        body: [
+        body: paragraphs(
           greeting(recipientName),
           '',
           `du stehst als ${slotLabel(ctx.payload['slotIndex'])} fuer:`,
           line,
           venue,
+          `Anpfiff ${lead}.`,
           '',
           'Rechtzeitig vor Anpfiff bitten wir dich noch um eine Bestaetigung.',
           ...signature(baseUrl, '/kalender', 'Dein Kalender:'),
-        ]
-          .filter((l) => l !== '')
-          .join('\n'),
+        ),
       };
 
     case 'confirmation-request':
       return {
         subject: 'Bitte bestaetige deinen Einsatz',
-        body: [
+        body: paragraphs(
           greeting(recipientName),
           '',
           `bitte bestaetige kurz, dass du pfeifst:`,
           line,
           venue,
           `Anpfiff ${lead}.`,
-          ...signature(baseUrl, '/kalender', 'Hier bestaetigen:'),
-        ]
-          .filter((l) => l !== '')
-          .join('\n'),
+          ...answerSignature(ctx, 'Hier bestaetigst du genau dieses Spiel:', '/kalender'),
+        ),
       };
 
     case 'confirmation-follow-up':
       return {
         subject: 'Deine Bestaetigung steht noch aus',
-        body: [
+        body: paragraphs(
           greeting(recipientName),
           '',
           'wir haben noch keine Rueckmeldung von dir zu:',
@@ -156,11 +201,14 @@ export const renderMessage = (kind: NotificationKind, ctx: MessageContext): Rend
           venue,
           `Anpfiff ${lead}.`,
           '',
-          'Bitte melde dich kurz — sonst muessen wir den Platz neu besetzen.',
-          ...signature(baseUrl, '/kalender', 'Hier bestaetigen:'),
-        ]
-          .filter((l) => l !== '')
-          .join('\n'),
+          /*
+           * Frueher stand hier "sonst muessen wir den Platz neu besetzen".
+           * Genau das gehoert nicht in eine Nachricht: wer liest, dass sich
+           * ohnehin ein Ersatz findet, sagt eher ab als zu.
+           */
+          'Bitte gib uns kurz Bescheid — ein Tippen genuegt.',
+          ...answerSignature(ctx, 'Hier bestaetigst du genau dieses Spiel:', '/kalender'),
+        ),
       };
 
     case 'promotion-offer': {
@@ -170,7 +218,7 @@ export const renderMessage = (kind: NotificationKind, ctx: MessageContext): Rend
         : 'Bitte antworte moeglichst bald.';
       return {
         subject: 'Rueckst du nach?',
-        body: [
+        body: paragraphs(
           greeting(recipientName),
           '',
           `du stehst als Ersatz, und ${slotLabel(ctx.payload['targetSlot'])} ist frei geworden:`,
@@ -178,19 +226,29 @@ export const renderMessage = (kind: NotificationKind, ctx: MessageContext): Rend
           venue,
           `Anpfiff ${lead}.`,
           '',
+          /*
+           * Kein "sonst fragen wir den naechsten Ersatz": das ist derselbe
+           * Hinweis auf einen Nachfolger, der schon bei der Bestaetigung zur
+           * Absage einlaedt. Die Frist steht da, das genuegt.
+           */
           deadline,
-          'Ohne Antwort fragen wir den naechsten Ersatz.',
-          ...signature(baseUrl, '/kalender', 'Hier antworten:'),
-        ]
-          .filter((l) => l !== '')
-          .join('\n'),
+          ...answerSignature(ctx, 'Hier antwortest du auf genau diese Anfrage:', '/kalender'),
+        ),
       };
     }
 
-    case 'open-slot-announcement':
+    case 'open-slot-announcement': {
+      /*
+       * Dieselbe Luecke, zwei Leserkreise: alle Qualifizierten sollen sich
+       * eintragen, die Admins sollen den Platz besetzen. Steht die
+       * Ausschreibung auf "nur Admins", waere "wer sich zuerst eintraegt"
+       * eine Aufforderung an Leute, die dafuer gar nicht qualifiziert sein
+       * muessen.
+       */
+      const toAdmins = text(ctx.payload['audience']) === 'admins';
       return {
-        subject: 'Ein Platz ist frei',
-        body: [
+        subject: toAdmins ? 'Ein Platz ist frei — bitte besetzen' : 'Ein Platz ist frei',
+        body: paragraphs(
           greeting(recipientName),
           '',
           'fuer dieses Spiel fehlt noch jemand:',
@@ -198,12 +256,13 @@ export const renderMessage = (kind: NotificationKind, ctx: MessageContext): Rend
           venue,
           `Anpfiff ${lead}.`,
           '',
-          'Wer sich zuerst eintraegt, bekommt den Platz.',
-          ...signature(baseUrl, '/spiele', 'Hier eintragen:'),
-        ]
-          .filter((l) => l !== '')
-          .join('\n'),
+          toAdmins
+            ? 'Diese Luecke geht nur an die Admins. Bitte besetzt den Platz.'
+            : 'Wer sich zuerst eintraegt, bekommt den Platz.',
+          ...signature(baseUrl, toAdmins ? '/uebersicht' : '/spiele', toAdmins ? 'Zur Uebersicht:' : 'Hier eintragen:'),
+        ),
       };
+    }
 
     case 'relocation': {
       const previousKickoff = text(ctx.payload['previousKickoff']);
@@ -211,25 +270,26 @@ export const renderMessage = (kind: NotificationKind, ctx: MessageContext): Rend
       const before = previousKickoff
         ? `Bisher: ${matchdayLabel(new Date(previousKickoff), timeZone)}, ${timeLabel(new Date(previousKickoff), timeZone)} Uhr` +
           (previousVenue ? `, ${previousVenue}` : '')
-        : '';
+        : null;
       const cancelled = game?.state === 'cancelled';
       return {
         subject: cancelled ? 'Spiel abgesagt' : 'Neuer Termin',
-        body: [
+        body: paragraphs(
           greeting(recipientName),
           '',
           cancelled ? 'dieses Spiel faellt aus:' : 'dieses Spiel wurde verlegt:',
           line,
           venue,
           before,
+          cancelled ? null : `Anpfiff ${lead}.`,
           '',
           cancelled
             ? 'Du musst nichts weiter tun.'
             : 'Passt der neue Termin? Wenn nicht, gib den Platz bitte gleich frei.',
-          ...(cancelled ? [] : signature(baseUrl, '/kalender', 'Hier antworten:')),
-        ]
-          .filter((l) => l !== '')
-          .join('\n'),
+          ...(cancelled
+            ? []
+            : answerSignature(ctx, 'Hier antwortest du zu genau diesem Spiel:', '/kalender')),
+        ),
       };
     }
 
@@ -245,45 +305,40 @@ export const renderMessage = (kind: NotificationKind, ctx: MessageContext): Rend
             `Erinnerung: ${describeHours(hoursBefore)} vor Anpfiff`;
       return {
         subject: heading,
-        body: [
+        body: paragraphs(
           greeting(recipientName),
           '',
           `${heading}:`,
           line,
           venue,
+          `Anpfiff ${lead}.`,
           ...signature(baseUrl, '/kalender', 'Dein Kalender:'),
-        ]
-          .filter((l) => l !== '')
-          .join('\n'),
+        ),
       };
     }
 
     case 'admin-alert':
       return {
         subject: 'Meldung aus der Schiedsrichter-Planung',
-        body: [
+        body: paragraphs(
           greeting(recipientName),
           '',
           text(ctx.payload['detail'], 'es gibt eine Meldung zu einem Spiel.'),
           ...signature(baseUrl, '/meldungen', 'Alle Meldungen:'),
-        ]
-          .filter((l) => l !== '')
-          .join('\n'),
+        ),
       };
 
     case 'daily-digest': {
       const entries = lines(ctx.payload['lines']);
       return {
         subject: 'Tagesuebersicht Schiedsrichter-Planung',
-        body: [
+        body: paragraphs(
           greeting(recipientName),
           '',
           entries.length === 1 ? 'ein Spiel braucht Aufmerksamkeit:' : `${entries.length} Spiele brauchen Aufmerksamkeit:`,
           ...entries.map((entry) => `- ${entry}`),
           ...signature(baseUrl, '/uebersicht', 'Zur Uebersicht:'),
-        ]
-          .filter((l) => l !== '')
-          .join('\n'),
+        ),
       };
     }
   }

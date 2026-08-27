@@ -10,6 +10,7 @@ import {
 } from './notifications';
 import { notificationOrder, type RotationCandidate } from './rotation';
 import { qualifiedReferees } from './rules';
+import { matchdayLabel, timeLabel } from './schedule';
 import { refereeSlots, substituteSlots, SLOT_LABELS } from './slots';
 import { calendarDay, days, describeLeadTime, hours, localHour } from './time';
 import type { AdminAlertSettings } from './alerts';
@@ -186,6 +187,7 @@ export const dueConfirmationAlerts = (
   alerts: AdminAlertSettings,
   adminIds: readonly string[],
   referees: ReadonlyMap<string, Referee>,
+  timeZone: string,
   now: Date,
 ): readonly NotificationIntent[] => {
   if (!alerts.confirmationOverdue || adminIds.length === 0) return [];
@@ -206,7 +208,8 @@ export const dueConfirmationAlerts = (
         assignment.refereeId,
         `${name} hat die Pflichtbestaetigung fuer ${game.home} gegen ${game.away} seit ` +
           `${settings.confirmationFollowUpHours} Stunden nicht beantwortet. ` +
-          `Anpfiff ${describeLeadTime(game.kickoff, now)}.`,
+          `Anpfiff ${matchdayLabel(game.kickoff, timeZone)}, ${timeLabel(game.kickoff, timeZone)} Uhr ` +
+          `(${describeLeadTime(game.kickoff, now)}).`,
       ),
     );
   }
@@ -281,9 +284,19 @@ export const planPromotions = (
 /**
  * Regeln 15, 19 und 32: der offene Platz wird ausgeschrieben.
  *
- * Die erste Ausschreibung ist Pflicht und haengt nicht am Schalter fuer die
- * automatische Nachfrage — ohne sie erfuehre niemand von der Luecke. Nur die
- * Wiederholungen sind abschaltbar, denn sie kosten erneut Geld.
+ * Wer sie bekommt, entscheidet die Einstellung `openSlotVisibility`. Sie ist
+ * die einzige Nachricht, die auf einen Schlag an viele Personen geht, und
+ * bestimmt damit die Kosten fast allein (Regel 33):
+ *
+ * - `all`    an alle Qualifizierten, in Rotationsreihenfolge (Regel 19)
+ * - `admins` nur an die aktiven Admins — die Luecke wird von Hand besetzt
+ * - `off`    an niemanden; sie steht nur in Uebersicht und Meldungen
+ *
+ * Frueher ging die erste Ausschreibung immer raus, weil sonst niemand von der
+ * Luecke erfuehre. Mit `admins` gibt es dafuer jetzt einen leiseren Weg — und
+ * mit `off` eine bewusste Entscheidung des Vereins, die der Code nicht
+ * ueberstimmt. Der Schalter fuer die automatische Nachfrage steuert weiterhin
+ * nur die Wiederholungen.
  */
 export const openSlotAnnouncement = (
   entry: ScheduledGame,
@@ -293,12 +306,34 @@ export const openSlotAnnouncement = (
   now: Date,
 ): NotificationIntent | null => {
   const { game, slots } = entry;
+  if (settings.openSlotVisibility === 'off') return null;
+
   const round = nudgeRound(game.kickoff, now);
   if (round > 0 && !settings.autoNudge) return null;
 
   const assigned = new Set(
     slots.flatMap((s) => (s.assignment ? [s.assignment.refereeId] : [])),
   );
+
+  if (settings.openSlotVisibility === 'admins') {
+    /*
+     * An die Admins geht die Ausschreibung ohne Ruecksicht auf die
+     * Qualifikation: sie sollen den Platz besetzen und nicht selbst pfeifen.
+     * Wer schon in diesem Spiel steht, braucht sie trotzdem nicht.
+     */
+    const adminIds = referees
+      .filter((r) => r.role === 'admin' && r.active && !assigned.has(r.id))
+      .map((r) => r.id);
+    if (adminIds.length === 0) return null;
+    return openSlotAnnouncementIntent(
+      game.id,
+      adminIds,
+      game.vacancyVersion,
+      round,
+      'admins',
+    );
+  }
+
   const candidates: RotationCandidate[] = qualifiedReferees(referees, game.leagueId)
     .filter((r) => !assigned.has(r.id))
     .map((referee) => ({ referee, countInWindow: appearances.get(referee.id) ?? 0 }));
@@ -311,6 +346,7 @@ export const openSlotAnnouncement = (
     order.map((r) => r.id),
     game.vacancyVersion,
     round,
+    'all',
   );
 };
 
@@ -346,9 +382,16 @@ export const dueDigest = (
     }
     if (unconfirmed.length > 0) parts.push(`${unconfirmed.length}x Bestaetigung ausstehend`);
     if (openSubstitutes.length > 0) parts.push(`${openSubstitutes.length} Ersatzplatz frei`);
+    /*
+     * Datum *und* Vorlauf, wie in jeder Nachricht zu einem Spiel: das Datum
+     * sagt, welches Spiel gemeint ist, der Vorlauf, wie eilig es ist. Ohne das
+     * Datum muesste der Admin nachschlagen, welcher Samstag "in 3 Tagen" ist.
+     */
+    const { kickoff } = entry.game;
     lines.push(
-      `${entry.game.home} gegen ${entry.game.away} (${entry.game.leagueId}), Anpfiff ` +
-        `${describeLeadTime(entry.game.kickoff, now)}: ${parts.join(', ')}.`,
+      `${matchdayLabel(kickoff, input.timeZone)}, ${timeLabel(kickoff, input.timeZone)} Uhr ` +
+        `(${describeLeadTime(kickoff, now)}) · ${entry.game.home} gegen ${entry.game.away} ` +
+        `(${entry.game.leagueId}): ${parts.join(', ')}.`,
     );
   }
 
@@ -374,7 +417,15 @@ export const planNotifications = (input: SchedulerInput, now: Date): Notificatio
     intents.push(...duePersonalReminders(entry, refereesById, now));
     intents.push(...dueConfirmations(entry, input.settings, now));
     intents.push(
-      ...dueConfirmationAlerts(entry, input.settings, input.alerts, adminIds, refereesById, now),
+      ...dueConfirmationAlerts(
+        entry,
+        input.settings,
+        input.alerts,
+        adminIds,
+        refereesById,
+        input.timeZone,
+        now,
+      ),
     );
 
     const promotion = planPromotions(entry, input.settings, now);

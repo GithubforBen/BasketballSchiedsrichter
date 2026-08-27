@@ -19,6 +19,34 @@ const withQuery = (path: Route, query: Record<string, string | undefined>): Rout
   return suffix ? `${path}?${suffix}` : path;
 };
 
+/**
+ * Der Pfad der eindeutigen Antwortlinks aus den Nachrichten.
+ *
+ * Er steht hier, weil ihn zwei Seiten brauchen: die Nachricht, die den Link
+ * schreibt (`src/notifications/action-links.ts`), und die Seite, die ihn
+ * beantwortet. Zwei Schreibweisen desselben Pfads wären ein Fehler, der erst
+ * beim Empfänger auffiele.
+ */
+export const ANSWER_PATH = '/antwort';
+
+/**
+ * Ein Antwortlink mit Rückmeldung zur zuletzt ausgeführten Antwort.
+ *
+ * Der Token steht im Pfad und nicht im Abfrageteil: die WhatsApp Cloud API
+ * erlaubt in einem dynamischen URL-Knopf genau eine Variable, und nur am Ende
+ * der Adresse. Die typisierte Routenprüfung von Next kennt diesen zur Laufzeit
+ * zusammengesetzten Pfad nicht — deshalb die Zusicherung, hier an einer Stelle
+ * und mit Begründung.
+ */
+export const answerRoute = (
+  token: string,
+  result?: { ok: boolean; message: string },
+): Route =>
+  withQuery(
+    `${ANSWER_PATH}/${encodeURIComponent(token)}` as Route,
+    result ? { [result.ok ? 'hinweis' : 'fehler']: result.message } : {},
+  );
+
 /** Ein bestimmter Spieltag in „Offene Spiele“. */
 export const openGamesRoute = (day?: string): Route => withQuery('/spiele', { tag: day });
 

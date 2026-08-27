@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NOW, inHours, makeGame } from '@/domain/__fixtures__/build';
+import { NOW, inDays, inHours, makeGame } from '@/domain/__fixtures__/build';
 import { CLUB } from '@/config/club';
 import { gameLine, loginMessage, renderMessage, type MessageContext } from './templates';
 import type { NotificationKind } from '@/domain/notifications';
@@ -16,6 +16,7 @@ const ctx = (over: Partial<MessageContext> = {}): MessageContext => ({
   baseUrl: 'https://schiriplan.test',
   timeZone: CLUB.timeZone,
   now: NOW,
+  answerToken: 'AAA.BBB',
   ...over,
 });
 
@@ -80,6 +81,115 @@ describe('Regel 21 — die Erinnerung nennt ihren Vorlauf', () => {
   });
 });
 
+describe('Jede Nachricht zu einem Spiel nennt Datum und Vorlauf', () => {
+  /*
+   * Die allgemeine Regel: das Datum sagt, welches Spiel gemeint ist, der
+   * Vorlauf, wie eilig es ist. Keins von beiden darf fehlen — sonst muss der
+   * Empfaenger nachschlagen oder nachrechnen.
+   */
+  const WITH_GAME: readonly NotificationKind[] = [
+    'assignment',
+    'confirmation-request',
+    'confirmation-follow-up',
+    'promotion-offer',
+    'open-slot-announcement',
+    'relocation',
+    'personal-reminder',
+  ];
+
+  it.each(WITH_GAME)('%s nennt Anpfiff-Datum und "in wie vielen Tagen"', (kind) => {
+    const rendered = renderMessage(
+      kind,
+      ctx({
+        game: makeGame({ kickoff: inDays(2) }),
+        payload: { slotIndex: 0, targetSlot: 1, hoursBefore: 24 },
+      }),
+    );
+    expect(rendered.body).toContain('Mo 03.08.2026, 14:00 Uhr');
+    expect(rendered.body).toContain('Anpfiff in 2 Tagen');
+  });
+
+  it('nennt auch beim abgesagten Spiel den Termin, um den es geht', () => {
+    const rendered = renderMessage(
+      'relocation',
+      ctx({ game: makeGame({ kickoff: inDays(2), state: 'cancelled' }) }),
+    );
+    expect(rendered.body).toContain('Mo 03.08.2026, 14:00 Uhr');
+  });
+});
+
+describe('Keine Nachricht stellt einen Nachfolger in Aussicht', () => {
+  /*
+   * Wer liest, dass der Platz sowieso neu besetzt wird, sagt eher ab. Die
+   * Regel gilt fuer alle Nachrichten und nicht nur fuer die Nachfassnachricht,
+   * an der sie aufgefallen ist.
+   */
+  const FORBIDDEN = ['neu besetzen', 'naechsten Ersatz', 'nächsten Ersatz', 'jemand anderen'];
+
+  it.each(ALL_KINDS)('%s spricht nicht von Ersatz fuer den Empfaenger', (kind) => {
+    const rendered = renderMessage(
+      kind,
+      ctx({
+        payload: {
+          subject: 'Anmeldung',
+          body: 'Dein Link',
+          lines: ['BG Nordstadt gegen TV Ostheim: Schiedsrichter 1 offen.'],
+          detail: 'Eine Bestaetigung fehlt.',
+          hoursBefore: 24,
+          slotIndex: 0,
+          targetSlot: 1,
+          respondBy: inHours(5).toISOString(),
+        },
+      }),
+    );
+    for (const phrase of FORBIDDEN) expect(rendered.body).not.toContain(phrase);
+  });
+});
+
+describe('Antworten laufen ueber einen eindeutigen Link', () => {
+  const ASKING: readonly NotificationKind[] = [
+    'confirmation-request',
+    'confirmation-follow-up',
+    'promotion-offer',
+    'relocation',
+  ];
+
+  it.each(ASKING)('%s verlinkt genau diesen Vorgang', (kind) => {
+    const rendered = renderMessage(kind, ctx({ payload: { targetSlot: 1 } }));
+    expect(rendered.body).toContain('https://schiriplan.test/antwort/AAA.BBB');
+    expect(rendered.body).not.toContain('https://schiriplan.test/kalender');
+  });
+
+  it('bleibt ohne Token beim Kalender, statt ins Leere zu zeigen', () => {
+    const rendered = renderMessage('confirmation-request', ctx({ answerToken: null }));
+    expect(rendered.body).toContain('https://schiriplan.test/kalender');
+  });
+
+  it('verlinkt nichts, wo es nichts zu beantworten gibt', () => {
+    const rendered = renderMessage('personal-reminder', ctx({ payload: { hoursBefore: 24 } }));
+    expect(rendered.body).not.toContain('/antwort/');
+  });
+});
+
+describe('Die Ausschreibung kennt ihren Leserkreis', () => {
+  it('bittet die Admins, den Platz zu besetzen', () => {
+    const rendered = renderMessage(
+      'open-slot-announcement',
+      ctx({ payload: { round: 0, audience: 'admins' } }),
+    );
+    expect(rendered.body).toContain('nur an die Admins');
+    expect(rendered.body).not.toContain('Wer sich zuerst eintraegt');
+  });
+
+  it('fordert alle anderen zum Eintragen auf', () => {
+    const rendered = renderMessage(
+      'open-slot-announcement',
+      ctx({ payload: { round: 0, audience: 'all' } }),
+    );
+    expect(rendered.body).toContain('Wer sich zuerst eintraegt');
+  });
+});
+
 describe('Regel 17 — die Verschiebung nennt den alten Termin', () => {
   it('stellt alt und neu gegenueber', () => {
     const rendered = renderMessage(
@@ -102,7 +212,7 @@ describe('Regel 17 — die Verschiebung nennt den alten Termin', () => {
       ctx({ game: makeGame({ state: 'cancelled' }), payload: {} }),
     );
     expect(rendered.subject).toBe('Spiel abgesagt');
-    expect(rendered.body).not.toContain('Hier antworten');
+    expect(rendered.body).not.toContain('/antwort/');
   });
 });
 
@@ -125,7 +235,7 @@ describe('Regeln 13 und 14 — die Nachrueck-Anfrage nennt ihre Frist', () => {
 
 describe('Regel 3 — die Ausschreibung sagt, dass es schnell gehen muss', () => {
   it('nennt First come, first served und verlinkt die offenen Spiele', () => {
-    const rendered = renderMessage('open-slot-announcement', ctx());
+    const rendered = renderMessage('open-slot-announcement', ctx({ payload: { round: 0 } }));
     expect(rendered.body).toContain('Wer sich zuerst eintraegt');
     expect(rendered.body).toContain('https://schiriplan.test/spiele');
   });

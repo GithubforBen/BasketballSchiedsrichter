@@ -43,6 +43,13 @@ export const NOTIFICATION_KINDS = [
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
+/**
+ * Wer eine Ausschreibung bekommt. Die Einstellung steht im Adminbereich:
+ * `all` schreibt allen Qualifizierten aus, `admins` nur den Admins, `off`
+ * schaltet die Ausschreibung ganz ab.
+ */
+export type OpenSlotAudience = 'all' | 'admins';
+
 export const isNotificationKind = (value: string): value is NotificationKind =>
   (NOTIFICATION_KINDS as readonly string[]).includes(value);
 
@@ -123,13 +130,14 @@ export const openSlotAnnouncementIntent = (
   recipientIds: readonly string[],
   vacancyVersion: number,
   round: number,
+  audience: OpenSlotAudience = 'all',
 ): NotificationIntent => ({
   kind: 'open-slot-announcement',
   recipientIds,
   gameId,
   key: `open-slot:${gameId}:${vacancyVersion}:${round}`,
   expectsReply: false,
-  payload: { round },
+  payload: { round, audience },
 });
 
 export const confirmationRequestIntent = (
@@ -165,7 +173,12 @@ export const promotionOfferIntent = (
   gameId,
   key: `promotion:${offerId}`,
   expectsReply: true,
-  payload: { targetSlot, respondBy: respondBy.toISOString() },
+  /*
+   * Die Id der Anfrage steht im Inhalt und nicht nur im Schluessel: der
+   * eindeutige Antwortlink haengt an ihr, und ein Schluessel ist zum Zerlegen
+   * da schlecht geeignet — er ist ein Text, dessen Aufbau sich aendern darf.
+   */
+  payload: { offerId, targetSlot, respondBy: respondBy.toISOString() },
 });
 
 export const relocationIntent = (
@@ -179,7 +192,11 @@ export const relocationIntent = (
   gameId,
   key: `relocation:${gameId}:${version}`,
   expectsReply: true,
-  payload: { previousKickoff: previous.kickoff.toISOString(), previousVenue: previous.venue },
+  payload: {
+    version,
+    previousKickoff: previous.kickoff.toISOString(),
+    previousVenue: previous.venue,
+  },
 });
 
 export const personalReminderIntent = (

@@ -14,6 +14,7 @@ import postgres from 'postgres';
 
 import { CLUB } from '@/config/club';
 import { SEED_GAMES, toKickoff } from '@/db/seed-data';
+import { issueAnswerToken, type AnswerKind } from '@/notifications/action-links';
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL fehlt — die E2E-Tests brauchen dieselbe Datenbank wie die App.');
@@ -196,6 +197,33 @@ export const dayKeyOfGame = async (gameId: string): Promise<string> => {
     SELECT to_char(kickoff AT TIME ZONE 'Europe/Berlin', 'YYYY-MM-DD') AS day
     FROM games WHERE id = ${gameId}`;
   return rows[0]?.day ?? '';
+};
+
+/**
+ * Der eindeutige Antwortlink einer Nachricht — so, wie ihn die Outbox erzeugt.
+ *
+ * Der Test nimmt denselben Weg wie der Empfänger: er liest den Link nicht aus
+ * der Outbox-Zeile, sondern lässt ihn mit demselben Schlüssel unterschreiben,
+ * den die laufende Anwendung benutzt. Beide Prozesse teilen sich
+ * `SESSION_SECRET` — passt es nicht zusammen, weist die Seite den Link ab, und
+ * genau das wäre auch im Betrieb der Fehler.
+ */
+export const answerLinkFor = async (
+  kind: AnswerKind,
+  gameId: string,
+  refereeId: string,
+  reference = `${kind}:${gameId}:${refereeId}`,
+): Promise<string> => {
+  const rows = await sql<{ kickoff: Date }[]>`SELECT kickoff FROM games WHERE id = ${gameId}`;
+  const kickoff = rows[0]?.kickoff;
+  if (!kickoff) throw new Error(`Spiel ${gameId} gibt es nicht.`);
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error('SESSION_SECRET fehlt — der Test kann keinen Link unterschreiben.');
+  const token = issueAnswerToken(
+    { kind, gameId, refereeId, reference, expiresAt: kickoff },
+    secret,
+  );
+  return `/antwort/${token}`;
 };
 
 /** Entfernt alle Spiele, die ein Test angelegt hat. */

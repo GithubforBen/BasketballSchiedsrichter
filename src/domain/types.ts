@@ -101,6 +101,19 @@ export interface Slot {
 export type RotationWindow = 'week' | 'month' | 'season';
 
 /**
+ * Wer die Ausschreibung eines offenen Platzes bekommt.
+ *
+ * - `all`    alle Qualifizierten, in Rotationsreihenfolge (Regel 19)
+ * - `admins` nur die aktiven Admins — sie besetzen den Platz von Hand
+ * - `off`    niemand; die Luecke steht nur in der Uebersicht
+ *
+ * Die Ausschreibung ist die einzige Nachricht, die auf einen Schlag an viele
+ * Personen geht, und bestimmt damit die Kosten fast allein (Regel 33). Deshalb
+ * ist sie vollstaendig abschaltbar und nicht nur in ihren Wiederholungen.
+ */
+export type OpenSlotVisibility = 'all' | 'admins' | 'off';
+
+/**
  * Vereinsweite Einstellungen aus dem Adminbereich.
  * Die Qualifikationspruefung fehlt bewusst: sie ist Pflicht und nicht abschaltbar (Regel 4).
  */
@@ -129,6 +142,17 @@ export interface ClubSettings {
   rotationWindow: RotationWindow;
   /** Automatische Nachfrage, solange Plaetze offen sind. */
   autoNudge: boolean;
+  /** Wer die Ausschreibung eines offenen Platzes bekommt. Regeln 15 und 32. */
+  openSlotVisibility: OpenSlotVisibility;
+  /**
+   * Ob die Quittung nach dem Eintragen rausgeht. Regel 31.
+   *
+   * Sie bestaetigt nur die eigene Handlung, die auf dem Bildschirm ohnehin
+   * schon quittiert wurde — ein Verein mit knappem Nachrichtenbudget schaltet
+   * sie deshalb ab, ein anderer will sie. Beides ist vertretbar, also ist es
+   * eine Einstellung und keine Entscheidung im Code.
+   */
+  assignmentReceipt: boolean;
 }
 
 export const DEFAULT_SETTINGS: ClubSettings = {
@@ -145,6 +169,8 @@ export const DEFAULT_SETTINGS: ClubSettings = {
   rotation: true,
   rotationWindow: 'week',
   autoNudge: true,
+  openSlotVisibility: 'all',
+  assignmentReceipt: true,
 };
 
 /**

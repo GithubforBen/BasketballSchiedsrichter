@@ -177,6 +177,7 @@ describe('Regeln 10 und 11 — Pflichtbestaetigung und Nachfassen', () => {
       DEFAULT_ALERT_SETTINGS,
       ['r-admin'],
       refereeMap(makeReferee({ id: 'r-jk', name: 'Jonas Keller' })),
+      TIME_ZONE,
       NOW,
     );
     expect(alerts).toHaveLength(2);
@@ -191,6 +192,7 @@ describe('Regeln 10 und 11 — Pflichtbestaetigung und Nachfassen', () => {
       DEFAULT_ALERT_SETTINGS,
       ['r-admin'],
       refereeMap(),
+      TIME_ZONE,
       NOW,
     );
     expect(new Set(alerts.map((a) => a.key)).size).toBe(2);
@@ -203,6 +205,7 @@ describe('Regeln 10 und 11 — Pflichtbestaetigung und Nachfassen', () => {
       { ...DEFAULT_ALERT_SETTINGS, confirmationOverdue: false },
       ['r-admin'],
       refereeMap(),
+      TIME_ZONE,
       NOW,
     );
     expect(alerts).toEqual([]);
@@ -359,7 +362,7 @@ describe('Regeln 19 und 32 — die Ausschreibung und ihre Reihenfolge', () => {
     expect(nudgeRound(inDays(2), NOW)).toBe(3);
   });
 
-  it('die erste Ausschreibung haengt nicht am Schalter — ohne sie erfaehrt niemand davon', () => {
+  it('die erste Ausschreibung haengt nicht am Schalter fuer die Nachfrage', () => {
     const intent = openSlotAnnouncement(
       entry({ game: makeGame({ kickoff: inDays(20) }), slots: gap }),
       [jk],
@@ -368,6 +371,42 @@ describe('Regeln 19 und 32 — die Ausschreibung und ihre Reihenfolge', () => {
       NOW,
     );
     expect(intent).not.toBeNull();
+  });
+
+  it('schweigt ganz, wenn der Verein die Ausschreibung abgeschaltet hat', () => {
+    const intent = openSlotAnnouncement(
+      entry({ game: makeGame({ kickoff: inDays(20) }), slots: gap }),
+      [jk],
+      new Map(),
+      settings({ openSlotVisibility: 'off' }),
+      NOW,
+    );
+    expect(intent).toBeNull();
+  });
+
+  it('schreibt bei "nur Admins" allein den Admins aus — auch ohne Qualifikation', () => {
+    const admin = makeReferee({ id: 'r-admin', role: 'admin', qualifications: ['U18'] });
+    const intent = openSlotAnnouncement(
+      entry({ game: makeGame({ kickoff: inDays(20) }), slots: gap }),
+      [jk, admin],
+      new Map(),
+      settings({ openSlotVisibility: 'admins' }),
+      NOW,
+    );
+    expect(intent?.recipientIds).toEqual(['r-admin']);
+    expect(intent?.payload['audience']).toBe('admins');
+  });
+
+  it('laesst bei "nur Admins" stillgelegte Admins aus', () => {
+    const admin = makeReferee({ id: 'r-admin', role: 'admin', active: false });
+    const intent = openSlotAnnouncement(
+      entry({ game: makeGame({ kickoff: inDays(20) }), slots: gap }),
+      [jk, admin],
+      new Map(),
+      settings({ openSlotVisibility: 'admins' }),
+      NOW,
+    );
+    expect(intent).toBeNull();
   });
 
   it('die Wiederholung dagegen schon — sie kostet erneut Geld', () => {
@@ -439,6 +478,17 @@ describe('Regel 20 — die Tageszusammenfassung', () => {
     const digest = dueDigest(offen(abends), ['r-admin'], abends);
     const lines = digest?.payload['lines'] as readonly string[];
     expect(lines[0]).toContain('Schiedsrichter 1 und Schiedsrichter 2 offen');
+  });
+
+  it('nennt in jeder Zeile Datum, Uhrzeit und den Vorlauf', () => {
+    /*
+     * Ohne Datum muesste der Admin nachschlagen, welcher Tag "in 10 Tagen"
+     * ist; ohne Vorlauf muesste er nachrechnen, wie eilig es ist.
+     */
+    const digest = dueDigest(offen(abends), ['r-admin'], abends);
+    const lines = digest?.payload['lines'] as readonly string[];
+    expect(lines[0]).toContain('Di 11.08.2026, 19:00 Uhr');
+    expect(lines[0]).toContain('(in 10 Tagen)');
   });
 
   it('schweigt, wenn nichts offen ist — eine leere Zusammenfassung kostet nur Geld', () => {

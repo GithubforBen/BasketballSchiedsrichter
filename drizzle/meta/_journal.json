@@ -43,6 +43,13 @@
       "when": 1787688281102,
       "tag": "0005_passwort_login",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787857961775,
+      "tag": "0006_nachrichten_schalter",
+      "breakpoints": true
     }
   ]
 }
