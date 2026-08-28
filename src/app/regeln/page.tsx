@@ -46,11 +46,11 @@ const RULES: readonly { title: string; body: string }[] = [
   },
   {
     title: 'Pflichtbestätigung',
-    body: 'Vor jedem Spiel kommt eine Nachricht mit dem Knopf „Ja, habe ich gelesen und mache es“. Ohne Antwort innerhalb von 24 Stunden folgt eine erneute Erinnerung, zusätzlich wird der Admin informiert.',
+    body: 'Vor jedem Spiel kommt eine Nachricht mit dem Knopf „Ja, habe ich gelesen und mache es“. Der Link darin gehört genau zu diesem Spiel — du bestätigst damit kein anderes, und beim zweiten Öffnen steht dort, dass es schon bestätigt ist. Ohne Antwort innerhalb von 24 Stunden folgt eine erneute Erinnerung, zusätzlich wird der Admin informiert.',
   },
   {
     title: 'Wenn jemand ausfällt',
-    body: 'Fällt ein Schiedsrichter aus, wird zuerst Ersatz 1 gefragt, ob er nachrückt, danach Ersatz 2. Erst wenn beide ablehnen oder nicht antworten, wird der Platz für alle Qualifizierten ausgeschrieben.',
+    body: 'Fällt ein Schiedsrichter aus, wird zuerst Ersatz 1 gefragt, ob er nachrückt, danach Ersatz 2. Erst wenn beide ablehnen oder nicht antworten, wird der Platz ausgeschrieben — je nach Vereinseinstellung an alle Qualifizierten oder nur an die Admins.',
   },
   {
     title: 'Verschobene Spiele',

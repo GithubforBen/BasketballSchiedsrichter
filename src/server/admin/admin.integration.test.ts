@@ -412,6 +412,8 @@ suite('Adminbereich', () => {
       rotation: true,
       rotationWindow: 'week' as const,
       autoNudge: true,
+      openSlotVisibility: 'all' as const,
+      assignmentReceipt: true,
       alertUnfilled: true,
       alertConfirmationOverdue: true,
       alertSubstituteMissing: true,
@@ -437,6 +439,20 @@ suite('Adminbereich', () => {
       const oddLead = await saveSettings(admin, { ...base, confirmationLeadHours: 37 });
       expect(oddLead.ok).toBe(false);
       expect(oddLead.message).toContain('24, 48, 72 oder 96');
+    });
+
+    it('speichert die beiden Nachrichten-Schalter', async () => {
+      const result = await saveSettings(admin, {
+        ...base,
+        openSlotVisibility: 'admins',
+        assignmentReceipt: false,
+      });
+      expect(result.ok).toBe(true);
+      const rows = await sql<{ open_slot_visibility: string; assignment_receipt: boolean }[]>`
+        SELECT open_slot_visibility, assignment_receipt FROM settings WHERE id = 1`;
+      expect(rows[0]?.open_slot_visibility).toBe('admins');
+      expect(rows[0]?.assignment_receipt).toBe(false);
+      await saveSettings(admin, base);
     });
 
     it('legt eine Liga an und schaltet sie ab', async () => {

@@ -4,6 +4,7 @@ import { CLUB } from '@/config/club';
 import { Note, Tag } from '@/components/primitives';
 import { db, schema } from '@/db';
 import { isNotificationKind } from '@/domain/notifications';
+import { answerClaimsFor, issueAnswerToken } from '@/notifications/action-links';
 import { renderMessage } from '@/notifications/templates';
 import { env } from '@/server/env';
 import { toGame } from '@/server/queries/games';
@@ -70,14 +71,30 @@ const Outbox = async () => {
       ) : (
         <ul className="card-list" style={{ maxWidth: '68ch' }}>
           {rows.map((row) => {
+            const game = row.gameId === null ? null : (byGame.get(row.gameId) ?? null);
+            /*
+             * Auch der Antwortlink entsteht mit derselben Funktion wie beim
+             * Versand — in der Vorschau ist er anklickbar und fuehrt genau
+             * dorthin, wohin er beim Empfaenger fuehren wuerde.
+             */
+            const claims = isNotificationKind(row.kind)
+              ? answerClaimsFor(row.kind, {
+                  gameId: row.gameId,
+                  refereeId: row.recipientId,
+                  key: row.key,
+                  payload: row.payload,
+                  game,
+                })
+              : null;
             const rendered = isNotificationKind(row.kind)
               ? renderMessage(row.kind, {
                   recipientName: byReferee.get(row.recipientId) ?? row.recipientId,
-                  game: row.gameId === null ? null : (byGame.get(row.gameId) ?? null),
+                  game,
                   payload: row.payload,
                   baseUrl: env.baseUrl,
                   timeZone: CLUB.timeZone,
                   now,
+                  answerToken: claims ? issueAnswerToken(claims, env.sessionSecret) : null,
                 })
               : { subject: `Unbekannte Art: ${row.kind}`, body: '' };
             return (

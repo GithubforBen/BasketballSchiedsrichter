@@ -139,6 +139,32 @@ Welche das sind, mit welchem Wortlaut und in welcher Kategorie, steht in
 [docs/whatsapp-vorlagen.md](docs/whatsapp-vorlagen.md) — dort auch, was der Code dafür noch
 braucht.
 
+Drei Regeln gelten für **jede** Nachricht zu einem Spiel:
+
+- **Datum und Vorlauf stehen immer beide drin.** „Sa 29.08.2026, 10:30 Uhr" sagt, welches Spiel
+  gemeint ist, „Anpfiff in 3 Tagen" sagt, wie eilig es ist. Das gilt auch für jede Zeile der
+  Tagesübersicht an die Admins.
+- **Kein Hinweis auf einen möglichen Nachfolger.** Kein „sonst besetzen wir den Platz neu", kein
+  „sonst fragen wir den nächsten Ersatz". Wer liest, dass sich ohnehin jemand findet, sagt eher
+  ab; was ohne Antwort passiert, ist Sache der Anwendung und nicht der Nachricht.
+- **Wer antworten soll, bekommt einen eindeutigen Link.** Jede Bitte um eine Bestätigung, jede
+  Nachrück-Anfrage und jede Verschiebung trägt ihre eigene Adresse
+  `…/antwort/<Token>`. Im signierten Token stecken Vorgang, Spiel, Person und der Schlüssel der
+  Nachricht; er gilt bis zum Anpfiff. Die Seite dahinter beantwortet genau diese eine Frage und
+  sagt beim zweiten Öffnen, dass genau dieses Spiel schon bestätigt ist. Der Aufbau ist zugleich
+  das, was ein **dynamischer URL-Knopf** bei Meta verlangt: genau eine Variable, und nur am Ende
+  der Adresse.
+
+Zwei Nachrichten schaltet der Adminbereich unter *Einstellungen*:
+
+| Schalter | Wirkung |
+| --- | --- |
+| **Quittung nach dem Eintragen** | Vorlage 2. Aus heißt: keine Nachricht nach der eigenen Eintragung — der Bildschirm quittiert sie ohnehin. |
+| **Offene Plätze ausschreiben an** | Vorlage 6. `alle Qualifizierten` (in Rotationsreihenfolge), `nur die Admins` (eigene Vorlage, sie besetzen den Platz von Hand) oder `aus` (die Lücke steht nur in Übersicht und Meldungen). |
+
+Der Schalter *Automatische Nachfrage* steuert davon unabhängig nur die **Wiederholungen** der
+Ausschreibung 14, 7, 3 und 1 Tag vor Anpfiff.
+
 Jede Nachricht kostet den Verein Geld (Regel 33). Deshalb gilt: aussichtslose Fehler — eine
 Nummer ohne WhatsApp, eine abgelehnte Vorlage — werden nicht wiederholt, vorübergehende mit
 wachsendem Abstand bis zu fünfmal. Ein Lauf verschickt höchstens 200 Nachrichten, ein
@@ -162,7 +188,7 @@ nichts hinaus, der Anmeldelink ist dort anklickbar.
 | `src/styles/` | `modernist.css` unverändert aus dem Handoff, `app.css` darüber |
 | `design/` | Der Handoff aus Claude Design: Mockup, Briefing-Historie, Design-System |
 
-Die 33 verbindlichen Fachregeln stehen in [PLAN.md](PLAN.md) Abschnitt 2 und sind im Code
+Die verbindlichen Fachregeln stehen in [PLAN.md](PLAN.md) Abschnitt 2 und sind im Code
 sowie in den Testnamen mit ihrer Nummer belegt.
 
 ## Betrieb

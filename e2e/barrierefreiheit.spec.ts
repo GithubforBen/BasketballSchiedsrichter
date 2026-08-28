@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { loginAs, SEED } from './helfer';
-import { upcomingGameIds } from './db';
+import { answerLinkFor, placeReferee, resetAssignments, upcomingGameIds } from './db';
 
 /**
  * Barrierefreiheit, maschinell geprueft.
@@ -42,6 +42,28 @@ test.describe('Öffentliche Bildschirme', () => {
       await expectAccessible(page, path);
     });
   }
+});
+
+test.describe('Die Antwortseite aus einer Nachricht', () => {
+  /*
+   * Sie ist oeffentlich und wird auf dem Telefon geoeffnet, oft von jemandem,
+   * der die Anwendung sonst nie sieht. Genau dort darf die Pruefung nicht
+   * fehlen — auch wenn die Adresse einen Token traegt und deshalb nicht in der
+   * Liste oben stehen kann.
+   */
+  test('/antwort erfüllt WCAG 2.1 AA', async ({ page }) => {
+    await resetAssignments();
+    const [game] = await upcomingGameIds();
+    await placeReferee(game ?? '', 0, SEED.jonas.id);
+    try {
+      await page.goto(await answerLinkFor('confirm', game ?? '', SEED.jonas.id));
+      await expectAccessible(page, '/antwort');
+    } finally {
+      // Der Aufbau bleibt nicht liegen: die anderen Bildschirme sollen ihren
+      // eigenen Zustand pruefen und nicht den, den dieser Test hinterlaesst.
+      await resetAssignments();
+    }
+  });
 });
 
 test.describe('Bildschirme der Schiedsrichter', () => {

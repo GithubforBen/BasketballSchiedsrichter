@@ -2,7 +2,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
-import type { RotationWindow } from '@/domain/types';
+import type { OpenSlotVisibility, RotationWindow } from '@/domain/types';
 import type { AdminResult } from './games';
 
 /**
@@ -19,6 +19,8 @@ export interface SettingsInput {
   rotation: boolean;
   rotationWindow: RotationWindow;
   autoNudge: boolean;
+  openSlotVisibility: OpenSlotVisibility;
+  assignmentReceipt: boolean;
   alertUnfilled: boolean;
   alertConfirmationOverdue: boolean;
   alertSubstituteMissing: boolean;
@@ -28,6 +30,8 @@ export interface SettingsInput {
 }
 
 const CONFIRMATION_CHOICES = [24, 48, 72, 96];
+
+const OPEN_SLOT_CHOICES: readonly OpenSlotVisibility[] = ['all', 'admins', 'off'];
 
 export const saveSettings = async (
   actorId: string,
@@ -44,7 +48,10 @@ export const saveSettings = async (
     bounded(input.reminderLimit, 1, 50, 'Das Erinnerungslimit') ??
     (CONFIRMATION_CHOICES.includes(input.confirmationLeadHours)
       ? null
-      : 'Der Vorlauf der Pflichtbestätigung muss 24, 48, 72 oder 96 Stunden betragen.');
+      : 'Der Vorlauf der Pflichtbestätigung muss 24, 48, 72 oder 96 Stunden betragen.') ??
+    (OPEN_SLOT_CHOICES.includes(input.openSlotVisibility)
+      ? null
+      : 'Die Ausschreibung offener Plätze kennt nur „alle“, „nur Admins“ oder „aus“.');
 
   if (problem) return { ok: false, message: problem };
 

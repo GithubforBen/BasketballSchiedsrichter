@@ -4,6 +4,7 @@ import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import { CLUB } from '@/config/club';
 import { db, schema } from '@/db';
 import { isNotificationKind, type NotificationIntent } from '@/domain/notifications';
+import { answerClaimsFor, issueAnswerToken } from '@/notifications/action-links';
 import { activeChannel, isPermanent, type Channel } from '@/notifications/channel';
 import { renderMessage } from '@/notifications/templates';
 import { startOfLocalDay } from '@/domain/time';
@@ -283,13 +284,29 @@ export const dispatchOutbox = async (options: DispatchOptions = {}): Promise<Dis
       continue;
     }
 
+    /*
+     * Der eindeutige Antwortlink entsteht hier und nicht beim Anlegen: er
+     * laeuft mit dem Anpfiff ab, und der kann sich zwischen Anlegen und Versand
+     * noch verschieben. So gilt der Link immer gegen den Termin, den dieselbe
+     * Nachricht nennt.
+     */
+    const game = row.game_id === null ? null : (byGame.get(row.game_id) ?? null);
+    const claims = answerClaimsFor(row.kind, {
+      gameId: row.game_id,
+      refereeId: recipient.id,
+      key: row.key,
+      payload: row.payload,
+      game,
+    });
+
     const rendered = renderMessage(row.kind, {
       recipientName: recipient.name,
-      game: row.game_id === null ? null : (byGame.get(row.game_id) ?? null),
+      game,
       payload: row.payload,
       baseUrl: env.baseUrl,
       timeZone: CLUB.timeZone,
       now,
+      answerToken: claims ? issueAnswerToken(claims, env.sessionSecret) : null,
     });
 
     try {

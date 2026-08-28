@@ -29,6 +29,8 @@ export const loadSettings = async (): Promise<ClubSettings> => {
     rotation: row.rotation,
     rotationWindow: row.rotationWindow,
     autoNudge: row.autoNudge,
+    openSlotVisibility: row.openSlotVisibility,
+    assignmentReceipt: row.assignmentReceipt,
   };
 };
 

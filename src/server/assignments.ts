@@ -7,7 +7,7 @@ import { assignmentIntent } from '@/domain/notifications';
 import { canClaimSlot, canRequestSubstitute, canWithdraw } from '@/domain/rules';
 import { buildSlots, nextFreeSlot, slotOf, SLOT_LABELS } from '@/domain/slots';
 import { days } from '@/domain/time';
-import type { ClubSettings, Game, Referee, Slot } from '@/domain/types';
+import type { ClubSettings, Game, Referee, Slot, SlotIndex } from '@/domain/types';
 import { loadSettings } from './queries/settings';
 import { toAssignment, toGame } from './queries/games';
 import { loadReferee } from './queries/referees';
@@ -144,7 +144,15 @@ export const claimNextSlot = async (
         gameId,
         detail: { slotIndex: target.index },
       });
-      await enqueue(tx, assignmentIntent(gameId, refereeId, target.index));
+      /*
+       * Regel 31, aber abschaltbar: die Quittung bestaetigt nur die eigene
+       * Handlung, die der Bildschirm ohnehin schon quittiert hat. Ein Verein
+       * mit knappem Nachrichtenbudget schaltet sie im Adminbereich ab
+       * (Vorlage 2).
+       */
+      if (context.settings.assignmentReceipt) {
+        await enqueue(tx, assignmentIntent(gameId, refereeId, target.index));
+      }
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -214,11 +222,19 @@ export const withdraw = async (
   return succeed('Ausgetragen — der Platz ist wieder offen und die Admins sind informiert.');
 };
 
-/** Bestaetigt die Teilnahme. Regeln 10-12. */
+/**
+ * Bestaetigt die Teilnahme. Regeln 10-12.
+ *
+ * `via` haelt fest, **woher** die Bestaetigung kam: aus dem Kalender oder ueber
+ * den eindeutigen Link einer bestimmten Nachricht. Damit laesst sich im
+ * Pruefprotokoll nachlesen, auf welche Bitte hin bestaetigt wurde — und nicht
+ * nur, dass irgendwann bestaetigt wurde.
+ */
 export const confirmAssignment = async (
   gameId: string,
   refereeId: string,
   now: Date = new Date(),
+  via: string | null = null,
 ): Promise<ActionResult> => {
   const updated = await db
     .update(schema.assignments)
@@ -240,7 +256,7 @@ export const confirmAssignment = async (
     actorId: refereeId,
     action: 'assignment.confirm',
     gameId,
-    detail: { slotIndex: updated[0]?.slotIndex ?? null },
+    detail: { slotIndex: updated[0]?.slotIndex ?? null, via },
   });
 
   return succeed('Bestätigt: „Ja, habe ich gelesen und mache es.“');
@@ -295,6 +311,7 @@ export const respondToRelocation = async (
   gameId: string,
   refereeId: string,
   answer: 'keep' | 'decline',
+  via: string | null = null,
 ): Promise<ActionResult> => {
   const context = await loadContext(gameId, refereeId);
   if (!context) return fail('Dieses Spiel gibt es nicht mehr.');
@@ -319,7 +336,7 @@ export const respondToRelocation = async (
       actorId: refereeId,
       action: 'relocation.keep',
       gameId,
-      detail: { slotIndex: own.index },
+      detail: { slotIndex: own.index, via },
     });
     return succeed('Danke — du bleibst eingetragen.');
   }
@@ -335,10 +352,121 @@ export const respondToRelocation = async (
       actorId: refereeId,
       action: 'relocation.decline',
       gameId,
-      detail: { slotIndex: own.index, startsPromotionCascade: own.kind === 'referee' },
+      detail: { slotIndex: own.index, startsPromotionCascade: own.kind === 'referee', via },
     });
   });
 
   return succeed('Abgesagt — der Platz ist wieder offen und die Admins sind informiert.');
 };
 
+/**
+ * Antwort auf eine Nachrueck-Anfrage. Regeln 13-16.
+ *
+ * Die Anfrage selbst ist der Vorgang: geantwortet wird auf **eine** Anfrage und
+ * nicht auf "das Spiel". Wird dieselbe Person spaeter erneut gefragt, ist das
+ * eine neue Anfrage mit eigener Id — die alte Antwort kann die neue Frage nicht
+ * beantworten.
+ *
+ * Beim Nachruecken wandert die Eintragung vom Ersatz- auf den
+ * Schiedsrichter-Platz. Der Zeitpunkt der Eintragung wird dabei auf jetzt
+ * gesetzt: die Pflichtbestaetigung (Regel 10) soll ab dem Nachruecken laufen
+ * und nicht ab dem Tag, an dem sich die Person als Ersatz eingetragen hat —
+ * sonst waere sie im selben Augenblick ueberfaellig, in dem sie entsteht.
+ */
+export const respondToPromotion = async (
+  offerId: string,
+  refereeId: string,
+  answer: 'accept' | 'decline',
+  now: Date = new Date(),
+  via: string | null = null,
+): Promise<ActionResult> => {
+  const offers = await db
+    .select()
+    .from(schema.promotionOffers)
+    .where(eq(schema.promotionOffers.id, offerId))
+    .limit(1);
+  const offer = offers[0];
+  if (!offer || offer.refereeId !== refereeId) {
+    return fail('Diese Anfrage gibt es nicht mehr.');
+  }
+  if (offer.outcome !== 'pending') {
+    return fail(
+      offer.outcome === 'accepted'
+        ? 'Diese Anfrage hast du bereits angenommen.'
+        : 'Diese Anfrage ist abgeschlossen.',
+    );
+  }
+  if (now.getTime() >= offer.respondBy.getTime()) {
+    return fail('Die Antwortfrist für diese Anfrage ist verstrichen.');
+  }
+
+  if (answer === 'decline') {
+    await db
+      .update(schema.promotionOffers)
+      .set({ outcome: 'declined' })
+      .where(eq(schema.promotionOffers.id, offerId));
+    await writeAudit(db, {
+      actorId: refereeId,
+      action: 'promotion.decline',
+      gameId: offer.gameId,
+      detail: { offerId, targetSlot: offer.targetSlot, via },
+    });
+    return succeed('Danke für die Rückmeldung — du bleibst auf deinem Ersatzplatz.');
+  }
+
+  const context = await loadContext(offer.gameId, refereeId);
+  if (!context) return fail('Dieses Spiel gibt es nicht mehr.');
+  if (context.game.state === 'cancelled') return fail('Dieses Spiel ist abgesagt.');
+  if (context.game.kickoff.getTime() <= now.getTime()) {
+    return fail('Dieses Spiel ist bereits angepfiffen.');
+  }
+
+  const target = slotOf(context.slots, refereeId);
+  if (!target || target.index !== offer.substituteSlot) {
+    return fail('Du stehst nicht mehr auf dem Ersatzplatz dieser Anfrage.');
+  }
+  if (context.slots[offer.targetSlot]?.assignment) {
+    /*
+     * Zwischen Anfrage und Antwort hat jemand anders den Platz belegt. Das ist
+     * kein Fehler, sondern First come, first served (Regel 3) — es muss nur
+     * erklaert werden.
+     */
+    await db
+      .update(schema.promotionOffers)
+      .set({ outcome: 'declined' })
+      .where(eq(schema.promotionOffers.id, offerId));
+    return fail('Der Platz ist inzwischen besetzt. Du bleibst auf deinem Ersatzplatz.');
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(schema.assignments)
+        .set({ slotIndex: offer.targetSlot, claimedAt: now, confirmedAt: null })
+        .where(
+          and(
+            eq(schema.assignments.gameId, offer.gameId),
+            eq(schema.assignments.refereeId, refereeId),
+          ),
+        );
+      await tx
+        .update(schema.promotionOffers)
+        .set({ outcome: 'accepted' })
+        .where(eq(schema.promotionOffers.id, offerId));
+      await writeAudit(tx, {
+        actorId: refereeId,
+        action: 'promotion.accept',
+        gameId: offer.gameId,
+        detail: { offerId, targetSlot: offer.targetSlot, from: offer.substituteSlot, via },
+      });
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return fail('Der Platz wurde im selben Moment besetzt. Du bleibst auf deinem Ersatzplatz.');
+    }
+    throw error;
+  }
+
+  const label = SLOT_LABELS[offer.targetSlot as SlotIndex];
+  return succeed(`Du bist nachgerückt und stehst jetzt als ${label}. Die Eintragung ist verbindlich.`);
+};

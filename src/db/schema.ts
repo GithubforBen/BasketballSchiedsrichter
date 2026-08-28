@@ -287,6 +287,16 @@ export const settings = pgTable('settings', {
     .notNull()
     .default('week'),
   autoNudge: boolean('auto_nudge').notNull().default(true),
+  /**
+   * Wer die Ausschreibung eines offenen Platzes bekommt. Regeln 15 und 32.
+   * Sie ist die einzige Nachricht an viele Personen auf einmal — deshalb ist
+   * sie ganz abschaltbar und nicht nur in ihren Wiederholungen.
+   */
+  openSlotVisibility: text('open_slot_visibility', { enum: ['all', 'admins', 'off'] })
+    .notNull()
+    .default('all'),
+  /** Ob die Quittung nach dem Eintragen rausgeht. Regel 31. */
+  assignmentReceipt: boolean('assignment_receipt').notNull().default(true),
   alertUnfilled: boolean('alert_unfilled').notNull().default(true),
   alertConfirmationOverdue: boolean('alert_confirmation_overdue').notNull().default(true),
   alertSubstituteMissing: boolean('alert_substitute_missing').notNull().default(true),

@@ -77,16 +77,23 @@
    *
    * Das Design-System setzt gedaempften Text auf 55 % der Textfarbe. Gemessen
    * auf dem Seitenhintergrund sind das 3,66:1; WCAG 2.1 AA verlangt fuer
-   * normalen Text 4,5:1. Bei 65 % sind es 4,96:1 — der Ton bleibt erkennbar
-   * gedaempft, ist aber auch bei schlechtem Licht und auf einem Handy im
-   * Freien noch zu lesen. Genau dort wird diese App benutzt.
+   * normalen Text 4,5:1. Bei 65 % waren es 4,96:1 — auf dem Seitenhintergrund.
+   *
+   * Auf der etwas dunkleren Flaeche der Tabellen kam derselbe Ton auf 4,49:1
+   * und riss die Grenze damit um einen Hundertstel: die Ampel der
+   * Pflichtbestaetigung im Kalender („Bestaetigung folgt") faellt beim
+   * Handy-Layout durch die maschinelle Pruefung. Ein Wert, der nur auf dem
+   * hellsten Untergrund reicht, ist kein Wert — deshalb jetzt **68 %**: 5,45:1
+   * auf dem Seitenhintergrund und 5,27:1 auf der Tabellenflaeche. Der Ton
+   * bleibt erkennbar gedaempft, ist aber auch bei schlechtem Licht und auf
+   * einem Handy im Freien noch zu lesen. Genau dort wird diese App benutzt.
    *
    * `--text-dimmer` ist deshalb kein eigener Wert mehr: 45 % waeren 3,0:1 und
    * damit selbst fuer grosse Schrift grenzwertig. Es bleibt als Name erhalten,
    * zeigt aber auf denselben lesbaren Ton.
    */
-  --text-dim: color-mix(in srgb, var(--color-text) 65%, transparent);
-  --text-dimmer: color-mix(in srgb, var(--color-text) 65%, transparent);
+  --text-dim: color-mix(in srgb, var(--color-text) 68%, transparent);
+  --text-dimmer: color-mix(in srgb, var(--color-text) 68%, transparent);
 
   /*
    * Der Akzent dort, wo er Schrift traegt.
@@ -139,8 +146,8 @@ body {
  * Farbe vorkommt — bei der abwechselnd eingefaerbten Tabelle ist das nicht der
  * Seitenhintergrund.
  *
- *   .text-muted   55 % -> 3,66:1, jetzt 65 % -> 4,96:1
- *   .table th     60 % -> 4,23:1, jetzt 65 % -> 4,96:1
+ *   .text-muted   55 % -> 3,66:1, jetzt 68 % -> 5,45:1
+ *   .table th     60 % -> 4,23:1, jetzt 68 % -> 5,45:1
  *   .btn-primary  helle Schrift auf #ec3013 -> 3,76:1, jetzt 5,09:1
  *   .btn-ghost    Akzentschrift -> 3,76:1, jetzt 4,73:1 auf der Zebra-Zeile
  *   .tag-outline  Akzentschrift -> 3,76:1, jetzt 5,09:1
@@ -575,6 +582,30 @@ body {
   .only-narrow {
     display: none;
   }
+}
+
+/* — Antwortseite eines Nachrichtenlinks — */
+
+.answer-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: var(--space-4) 0;
+  font-size: 14px;
+}
+
+.answer-facts dt {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  align-self: center;
+}
+
+.answer-facts dd {
+  margin: 0;
 }
 
 /* — Formularseiten — */
