@@ -24,8 +24,8 @@ suite('Datenbank-Zusicherungen', () => {
     await sql`INSERT INTO games (id, kickoff, league_id, home, away, venue)
               VALUES (${gameId}, now() + interval '30 days', 'TESTLIGA', 'A', 'B', 'Halle')`;
     for (const suffix of ['a', 'b']) {
-      await sql`INSERT INTO referees (id, name, initials, phone)
-                VALUES (${`${gameId}-${suffix}`}, ${`Person ${suffix}`},
+      await sql`INSERT INTO referees (id, name, first_name, license, initials, phone)
+                VALUES (${`${gameId}-${suffix}`}, ${`Person ${suffix}`}, 'Person', 'D',
                         ${`T${suffix.toUpperCase()}${gameId.slice(-4)}`},
                         ${`+49${Date.now()}${suffix === 'a' ? 1 : 2}`})`;
     }

@@ -14,6 +14,37 @@ import {
 } from './seed-data';
 
 /**
+ * Die Vorgaben der Einstellungstabelle, wie das Schema sie setzt.
+ *
+ * Sie stehen hier ausgeschrieben, weil ein `INSERT ... ON CONFLICT DO UPDATE`
+ * die Spalten nennen muss, die es zuruecksetzen soll — die Vorgabewerte der
+ * Spalten greifen nur beim Einfuegen.
+ */
+const DEFAULT_DB_SETTINGS = {
+  withdrawDeadlineDays: 21,
+  substituteRequestDeadlineDays: 3,
+  confirmationLeadHours: 72,
+  confirmationFollowUpHours: 24,
+  reminderLimit: 10,
+  reminderCostWarningFrom: 4,
+  reminderMinHours: 1,
+  reminderMaxHours: 168,
+  promotionResponseHours: 12,
+  oneGamePerDay: true,
+  rotation: true,
+  rotationWindow: 'week',
+  autoNudge: true,
+  openSlotVisibility: 'all',
+  assignmentReceipt: true,
+  alertUnfilled: true,
+  alertConfirmationOverdue: true,
+  alertSubstituteMissing: true,
+  alertCancellation: true,
+  alertDailyDigest: true,
+  alertAfterImport: false,
+} as const;
+
+/**
  * Fuellt eine leere Datenbank mit den Daten aus dem Mockup.
  * Ausschliesslich fuer Entwicklung und Tests — der Produktivbestand entsteht
  * ueber `seed:admin` und den CSV-Import.
@@ -23,9 +54,15 @@ const run = async (): Promise<void> => {
     throw new Error('Der Beispiel-Seed laeuft nicht gegen die Produktivdatenbank.');
   }
 
-  await db.insert(schema.leagues).values(
-    INITIAL_LEAGUES.map((name, index) => ({ id: name, name, sortOrder: index })),
-  );
+  /*
+   * Die Ligen stehen moeglicherweise schon: die Integrationstests legen sie
+   * selbst an, und in der CI laeuft der Seed nach ihnen. Sie gehoeren keinem
+   * Lauf allein — wer sie vorfindet, laesst sie stehen.
+   */
+  await db
+    .insert(schema.leagues)
+    .values(INITIAL_LEAGUES.map((name, index) => ({ id: name, name, sortOrder: index })))
+    .onConflictDoNothing();
 
   await db.insert(schema.referees).values(
     SEED_REFEREES.map((referee) => ({
@@ -113,7 +150,16 @@ const run = async (): Promise<void> => {
   await insertGames(SEED_GAMES, false);
   await insertGames(SEED_PAST_GAMES, true);
 
-  await db.insert(schema.settings).values({ id: 1 });
+  /*
+   * Ebenso die Einstellungen: die Integrationstests speichern welche, und in
+   * der CI laufen sie vor dem Seed. Der Seed setzt sie auf die Vorgaben
+   * zurueck, statt an einer belegten Zeile zu scheitern — nach ihm soll der
+   * Stand der Vorgabe entsprechen und nicht dem, was ein Test hinterlassen hat.
+   */
+  await db
+    .insert(schema.settings)
+    .values({ id: 1 })
+    .onConflictDoUpdate({ target: schema.settings.id, set: DEFAULT_DB_SETTINGS });
 
   await db.insert(schema.auditLog).values({
     id: randomUUID(),

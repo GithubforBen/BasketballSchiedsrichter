@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { ensureLeagues } from '../../../test/ligen';
 import { CSV_COLUMNS } from '@/domain/csv';
 import { claimNextSlot } from '../assignments';
 import { setPlayedAsReferee } from './appearances';
@@ -53,8 +54,8 @@ suite('Adminbereich', () => {
 
   const makeReferee = async (id: string, code: string, leagues: readonly string[]) => {
     usedInitials.set(id, code);
-    await sql`INSERT INTO referees (id, name, initials, phone, role)
-              VALUES (${id}, ${`Person ${code}`}, ${code},
+    await sql`INSERT INTO referees (id, name, first_name, license, initials, phone, role)
+              VALUES (${id}, ${`Person ${code}`}, 'Person', 'D', ${code},
                       ${`+4917${Math.floor(Math.random() * 900000000 + 100000000)}`},
                       ${id === admin ? 'admin' : 'referee'})`;
     for (const league of leagues) {
@@ -77,6 +78,7 @@ suite('Adminbereich', () => {
 
   beforeAll(async () => {
     sql = postgres(url ?? '', { max: 10 });
+    await ensureLeagues(sql);
     for (const [id, leagues] of [
       [admin, ['U14', 'U16']],
       [a, ['U14', 'U16']],

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { ensureLeagues } from '../../test/ligen';
 import { runScheduler, previewScheduler } from './scheduler';
 
 /**
@@ -27,8 +28,8 @@ suite('Nachrichtenlauf', () => {
   const initials = () => `${letter()}${letter()}${letter()}${letter()}`;
 
   const makeReferee = async (id: string, role: 'referee' | 'admin', reminders: number[] = []) => {
-    await sql`INSERT INTO referees (id, name, initials, phone, role, reminder_hours)
-      VALUES (${id}, ${`Person ${id.slice(-4)}`}, ${initials()},
+    await sql`INSERT INTO referees (id, name, first_name, license, initials, phone, role, reminder_hours)
+      VALUES (${id}, ${`Person ${id.slice(-4)}`}, 'Person', 'D', ${initials()},
               ${`+4915${Math.floor(Math.random() * 1e9)}`}, ${role},
               ${JSON.stringify(reminders)}::jsonb)`;
     await sql`INSERT INTO qualifications (referee_id, league_id) VALUES (${id}, 'U14')`;
@@ -60,6 +61,7 @@ suite('Nachrichtenlauf', () => {
 
   beforeAll(async () => {
     sql = postgres(url ?? '', { max: 10 });
+    await ensureLeagues(sql);
     await makeReferee(admin, 'admin');
     await makeReferee(r1, 'referee', [24]);
     await makeReferee(r2, 'referee');

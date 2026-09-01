@@ -23,8 +23,8 @@ suite('Anmeldung', () => {
 
   beforeAll(async () => {
     sql = postgres(url ?? '', { max: 5 });
-    await sql`INSERT INTO referees (id, name, initials, phone, role)
-              VALUES (${refereeId}, 'Test Person', ${`T${refereeId.slice(-3)}`}, ${phone}, 'referee')`;
+    await sql`INSERT INTO referees (id, name, first_name, license, initials, phone, role)
+              VALUES (${refereeId}, 'Test Person', 'Test', 'D', ${`T${refereeId.slice(-3)}`}, ${phone}, 'referee')`;
   });
 
   afterAll(async () => {

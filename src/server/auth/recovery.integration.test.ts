@@ -32,10 +32,10 @@ suite('Notzugang', () => {
 
   beforeAll(async () => {
     sql = postgres(url ?? '', { max: 5 });
-    await sql`INSERT INTO referees (id, name, initials, phone, role)
-              VALUES (${adminId}, ${name}, ${`R${adminId.slice(-3)}`}, ${adminPhone}, 'admin')`;
-    await sql`INSERT INTO referees (id, name, initials, phone, role)
-              VALUES (${refereeId}, 'Timo Färber', ${`S${refereeId.slice(-3)}`}, '+4915900000078', 'referee')`;
+    await sql`INSERT INTO referees (id, name, first_name, license, initials, phone, role)
+              VALUES (${adminId}, ${name}, 'Nele', 'D', ${`R${adminId.slice(-3)}`}, ${adminPhone}, 'admin')`;
+    await sql`INSERT INTO referees (id, name, first_name, license, initials, phone, role)
+              VALUES (${refereeId}, 'Timo Färber', 'Timo', 'D', ${`S${refereeId.slice(-3)}`}, '+4915900000078', 'referee')`;
   });
 
   afterAll(async () => {

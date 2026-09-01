@@ -36,10 +36,10 @@ suite('Anmeldung mit Passwort', () => {
 
   beforeAll(async () => {
     sql = postgres(url ?? '', { max: 5 });
-    await sql`INSERT INTO referees (id, name, initials, phone, role)
-              VALUES (${refereeId}, ${name}, ${`P${refereeId.slice(-3)}`}, ${phone}, 'referee')`;
-    await sql`INSERT INTO referees (id, name, initials, phone, role)
-              VALUES (${adminId}, 'Nele Baumann', ${`A${adminId.slice(-3)}`}, '+4915900000043', 'admin')`;
+    await sql`INSERT INTO referees (id, name, first_name, license, initials, phone, role)
+              VALUES (${refereeId}, ${name}, 'Jonas', 'D', ${`P${refereeId.slice(-3)}`}, ${phone}, 'referee')`;
+    await sql`INSERT INTO referees (id, name, first_name, license, initials, phone, role)
+              VALUES (${adminId}, 'Nele Baumann', 'Nele', 'D', ${`A${adminId.slice(-3)}`}, '+4915900000043', 'admin')`;
   });
 
   afterAll(async () => {
