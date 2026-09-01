@@ -27,11 +27,15 @@ export const league = 'U14';
 export const makeReferee = (overrides: Partial<Referee> = {}): Referee => ({
   id: 'r-jk',
   name: 'Jonas Keller',
+  firstName: 'Jonas',
   initials: 'JK',
   phone: '+49 151 23456789',
   role: 'referee',
   qualifications: ['U14', 'U16', 'U18', 'Senioren'],
+  license: 'D',
   reminderHours: [],
+  digestWeeks: 4,
+  digestEnabled: true,
   active: true,
   ...overrides,
 });
@@ -43,6 +47,7 @@ export const makeGame = (overrides: Partial<Game> = {}): Game => ({
   home: 'BG Nordstadt',
   away: 'TV Ostheim',
   venue: 'Sporthalle Nordstadt, Feld 2',
+  requiredLicense: 'E',
   state: 'scheduled',
   vacancyVersion: 0,
   overrides: { withdraw: false, substituteRequest: false, oneGamePerDay: false },

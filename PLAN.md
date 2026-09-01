@@ -146,6 +146,37 @@ gelten für **alle** Nachrichten und nicht nur für die, an der sie aufgefallen 
     Qualifizierten*, *nur die Admins* oder *aus*. Die Ausschreibung ist die einzige Nachricht an
     viele Personen auf einmal und bestimmt die Kosten fast allein (Regel 33); der Verein
     entscheidet darüber, nicht der Code.
+48. **Jede Nachricht spricht mit dem Vornamen an.** „Hallo Jonas", nicht „Hallo Jonas Keller".
+    Der Vorname ist ein eigenes Feld im Konto und wird nicht aus dem Namen geraten — bei „von der
+    Heide Tim" wäre das erste Wort das falsche. Beim Anlegen steht das erste Wort als Vorschlag
+    darin, der Admin korrigiert, wo es nicht passt.
+49. **Die Admins bekommen offene Plätze als Tagesbilanz, nicht als Einzelnachricht.** Bei der
+    Einstellung *nur die Admins* geht einmal am Abend eine Nachricht raus: wie viele Spiele eine
+    Lücke haben, bei wie vielen gar kein Schiedsrichter steht und wie eilig der nächste Fall ist.
+    Zehn Lücken ergaben vorher zehn gleichlautende Aufrufe an dieselben drei Leute. Gezählt wird
+    über alle künftigen Spiele der Saison und nur über die beiden Schiedsrichter-Plätze — ein
+    fehlender Ersatz ist kein Loch im Spielplan.
+50. **Die Tagesübersicht stellt jeder Admin für sich ein:** wie viele Wochen sie vorausschaut
+    (Standard 4) und ob sie überhaupt kommt. Beides steht im eigenen Profil, der vereinsweite
+    Schalter daneben bleibt bestehen. Ohne Zeitraum stünde am Saisonanfang der halbe Spielplan in
+    einer Nachricht, und niemand läse sie zu Ende.
+
+### Lizenzen
+
+Nachgetragen in Session 4. Sie stehen **neben** der Qualifikation (Regel 4), nicht an ihrer
+Stelle: die Qualifikation sagt, für welche Altersklasse jemand eingeteilt werden darf, die Lizenz,
+welche Spiele er überhaupt pfeifen darf.
+
+51. **Jedes Spiel verlangt eine Lizenz, E oder D.** E ist die Einstiegslizenz, D die höhere. Ohne
+    Angabe gilt E. Der Admin setzt sie im Spielformular oder über eine freiwillige siebte
+    CSV-Spalte `Lizenz`.
+52. **Jedes Konto trägt eine Lizenz — oder keine.** Wer keine hat, kann sich in **kein** Spiel
+    eintragen, auch nicht in eines seiner Liga. Wer D hat, darf auch E-Spiele pfeifen; wer E hat,
+    keine D-Spiele.
+53. **Die Lizenz beschränkt das Eintragen, nicht das Sehen.** Den Spielplan sieht jeder
+    vollständig, auch die Spiele, für die seine Lizenz nicht reicht. Eine Ausschreibung bekommt
+    er dafür nicht: eine Nachricht an jemanden, der sich anschließend nicht eintragen darf,
+    kostet Geld (Regel 33) und stiftet nur Verwirrung.
 
 ### Statusfarben
 | Zustand | Bedingung | Farbe |

@@ -5,6 +5,7 @@ import { Note, Tag } from '@/components/primitives';
 import { db, schema } from '@/db';
 import { isNotificationKind } from '@/domain/notifications';
 import { answerClaimsFor, issueAnswerToken } from '@/notifications/action-links';
+import { salutationName } from '@/domain/license';
 import { renderMessage } from '@/notifications/templates';
 import { env } from '@/server/env';
 import { toGame } from '@/server/queries/games';
@@ -52,10 +53,19 @@ const Outbox = async () => {
       : await db.select().from(schema.games).where(inArray(schema.games.id, gameIds));
   const byGame = new Map(gameRows.map((row) => [row.id, toGame(row)]));
 
+  /*
+   * Auch in der Vorschau steht die Anrede, die tatsaechlich rausginge — der
+   * Vorname. Sonst zeigte /dev/outbox einen anderen Text als den verschickten,
+   * und die ganze Seite waere nichts mehr wert.
+   */
   const names = await db
-    .select({ id: schema.referees.id, name: schema.referees.name })
+    .select({
+      id: schema.referees.id,
+      name: schema.referees.name,
+      firstName: schema.referees.firstName,
+    })
     .from(schema.referees);
-  const byReferee = new Map(names.map((row) => [row.id, row.name]));
+  const byReferee = new Map(names.map((row) => [row.id, salutationName(row)]));
 
   return (
     <div style={{ padding: 'var(--space-8)' }}>
@@ -96,7 +106,7 @@ const Outbox = async () => {
                   now,
                   answerToken: claims ? issueAnswerToken(claims, env.sessionSecret) : null,
                 })
-              : { subject: `Unbekannte Art: ${row.kind}`, body: '' };
+              : { subject: `Unbekannte Art: ${row.kind}`, body: '', template: null };
             return (
               <li key={row.id} className="outbox-entry">
                 <div className="row" style={{ gap: 'var(--space-2)' }}>

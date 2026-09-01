@@ -3,16 +3,17 @@
 Diese Datei ist die Vorlage für die Vorlagen: welche Sie anlegen müssen, mit welchem Text, in
 welcher Kategorie, wann und an wen sie rausgehen — und was der Code dafür noch braucht.
 
-> **Zuerst das Unangenehme:** Der Kanal in `src/notifications/channel.ts` verschickt heute
-> **freien Text** (`type: 'text'`). Das funktioniert nur innerhalb des 24-Stunden-Fensters,
-> also nur, wenn die Person in den letzten 24 Stunden selbst an die Vereinsnummer geschrieben
-> hat. Bei einer Erinnerung um 7 Uhr für ein Spiel um 10:30 ist das praktisch nie der Fall.
-> **Ohne Vorlagen-Versand im Code nützen die freigegebenen Vorlagen nichts.** Siehe unten,
-> Abschnitt „Was der Code noch braucht".
+> **Der Code ist so weit.** `src/notifications/channel.ts` verschickt inzwischen
+> `type: 'template'`: jede Nachricht steht in `src/notifications/templates.ts` als
+> Vorlagentext mit `{{1}}`, `{{2}}` … und einer Liste ihrer Werte, und daraus entsteht
+> beides — der Vorlagen-Aufruf für WhatsApp und der Fließtext für E-Mail, Entwicklung und
+> die Vorschau unter `/dev/outbox`. **Was jetzt noch fehlt, sind die Freigaben bei Meta.**
+> Legen Sie die Vorlagen unter genau den Namen an, die unten stehen — der Code ruft sie so
+> auf. Siehe unten, Abschnitt „Was der Code tut".
 
 ---
 
-## Drei Regeln, die für alle Vorlagen gelten
+## Vier Regeln, die für alle Vorlagen gelten
 
 Sie stehen vor den einzelnen Vorlagen, weil sie den Wortlaut jeder einzelnen bestimmen — und
 weil eine Vorlage, die dagegen verstößt, nach der Freigabe bei Meta nicht mehr änderbar ist,
@@ -28,6 +29,13 @@ sondern nur noch ersetzbar.
    Anwendung und gehört nicht in den Text.
 3. **Wer antworten soll, bekommt einen eindeutigen Link** (Regel 46). Siehe den nächsten
    Abschnitt.
+4. **Angesprochen wird mit dem Vornamen.** „Hallo Jonas", nicht „Hallo Jonas Keller" — eine
+   Nachricht an einen Menschen, kein Serienbrief. Der Vorname ist ein eigenes Feld im Konto und
+   wird nicht aus dem Namen geraten: bei „Anna-Lena Müller" träfe das erste Wort zu, bei „von
+   der Heide Tim" nicht. Der Admin pflegt ihn in der Schiedsrichter-Verwaltung; beim Anlegen
+   steht das erste Wort des Namens als Vorschlag darin. **Alle Beispielwerte unten nennen
+   deshalb nur den Vornamen** — ein Beispielwert mit vollem Namen würde Meta nicht stören, aber
+   die Vorlage sähe dann anders aus als die Nachricht, die tatsächlich rausgeht.
 
 ## Dynamische Links — eine Adresse je Nachricht
 
@@ -126,17 +134,22 @@ ein Admin verlegt ein Spiel) oder der **Zeitplan-Lauf** (eine Frist ist erreicht
 | 3 `schiriplan_bestaetigung_erbeten` | 72 Stunden vor Anpfiff (einstellbar) | Schiedsrichter 1 und 2 | Zeitplan |
 | 4 `schiriplan_bestaetigung_offen` | 24 Stunden später ohne Antwort | dieselbe Person | Zeitplan |
 | 5 `schiriplan_nachruecken` | ein Schiedsrichter-Platz ist frei geworden | ein Ersatz, einer nach dem anderen | Zeitplan |
-| 6 `schiriplan_platz_frei` | kein Ersatz mehr zu fragen; danach 14, 7, 3 und 1 Tag vorher | **alle** Qualifizierten — nur bei Einstellung „alle" | Zeitplan |
-| 6b `schiriplan_platz_frei_admin` | derselbe Anlass | nur die aktiven Admins — bei Einstellung „nur Admins" | Zeitplan |
+| 6 `schiriplan_platz_frei` | kein Ersatz mehr zu fragen; danach 14, 7, 3 und 1 Tag vorher | **alle** Qualifizierten mit passender Lizenz — nur bei Einstellung „alle" | Zeitplan |
+| 6b `schiriplan_platz_frei_admin` | ab 18 Uhr, **einmal am Tag**, solange irgendwo eine Lücke ist | nur die aktiven Admins — bei Einstellung „nur Admins" | Zeitplan |
 | 7 `schiriplan_termin_geaendert` | ein Admin ändert Anpfiff oder Ort | alle Eingetragenen | Handlung |
 | 8 `schiriplan_spiel_abgesagt` | ein Admin sagt das Spiel ab | alle Eingetragenen | Handlung |
 | 9 `schiriplan_erinnerung` | zu den Vorlaufzeiten aus dem Profil | die eingetragene Person | Zeitplan |
 | 10 `schiriplan_meldung` | eine Pflichtbestätigung ist überfällig | alle aktiven Admins | Zeitplan |
-| 11 `schiriplan_tagesuebersicht` | ab 18 Uhr, einmal am Tag | alle aktiven Admins | Zeitplan |
+| 11 `schiriplan_tagesuebersicht` | ab 18 Uhr, einmal am Tag | jeder aktive Admin, der sie nicht abgeschaltet hat — je Admin mit eigenem Zeitraum | Zeitplan |
 
 Nur Vorlage 6 geht an mehrere Personen gleichzeitig. Sie bestimmt damit die Kosten fast allein
 (Regel 33) — alle anderen sind eine Nachricht an eine Person, Vorlage 6b, 10 und 11 an die
 Handvoll Admins.
+
+**Vorlage 6b ist keine Nachricht je Spiel.** Zehn Lücken ergaben früher zehn gleichlautende
+Aufrufe an dieselben Admins. Sie ist jetzt eine **Tagesbilanz**: wie viele Spiele eine Lücke
+haben, bei wie vielen gar kein Schiedsrichter steht und wie eilig der nächste Fall ist — einmal
+am Abend, gleich viele Lücken wie wenige.
 
 **Zwei Vorlagen schaltet der Adminbereich** unter *Einstellungen* (Regel 47):
 
@@ -258,7 +271,7 @@ Nachrichtenbudget spart damit je Eintragung eine Nachricht (Regel 33).
 
 **An wen:** nur an die Person, die sich gerade eingetragen hat.
 
-**Variablen:** `{{1}}` Name · `{{2}}` Platz (Schiedsrichter 1/2, Ersatz 1/2) · `{{3}}` Spiel ·
+**Variablen:** `{{1}}` Vorname · `{{2}}` Platz (Schiedsrichter 1/2, Ersatz 1/2) · `{{3}}` Spiel ·
 `{{4}}` Ort · `{{5}}` Vorlauf bis Anpfiff.
 
 **Im Code:** `src/server/assignments.ts` → `assignmentIntent`, Art `assignment`, Schlüssel
@@ -269,15 +282,20 @@ Eintragung und mit dem nächsten Lauf zugestellt.
 ```
 Hallo {{1}},
 
-du stehst als {{2}} für:
+du stehst als {{2}} für das Spiel:
 {{3}}
 Ort: {{4}}
 Anpfiff {{5}}.
 
-Rechtzeitig vor Anpfiff bitten wir dich noch um eine Bestätigung.
+Vielen Dank für Deinen Einsatz!
 ```
 
-**Beispielwerte:** `Jonas Keller` · `Schiedsrichter 1` ·
+> **Was hier bewusst *nicht* mehr steht.** Frühere Fassungen endeten mit „Rechtzeitig vor
+> Anpfiff bitten wir dich noch um eine Bestätigung." Das hat mehr verwirrt als geholfen: die
+> Bitte kommt ohnehin als eigene Nachricht (Vorlage 3), und wer sie hier schon liest, hält die
+> Quittung fälschlich für sie und wundert sich später über die zweite Nachricht.
+
+**Beispielwerte:** `Jonas` · `Schiedsrichter 1` ·
 `Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim` · `Sporthalle Nordstadt, Feld 2` ·
 `in 6 Tagen`
 
@@ -298,7 +316,7 @@ Ersatz bestätigt nicht (Regel 12). Abgesagte Spiele und Spiele nach Anpfiff sin
 
 **Wie oft:** einmal je Person und Spiel.
 
-**Variablen:** `{{1}}` Name · `{{2}}` Spiel · `{{3}}` Ort · `{{4}}` Vorlauf in Worten
+**Variablen:** `{{1}}` Vorname · `{{2}}` Spiel · `{{3}}` Ort · `{{4}}` Vorlauf in Worten
 („in 3 Tagen").
 
 **Im Code:** `dueConfirmations` in `src/domain/scheduler.ts`, Art `confirmation-request`,
@@ -308,7 +326,7 @@ Schlüssel `confirmation:<Spiel>:<Person>:initial`.
 ```
 Hallo {{1}},
 
-bitte bestätige kurz, dass du pfeifst:
+bitte bestätige kurz, dass du an Deinen Einsatz denkst:
 {{2}}
 Ort: {{3}}
 Anpfiff {{4}}.
@@ -316,7 +334,7 @@ Anpfiff {{4}}.
 Tippe unten, um zu bestätigen.
 ```
 
-**Beispielwerte:** `Jonas Keller` ·
+**Beispielwerte:** `Jonas` ·
 `Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim` · `Sporthalle Nordstadt, Feld 2` ·
 `in 3 Tagen`
 
@@ -353,7 +371,7 @@ wir haben noch keine Rückmeldung von dir zu:
 Ort: {{3}}
 Anpfiff {{4}}.
 
-Bitte gib uns kurz Bescheid — ein Tippen genügt.
+Bitte gib uns kurz Bescheid, dass du an Deinen Einsatz denkst — ein Tippen genügt.
 ```
 
 > **Was hier bewusst *nicht* steht.** Frühere Fassungen endeten mit „sonst müssen wir den Platz
@@ -383,7 +401,7 @@ automatisch auf ein Drittel der Restzeit gekürzt — bei 12 Stunden Standard gr
 
 **An wen:** an genau einen Ersatz.
 
-**Variablen:** `{{1}}` Name · `{{2}}` der frei gewordene Platz · `{{3}}` Spiel · `{{4}}` Ort ·
+**Variablen:** `{{1}}` Vorname · `{{2}}` der frei gewordene Platz · `{{3}}` Spiel · `{{4}}` Ort ·
 `{{5}}` Vorlauf bis Anpfiff · `{{6}}` Antwortfrist mit Datum und Uhrzeit.
 
 **Im Code:** `planPromotions` in `src/domain/scheduler.ts`, angelegt in `openOffer`
@@ -395,25 +413,26 @@ Nachrück-Runde für dieselbe Person stumm.
 ```
 Hallo {{1}},
 
-du stehst als Ersatz, und {{2}} ist frei geworden:
+du bist als Ersatz eingetragen, und {{2}} ist frei geworden:
 {{3}}
 Ort: {{4}}
 Anpfiff {{5}}.
 
-Bitte antworte bis {{6}}.
+Bitte sage bis {{6}} zu oder ab.
 ```
 
 > Auch hier steht **nicht** mehr „ohne Antwort fragen wir den nächsten Ersatz" (Regel 45). Die
 > Frist sagt bereits alles, was der Empfänger für seine Entscheidung braucht.
 
-**Beispielwerte:** `Tim Faber` · `Schiedsrichter 1` ·
+**Beispielwerte:** `Tim` · `Schiedsrichter 1` ·
 `Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim` · `Sporthalle Nordstadt, Feld 2` ·
 `in 2 Tagen` · `Do 27.08.2026, 18:00 Uhr`
 
-**Button:** Website-Link, Text `Antworten`, **dynamische** URL
+**Button:** Website-Link, Text `Zu oder Absagen`, **dynamische** URL
 `https://schiriplan.example.org/antwort/{{1}}`
 
-Der Token hängt hier an der **Id der Anfrage**. Wird dieselbe Person später erneut gefragt, ist
+Der Knopf nennt beide Antworten, weil hinter ihm beide stehen — wer nur „Antworten" liest,
+vermutet dahinter ein Formular. Der Token hängt hier an der **Id der Anfrage**. Wird dieselbe Person später erneut gefragt, ist
 das eine neue Anfrage mit eigener Adresse — die alte kann die neue Frage nicht beantworten. Auf
 der Seite stehen beide Antworten zur Wahl: *Ja, ich rücke nach* und *Nein, diesmal nicht*. Ein
 „Ja" trägt die Person auf den Schiedsrichter-Platz um und stellt die Pflichtbestätigung neu
@@ -428,8 +447,10 @@ alle haben abgelehnt beziehungsweise ihre Frist verstreichen lassen (Regel 15). 
 sich die Ausschreibung **14, 7, 3 und 1 Tag** vor Anpfiff, jede Stufe höchstens einmal (Regel 32).
 Fällt ein Lauf aus, wird nur die zuletzt erreichte Stufe nachgeholt und nicht jede verpasste.
 
-**An wen:** an **alle** für die Liga qualifizierten Personen, die nicht schon in diesem Spiel
-stehen — in Rotationsreihenfolge (Regel 19). Das ist die einzige Vorlage, die viele Nachrichten
+**An wen:** an **alle** Personen, die für die Liga qualifiziert sind, die nötige Lizenz haben
+und nicht schon in diesem Spiel stehen — in Rotationsreihenfolge (Regel 19). Wem die Lizenz
+fehlt, bekommt sie nicht: eine Ausschreibung an jemanden, der sich anschließend nicht eintragen
+darf, kostet Geld und stiftet nur Verwirrung. Das ist die einzige Vorlage, die viele Nachrichten
 auf einmal auslöst; rechnen Sie sie bei den Kosten gesondert.
 
 **Abschaltbar:** vollständig, in drei Stufen (Regel 47) — *Einstellungen → Nachrichten an
@@ -438,7 +459,7 @@ Schiedsrichter → Offene Plätze ausschreiben an*:
 | Einstellung | Wirkung |
 | --- | --- |
 | **alle Qualifizierten** | wie bisher: diese Vorlage an alle Qualifizierten in Rotationsreihenfolge |
-| **nur die Admins** | statt dieser Vorlage geht **6b** an die aktiven Admins — sie besetzen den Platz von Hand |
+| **nur die Admins** | statt dieser Vorlage geht **6b** einmal am Abend an die aktiven Admins — als Bilanz aller Lücken, nicht als Nachricht je Spiel |
 | **aus** | gar keine Ausschreibung; die Lücke steht nur in der Übersicht und in den Meldungen |
 
 Der Schalter „automatische Nachfrage" steuert davon unabhängig nur die **Wiederholungen** 14, 7,
@@ -446,7 +467,7 @@ Der Schalter „automatische Nachfrage" steuert davon unabhängig nur die **Wied
 niemand von der Lücke erfahren hätte; mit „nur Admins" gibt es dafür jetzt einen leiseren Weg —
 und mit „aus" eine bewusste Entscheidung des Vereins.
 
-**Variablen:** `{{1}}` Name · `{{2}}` Spiel · `{{3}}` Ort · `{{4}}` Vorlauf bis Anpfiff.
+**Variablen:** `{{1}}` Vorname · `{{2}}` Spiel · `{{3}}` Ort · `{{4}}` Vorlauf bis Anpfiff.
 
 **Im Code:** `openSlotAnnouncement` in `src/domain/scheduler.ts`, Art `open-slot-announcement`,
 Schlüssel `open-slot:<Spiel>:<Vakanz-Zähler>:<Stufe>`. Der Vakanz-Zähler steigt, sobald ein Platz
@@ -456,15 +477,15 @@ erneut frei wird — sonst sähe die zweite Ausschreibung desselben Spiels wie e
 ```
 Hallo {{1}},
 
-für dieses Spiel fehlt noch jemand:
+für dieses Spiel fehlt uns noch ein Schiedsrichter:
 {{2}}
 Ort: {{3}}
 Anpfiff {{4}}.
 
-Wer sich zuerst einträgt, bekommt den Platz.
+Bitte, schau nochmal, ob du das Spiel vielleicht übernehmen kannst.
 ```
 
-**Beispielwerte:** `Jonas Keller` ·
+**Beispielwerte:** `Jonas` ·
 `Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim` · `Sporthalle Nordstadt, Feld 2` ·
 `in 5 Tagen`
 
@@ -475,37 +496,56 @@ Wer sich zuerst einträgt, bekommt den Platz.
 
 ### 6b · `schiriplan_platz_frei_admin` — UTILITY *(nur an Admins)*
 
-Dieselbe Lücke, anderer Leserkreis. Sie ist eine eigene Vorlage, weil der Text etwas anderes
-verlangt: die Qualifizierten sollen sich eintragen, die Admins sollen den Platz **besetzen** —
-und ein Admin muss für die Liga gar nicht qualifiziert sein. „Wer sich zuerst einträgt" wäre an
-ihn eine Aufforderung, die er womöglich nicht befolgen darf.
+Dieselbe Sache, anderer Leserkreis — und deshalb ein ganz anderer Zuschnitt. Die
+Qualifizierten hören von **einem** Spiel, das sie übernehmen könnten. Die Admins hören von
+**allen**: sie besetzen nicht selbst, sie sorgen dafür, dass besetzt wird. Zehn Lücken ergaben
+früher zehn gleichlautende Aufrufe an dieselben drei Leute; jetzt ist es eine Bilanz.
 
-**Wann:** wie Vorlage 6, nur bei der Einstellung „nur die Admins".
+**Wann:** ab **18 Uhr Vereinszeit**, einmal je Kalendertag, solange irgendein künftiges Spiel
+eine Lücke hat — und nur bei der Einstellung „nur die Admins". Der Schlüssel trägt das Datum in
+Vereinszeit: ein zweiter Lauf am selben Abend schickt nichts nach.
 
-**An wen:** an alle aktiven Admins, die nicht schon in diesem Spiel stehen. Ihre Qualifikation
-spielt keine Rolle.
+Anders als Vorlage 6 hängt sie **nicht** an der Nachrück-Kaskade und nicht am Schalter
+„automatische Nachfrage": sie meldet den Stand, nicht ein Ereignis. Wer sie nicht will, stellt
+die Ausschreibung auf „alle Qualifizierten" oder auf „aus".
 
-**Variablen:** wie Vorlage 6.
+**An wen:** an alle aktiven Admins. Qualifikation und Lizenz spielen keine Rolle.
 
-**Im Code:** dieselbe Art `open-slot-announcement` und derselbe Schlüssel; unterschieden wird am
-Feld `audience` im Inhalt (`all` oder `admins`). Beim Umstieg auf Vorlagen ist diese eine Art —
-wie bei 7 und 8 — auf **zwei** Vorlagennamen aufzuteilen.
+**Variablen:** `{{1}}` Vorname des Admins · `{{2}}` Anzahl der Spiele mit mindestens einem
+offenen Schiedsrichter-Platz · `{{3}}` Anzahl der Spiele, bei denen **beide**
+Schiedsrichter-Plätze offen sind · `{{4}}` Zeit bis zum Anpfiff des nächsten Spiels mit Lücke.
+
+Drei Dinge zur Zählweise, weil sie die Zahlen bestimmen:
+
+- **Gezählt wird über alle künftigen Spiele der Saison**, nicht über den Planungshorizont von
+  60 Tagen. „Diese Saison" soll auch diese Saison heißen.
+- **Ersatzplätze zählen nicht mit.** Ein fehlender Ersatz ist kein Loch im Spielplan, sondern
+  ein fehlendes Polster.
+- **`{{3}}` ist eine Teilmenge von `{{2}}`.** Ein Spiel ohne jeden Schiedsrichter hat auch
+  mindestens einen offenen Platz und steht in beiden Zahlen.
+
+**Im Code:** `dueAdminOpenSlots` in `src/domain/scheduler.ts`, Art `admin-open-slots`, Schlüssel
+`open-slots-admin:<Kalendertag>`. Die Zahlen kommen aus `loadOpenSlots`
+(`src/server/scheduler.ts`), das über den ganzen künftigen Spielplan zählt.
 
 **Text:**
 ```
 Hallo {{1}},
 
-für dieses Spiel fehlt noch jemand:
-{{2}}
-Ort: {{3}}
-Anpfiff {{4}}.
+diese Saison fehlen noch für {{2}} Spiele Schiedsrichter.
 
-Diese Lücke geht nur an die Admins. Bitte besetzt den Platz.
+{{3}} Spiele haben noch gar keinen Schiedsrichter.
+
+Das nächste Spiel mit Lücke startet in {{4}}.
+
+Bitte, kümmere dich darum, dass die Spiele besetzt werden.
 ```
 
-**Beispielwerte:** `Nele Baumann` ·
-`Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim` · `Sporthalle Nordstadt, Feld 2` ·
-`in 5 Tagen`
+**Beispielwerte:** `Nele` · `7` · `2` · `3 Tagen`
+
+> **Achtung beim Beispielwert von `{{4}}`.** Das „in" steht schon im Vorlagentext; der Wert
+> trägt nur die Dauer — `3 Tagen`, nicht `in 3 Tagen`. Sonst steht in der Nachricht „startet in
+> in 3 Tagen".
 
 **Button:** Website-Link, Text `Übersicht`, URL `https://schiriplan.example.org/uebersicht`
 
@@ -518,30 +558,44 @@ derselben Transaktion angelegt wie die Änderung.
 
 **An wen:** an alle Eingetragenen, Ersatzleute eingeschlossen.
 
-**Variablen:** `{{1}}` Name · `{{2}}` Spiel mit dem **neuen** Termin · `{{3}}` Ort · `{{4}}` der
-bisherige Termin samt bisherigem Ort · `{{5}}` Vorlauf bis zum neuen Anpfiff.
+**Variablen:** `{{1}}` Vorname · `{{2}}` der **bisherige** Termin samt Liga und Mannschaften ·
+`{{3}}` der **bisherige** Ort · `{{4}}` der **neue** Termin · `{{5}}` der **neue** Ort ·
+`{{6}}` Vorlauf bis zum neuen Anpfiff.
+
+Die Reihenfolge ist Absicht: zuerst das Spiel, das der Leser kennt — mit dem Termin, den er
+sich notiert hat —, dann die Änderung. Umgekehrt müsste er erst suchen, welches seiner Spiele
+gemeint ist. `{{2}}` trägt deshalb Liga und Mannschaften mit, `{{4}}` nicht mehr: der neue
+Termin steht daneben und braucht sie nicht zu wiederholen.
 
 **Im Code:** `src/server/admin/games.ts` → `relocationIntent`, Art `relocation`, Schlüssel
-`relocation:<Spiel>:<Änderungszähler>`. Jede weitere Verlegung ist eine neue Nachricht.
+`relocation:<Spiel>:<Änderungszähler>`. Jede weitere Verlegung ist eine neue Nachricht. Der
+alte Termin und der alte Ort stehen im Inhalt der Outbox-Zeile; der neue wird beim Versand
+frisch gelesen, damit eine zweite Verlegung vor der Zustellung nicht den falschen Termin nennt.
 
 **Text:**
 ```
 Hallo {{1}},
 
-dieses Spiel wurde verlegt:
+du bist als Schiedsrichter für dieses Spiel eingetragen:
 {{2}}
 Ort: {{3}}
-Bisher: {{4}}
-Anpfiff {{5}}.
 
-Passt der neue Termin? Wenn nicht, gib den Platz bitte gleich frei.
+Das Spiel wurde verlegt:
+
+Neue Zeit: {{4}}
+
+Neuer Ort: {{5}}.
+Anpfiff {{6}}.
+
+Passt der neue Termin?
+Bitte sag zu oder ab.
 ```
 
-**Beispielwerte:** `Jonas Keller` ·
-`Sa 05.09.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim` · `Sporthalle Nordstadt, Feld 2` ·
-`Sa 29.08.2026, 10:30 Uhr, Sporthalle Nordstadt, Feld 2` · `in 9 Tagen`
+**Beispielwerte:** `Jonas` ·
+`Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim` · `Sporthalle Nordstadt, Feld 2` ·
+`Sa 05.09.2026, 10:30 Uhr` · `Zeppelinhalle` · `in 9 Tagen`
 
-**Button:** Website-Link, Text `Antworten`, **dynamische** URL
+**Button:** Website-Link, Text `Zu oder Absagen`, **dynamische** URL
 `https://schiriplan.example.org/antwort/{{1}}`
 
 Auf der Seite stehen *Ich bleibe dabei* und *Ich sage ab*. Der Token trägt den Änderungszähler:
@@ -558,15 +612,15 @@ Eigene Vorlage, weil der Text sich inhaltlich unterscheidet: hier gibt es nichts
 
 **An wen:** an alle Eingetragenen, Ersatzleute eingeschlossen.
 
-**Variablen:** `{{1}}` Name · `{{2}}` Spiel · `{{3}}` Ort.
+**Variablen:** `{{1}}` Vorname · `{{2}}` Spiel · `{{3}}` Ort.
 
 Der Vorlauf fehlt hier als einzige Ausnahme von Regel 44 — und nur er: das **Datum** steht in
 `{{2}}` wie überall. „In 3 Tagen" wäre bei einem Spiel, das ausfällt, eine Dringlichkeit, die es
 nicht mehr gibt.
 
-**Im Code:** dieselbe Art `relocation` wie Vorlage 7 — unterschieden wird am Zustand des Spiels
-(`cancelled`). Beim Umstieg auf Vorlagen muss diese eine Art also auf **zwei** Vorlagennamen
-aufgeteilt werden; siehe „Was der Code noch braucht".
+**Im Code:** dieselbe Art `relocation` wie Vorlage 7 — unterschieden wird am **frisch gelesenen**
+Zustand des Spiels (`cancelled`). Der Code wählt daran den Vorlagennamen; wird ein verlegtes
+Spiel vor der Zustellung doch abgesagt, geht die Absage raus und nicht der neue Termin.
 
 **Text:**
 ```
@@ -579,7 +633,7 @@ Ort: {{3}}
 Du musst nichts weiter tun.
 ```
 
-**Beispielwerte:** `Jonas Keller` ·
+**Beispielwerte:** `Jonas` ·
 `Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim` · `Sporthalle Nordstadt, Feld 2`
 
 **Button:** keiner
@@ -599,7 +653,7 @@ Du musst nichts weiter tun.
 **An wen:** an jede eingetragene Person, auch auf Ersatzplätzen. Abgesagte Spiele und Spiele nach
 Anpfiff sind ausgenommen.
 
-**Variablen:** `{{1}}` Name · `{{2}}` Vorlauf in Worten („1 Tag") · `{{3}}` Spiel · `{{4}}` Ort ·
+**Variablen:** `{{1}}` Vorname · `{{2}}` Vorlauf in Worten („1 Tag") · `{{3}}` Spiel · `{{4}}` Ort ·
 `{{5}}` verbleibende Zeit bis Anpfiff.
 
 `{{2}}` und `{{5}}` sehen ähnlich aus und sind es nicht: `{{2}}` ist die **eingestellte**
@@ -622,7 +676,7 @@ Anpfiff {{5}}.
 Bis dann!
 ```
 
-**Beispielwerte:** `Jonas Keller` · `1 Tag` ·
+**Beispielwerte:** `Jonas` · `1 Tag` ·
 `Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim` · `Sporthalle Nordstadt, Feld 2` ·
 `in 22 Stunden`
 
@@ -642,13 +696,12 @@ lösen keine Nachricht aus.
 **Wie oft:** einmal je offener Bestätigung. Zwei offene Bestätigungen desselben Spiels ergeben
 zwei Meldungen, nicht eine.
 
-**Variablen:** `{{1}}` Name des Admins · `{{2}}` Spiel · `{{3}}` was los ist.
+**Variablen:** `{{1}}` Vorname des Admins · `{{2}}` Spiel · `{{3}}` was los ist.
 
 **Im Code:** `dueConfirmationAlerts` in `src/domain/scheduler.ts`, Art `admin-alert`, Schlüssel
-`admin-alert:confirmation-overdue:<Spiel>:<Person>`.
-
-> Der Code schreibt heute **einen** Satz, der Spiel und Anlass zusammen nennt. Die Vorlage trennt
-> beides in `{{2}}` und `{{3}}` — beim Umbau ist der Satz entsprechend zu zerlegen.
+`admin-alert:confirmation-overdue:<Spiel>:<Person>`. Der Inhalt der Outbox-Zeile trägt nur noch
+den **Anlass**; das Spiel steht in `{{2}}` und wird beim Versand frisch gelesen — ein beim
+Anlegen eingebauter Termin wäre nach einer Verlegung falsch.
 
 **Text:**
 ```
@@ -658,15 +711,16 @@ es gibt eine Meldung zu einem Spiel:
 {{2}}
 
 {{3}}
-Bitte in der Spielübersicht nachsehen.
+
+Bitte in der Spielübersicht nachsehen und das Problem lösen.
 ```
 
-**Beispielwerte:** `Nele Baumann` ·
+**Beispielwerte:** `Nele` ·
 `Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim` ·
-`Jonas Keller hat die Pflichtbestätigung seit 24 Stunden nicht beantwortet. Anpfiff Sa 29.08.2026, 10:30 Uhr (in 3 Tagen).`
+`Jonas hat die Pflichtbestätigung seit 24 Stunden nicht beantwortet.`
 
-Der Satz in `{{3}}` nennt Datum **und** Vorlauf (Regel 44) — der Admin soll aus der Meldung
-allein entscheiden können, ob es eilt.
+Datum und Vorlauf (Regel 44) stehen in `{{2}}` — der Admin soll aus der Meldung allein
+entscheiden können, ob es eilt, und `{{3}}` muss sie deshalb nicht wiederholen.
 
 **Button:** Website-Link, Text `Meldungen`, URL `https://schiriplan.example.org/meldungen`
 
@@ -675,13 +729,24 @@ allein entscheiden können, ob es eilt.
 ### 11 · `schiriplan_tagesuebersicht` — UTILITY *(nur an Admins)*
 
 **Wann:** ab **18 Uhr Vereinszeit**, einmal je Kalendertag, und nur wenn mindestens ein kommendes
-Spiel einen offenen Schiedsrichter-Platz oder eine ausstehende Bestätigung hat (Regel 20). Der
-Schlüssel trägt das Datum in Vereinszeit, nicht die Laufzeit des Zeitplans: ein zweiter Lauf am
-selben Abend schickt nichts nach. Abschaltbar über den Schalter „Tageszusammenfassung".
+Spiel **im eingestellten Zeitraum** einen offenen Schiedsrichter-Platz oder eine ausstehende
+Bestätigung hat (Regel 20). Der Schlüssel trägt das Datum in Vereinszeit, nicht die Laufzeit des
+Zeitplans: ein zweiter Lauf am selben Abend schickt nichts nach.
 
-**An wen:** an alle aktiven Admins.
+**Zwei Schalter, und sie liegen an verschiedenen Stellen:**
 
-**Variablen:** `{{1}}` Name des Admins · `{{2}}` Anzahl der Spiele · `{{3}}` die Liste, eine
+| Schalter | Wo | Wirkung |
+| --- | --- | --- |
+| Tageszusammenfassung | *Einstellungen* (vereinsweit) | schaltet sie für **alle** Admins ab |
+| Tagesübersicht an mich schicken | *Profil* (je Admin) | schaltet sie nur für **diesen** Admin ab |
+| Zeitraum in Wochen | *Profil* (je Admin) | wie weit sie vorausschaut, Standard **4 Wochen** |
+
+**An wen:** an jeden aktiven Admin, der sie nicht abgeschaltet hat — **eine Nachricht je Admin**,
+und der Inhalt kann sich unterscheiden. Wer vier Wochen eingestellt hat, sieht ein Spiel in zehn
+Tagen; wer eine Woche eingestellt hat, nicht. Ohne Zeitraum stünde am Saisonanfang der halbe
+Spielplan in der Nachricht und niemand läse sie zu Ende.
+
+**Variablen:** `{{1}}` Vorname des Admins · `{{2}}` Anzahl der Spiele · `{{3}}` die Liste, eine
 Zeile je Spiel.
 
 **Jede Zeile in `{{3}}` nennt Datum, Uhrzeit und Vorlauf** (Regel 44) und danach erst, was fehlt:
@@ -695,7 +760,9 @@ müsste er nachrechnen, wie eilig es ist. Beides gehört in dieselbe Zeile, weil
 Zusammenfassung genau dafür da ist: entscheiden, ohne die Übersicht zu öffnen.
 
 **Im Code:** `dueDigest` in `src/domain/scheduler.ts`, Art `daily-digest`, Schlüssel
-`digest:<Kalendertag>`.
+`digest:<Kalendertag>`. Der Schlüssel ist zusammen mit dem Empfänger eindeutig — deshalb genügt
+er, obwohl jeder Admin seine eigene Zeile in der Outbox bekommt. Zeitraum und Schalter stehen in
+`referees.digest_weeks` und `referees.digest_enabled`.
 
 > **Zwei Fallstricke bei dieser Vorlage.** Meta erlaubt in Variablenwerten **keine
 > Zeilenumbrüche** — `{{3}}` muss beim Versand zu einer Zeile verbunden werden, etwa mit „ · ".
@@ -713,7 +780,7 @@ Hallo {{1}},
 Die vollständige Liste steht in der Spielübersicht.
 ```
 
-**Beispielwerte:** `Nele Baumann` · `2` ·
+**Beispielwerte:** `Nele` · `2` ·
 `Sa 29.08.2026, 10:30 Uhr (in 3 Tagen) · BG Nordstadt gegen TV Ostheim (U14): Schiedsrichter 1 offen. · So 30.08.2026, 12:00 Uhr (in 4 Tagen) · TSV Süd gegen BG Nordstadt (U16): 1x Bestätigung ausstehend.`
 
 **Button:** Website-Link, Text `Übersicht`, URL `https://schiriplan.example.org/uebersicht`
@@ -751,10 +818,16 @@ wiederholbar einspielen.
 
 ---
 
-## Was der Code noch braucht
+## Was der Code tut
 
-Die Anwendung erzeugt heute fertigen Fließtext und schickt ihn als `type: 'text'`. Für Vorlagen
-braucht Meta stattdessen **Bausteine statt Text**:
+Die Anwendung schickt die Vorlagen bereits. Jede Nachricht steht in
+`src/notifications/templates.ts` als **Vorlagentext mit `{{1}}`, `{{2}}` …** und einer Liste
+ihrer Werte; daraus entsteht beides — der Vorlagen-Aufruf für WhatsApp und, durch Einsetzen
+derselben Werte in denselben Text, der Fließtext für E-Mail, Entwicklung und die Vorschau unter
+`/dev/outbox`. Es gibt genau eine Quelle für den Wortlaut, also können Vorschau und Versand
+nicht auseinanderlaufen.
+
+Der Rumpf, den `src/notifications/channel.ts` an die Cloud API schickt:
 
 ```jsonc
 {
@@ -768,10 +841,11 @@ braucht Meta stattdessen **Bausteine statt Text**:
       {
         "type": "body",
         "parameters": [
-          { "type": "text", "text": "Jonas Keller" },
+          { "type": "text", "text": "Jonas" },
           { "type": "text", "text": "1 Tag" },
           { "type": "text", "text": "Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim" },
-          { "type": "text", "text": "Sporthalle Nordstadt, Feld 2" }
+          { "type": "text", "text": "Sporthalle Nordstadt, Feld 2" },
+          { "type": "text", "text": "in 22 Stunden" }
         ]
       }
     ]
@@ -779,22 +853,21 @@ braucht Meta stattdessen **Bausteine statt Text**:
 }
 ```
 
-Konkret fehlen sechs Dinge:
+Sechs Dinge, die dabei zu wissen sind:
 
-1. **Je Nachrichtenart ein Vorlagenname und eine Parameterliste.** Die Texte in
-   `src/notifications/templates.ts` müssen die Bestandteile einzeln herausgeben, nicht nur den
-   fertigen Fließtext. Der E-Mail- und der Dev-Kanal setzen sie weiterhin zum Fließtext zusammen
-   — die Texte oben und die in der Anwendung bleiben also dieselben.
-2. **`channel.ts` muss `type: 'template'` schicken**, wenn eine Vorlage hinterlegt ist.
-3. **Die Anmeldung über WhatsApp verschickt nur noch den Code**, nicht den Link (siehe Vorlage 1).
-4. **Zwei Arten teilen sich auf je zwei Vorlagen.** `relocation` wird zu
-   `schiriplan_termin_geaendert` und `schiriplan_spiel_abgesagt` (unterschieden am Zustand des
-   Spiels), `open-slot-announcement` zu `schiriplan_platz_frei` und
-   `schiriplan_platz_frei_admin` (unterschieden am Feld `audience` im Inhalt). Die Zuordnung ist
-   also nicht überall eine Art zu einer Vorlage.
-5. **Der Antwort-Token muss als Knopf-Parameter mitgehen.** Er entsteht bereits — beim Versand
-   in `src/server/outbox.ts` über `answerClaimsFor` und `issueAnswerToken` — und steht heute im
-   Fließtext. Für eine Vorlage gehört er in eine eigene Komponente:
+1. **Die Namen sind fest verdrahtet.** Legen Sie die Vorlagen bei Meta unter genau den Namen an,
+   die oben in den Überschriften stehen. Ein Tippfehler im Namen führt zu einer abgelehnten
+   Nachricht (Code 132001), und die Outbox gibt sie sofort auf, statt sie zu wiederholen — das
+   ist Absicht, ein zweiter Versuch würde nur erneut kosten.
+2. **Zwei Arten teilen sich auf je zwei Vorlagen.** `relocation` wird zu
+   `schiriplan_termin_geaendert` oder `schiriplan_spiel_abgesagt`, je nach **frisch gelesenem**
+   Zustand des Spiels. Die Ausschreibung ist dagegen in zwei Arten getrennt:
+   `open-slot-announcement` (Vorlage 6, an die Qualifizierten, je Spiel) und `admin-open-slots`
+   (Vorlage 6b, an die Admins, als Tagesbilanz) — sie haben verschiedene Auslöser und
+   verschiedene Inhalte.
+3. **Der Antwort-Token geht als Knopf-Parameter mit.** Er entsteht beim Versand in
+   `src/server/outbox.ts` über `answerClaimsFor` und `issueAnswerToken` und wird als eigene
+   Komponente angehängt:
 
    ```jsonc
    {
@@ -805,10 +878,22 @@ Konkret fehlen sechs Dinge:
    }
    ```
 
-   Betroffen sind die Vorlagen 3, 4, 5 und 7 — genau die, die eine Antwort erwarten.
-6. **Parameterwerte müssen einzeilig sein.** Meta lässt in Variablenwerten keine Zeilenumbrüche,
-   Tabulatoren oder längeren Leerraum zu. Betroffen ist die Liste in der Tagesübersicht
-   (Vorlage 11); sie muss zu einer Zeile verbunden werden.
+   Betroffen sind die Vorlagen 3, 4, 5 und 7 — genau die, die eine Antwort erwarten. Fehlt der
+   Token (das Spiel ist verschwunden oder abgesagt), entfällt die Komponente und der Fließtext
+   verweist auf den Kalender.
+4. **Parameterwerte sind einzeilig.** Meta lässt in einem Variablenwert keine Zeilenumbrüche,
+   Tabulatoren oder längeren Leerraum zu. Der Code räumt jeden Wert vorher auf; die Liste der
+   Tagesübersicht wird dabei mit „ · " zu einer Zeile verbunden.
+5. **Über WhatsApp geht bei der Anmeldung nur der Code**, nicht der Link — in eine
+   AUTHENTICATION-Vorlage passt keiner. Über E-Mail geht weiterhin beides.
+6. **Ohne Vorlage bleibt der Fließtext.** Er ist kein Ersatz, sondern der Fall „im
+   24-Stunden-Fenster". Außerhalb lehnt Meta ihn ab, und der Fehler ist dauerhaft — die
+   Nachricht wird nicht wiederholt.
 
-Das ist ein überschaubarer, aber echter Umbau mit eigenen Tests. Er steht bewusst noch nicht im
-Code: solange keine Vorlage freigegeben ist, könnte man ihn gegen nichts prüfen.
+### Wenn eine Vorlage abgelehnt wird
+
+Die Outbox gibt bei den Codes 132000, 132001, 132007, 132012 und 132015 sofort auf und schreibt
+den Grund in `notification_outbox.last_error`. Unter `/dev/outbox` steht er lesbar daneben. Die
+häufigsten Ursachen: Name falsch geschrieben, Vorlage noch nicht freigegeben, oder die Zahl der
+Parameter im Code passt nicht zu der in der freigegebenen Vorlage. Das Letzte fällt erst beim
+Versand auf — vergleichen Sie deshalb beim Anlegen die Variablenzahl mit der Liste oben.

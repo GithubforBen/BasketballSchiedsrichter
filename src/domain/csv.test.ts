@@ -150,3 +150,36 @@ describe('Duplikaterkennung', () => {
     expect(second.duplicates).toHaveLength(2);
   });
 });
+
+describe('Die Lizenzspalte ist freiwillig', () => {
+  /*
+   * Die Dateien, die der Verband herausgibt, kennen die Spalte nicht. Ein
+   * Import soll daran nicht scheitern — ohne Angabe gilt die niedrigere
+   * Lizenz, und der Admin hebt einzelne Spiele danach an.
+   */
+  const leagues = ['U14'];
+
+  it('nimmt E an, wo nichts steht', () => {
+    const result = parseCsv(
+      ['Datum;Zeit;Liga;Heim;Gast;Ort', '19.09.2026;10:00;U14;A;B;Halle'].join('\n'),
+      leagues,
+    );
+    expect(result.valid[0]?.license).toBe('E');
+  });
+
+  it('liest die Spalte, wo sie steht', () => {
+    const result = parseCsv(
+      ['Datum;Zeit;Liga;Heim;Gast;Ort;Lizenz', '19.09.2026;10:00;U14;A;B;Halle;d'].join('\n'),
+      leagues,
+    );
+    expect(result.valid[0]?.license).toBe('D');
+  });
+
+  it('weist eine Lizenz zurueck, die es nicht gibt', () => {
+    const result = parseCsv(
+      ['Datum;Zeit;Liga;Heim;Gast;Ort;Lizenz', '19.09.2026;10:00;U14;A;B;Halle;C'].join('\n'),
+      leagues,
+    );
+    expect(result.invalid[0]?.problem).toContain('Lizenz');
+  });
+});

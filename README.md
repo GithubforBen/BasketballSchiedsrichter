@@ -17,9 +17,22 @@ Danach kam die Anmeldung mit Passwort dazu (Regeln 34–43): Die Anmeldung per L
 geprüft, steht aber voreingestellt zu — jeder Link kostet eine WhatsApp-Nachricht, und davon hat
 der Verein 2000 im Monat. `LOGIN_MAGIC_LINK=an` schaltet sie wieder frei.
 
+Danach kamen die Lizenzen und der neue Zuschnitt der Nachrichten dazu (Regeln 48–53): Jedes
+Spiel verlangt eine Lizenz E oder D, jedes Konto trägt eine — oder keine, dann ist keine
+Eintragung möglich. Gesehen wird der Spielplan trotzdem vollständig. Nachrichten sprechen mit
+dem Vornamen an, die Admins bekommen offene Plätze als Tagesbilanz statt als Einzelnachricht,
+und die Tagesübersicht stellt jeder Admin in seinem Profil ein: Zeitraum in Wochen (Standard 4)
+und ob sie überhaupt kommt.
+
+Der Versand läuft seitdem über **WhatsApp-Vorlagen** (`type: 'template'`) statt über freien
+Text. Die Texte stehen in `src/notifications/templates.ts` mit `{{1}}`, `{{2}}` … und ihren
+Werten; daraus entsteht der Vorlagen-Aufruf für WhatsApp und der Fließtext für E-Mail und
+Vorschau. Was unter `/dev/outbox` steht, geht genau so raus.
+
 Vor dem Echtbetrieb bleibt zu tun, was nur der Verein selbst kann: Impressum ausfüllen, die
-Datenschutzerklärung juristisch prüfen lassen, die WhatsApp-Vorlagen bei Meta freigeben und die
-Zugangsdaten setzen. Siehe [PLAN.md](PLAN.md).
+Datenschutzerklärung juristisch prüfen lassen, die WhatsApp-Vorlagen bei Meta unter genau den
+Namen aus [docs/whatsapp-vorlagen.md](docs/whatsapp-vorlagen.md) freigeben und die Zugangsdaten
+setzen. Siehe [PLAN.md](PLAN.md).
 
 ## Loslegen
 

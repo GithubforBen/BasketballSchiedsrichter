@@ -65,7 +65,7 @@ export const buildAdminAlerts = (
 
     const msUntilKickoff = game.kickoff.getTime() - now.getTime();
     const lead = describeLeadTime(game.kickoff, now);
-    const qualified = qualifiedReferees(referees, game.leagueId).length;
+    const qualified = qualifiedReferees(referees, game.leagueId, game.requiredLicense).length;
     const missingReferees = refereeSlots(slots).filter((s) => s.assignment === null).length;
     const missingSubstitutes = substituteSlots(slots).filter((s) => s.assignment === null).length;
 
@@ -75,7 +75,7 @@ export const buildAdminAlerts = (
         gameId: game.id,
         label: gameStatus(slots).label,
         detail: `${missingReferees} von ${refereeSlots(slots).length} Schiedsrichter-Plaetzen offen, ${missingSubstitutes} Ersatzplaetze frei. Anpfiff ${lead}.`,
-        meta: `${qualified} qualifizierte Schiedsrichter fuer ${game.leagueId}`,
+        meta: `${qualified} Schiedsrichter mit Qualifikation ${game.leagueId} und Lizenz ${game.requiredLicense}`,
         msUntilKickoff,
       });
     }

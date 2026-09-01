@@ -31,9 +31,11 @@ const run = async (): Promise<void> => {
     SEED_REFEREES.map((referee) => ({
       id: referee.id,
       name: referee.name,
+      firstName: referee.firstName,
       initials: referee.initials,
       phone: referee.phone,
       role: referee.role,
+      license: referee.license,
       reminderHours: referee.id === 'r-jk' ? [48, 3] : [24],
     })),
   );
@@ -83,6 +85,7 @@ const run = async (): Promise<void> => {
         home: game.home,
         away: game.away,
         venue: game.venue,
+        requiredLicense: game.requiredLicense ?? 'E',
         state: game.state ?? 'scheduled',
         relocationVersion: game.state === 'moved' ? 1 : 0,
       });

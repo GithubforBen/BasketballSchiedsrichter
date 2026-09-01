@@ -26,6 +26,7 @@ const ALL_KINDS: readonly NotificationKind[] = [
   'confirmation-follow-up',
   'promotion-offer',
   'open-slot-announcement',
+  'admin-open-slots',
   'relocation',
   'personal-reminder',
   'admin-alert',
@@ -33,22 +34,27 @@ const ALL_KINDS: readonly NotificationKind[] = [
   'login',
 ];
 
+/** Ein Inhalt, der zu jeder Art passt — die Arten lesen daraus, was sie brauchen. */
+const EVERY_PAYLOAD = {
+  subject: 'Anmeldung',
+  body: 'Dein Link',
+  code: '123456',
+  lines: ['BG Nordstadt gegen TV Ostheim: Schiedsrichter 1 offen.'],
+  detail: 'Eine Bestaetigung fehlt.',
+  hoursBefore: 24,
+  slotIndex: 0,
+  targetSlot: 1,
+  respondBy: inHours(5).toISOString(),
+  gamesWithGap: 4,
+  gamesWithoutAny: 1,
+  nextKickoff: inHours(30).toISOString(),
+} as const;
+
 describe('Jede Nachrichtenart hat einen Text', () => {
   it.each(ALL_KINDS)('%s ergibt Betreff und Inhalt', (kind) => {
     const rendered = renderMessage(
       kind,
-      ctx({
-        payload: {
-          subject: 'Anmeldung',
-          body: 'Dein Link',
-          lines: ['BG Nordstadt gegen TV Ostheim: Schiedsrichter 1 offen.'],
-          detail: 'Eine Bestaetigung fehlt.',
-          hoursBefore: 24,
-          slotIndex: 0,
-          targetSlot: 1,
-          respondBy: inHours(5).toISOString(),
-        },
-      }),
+      ctx({ payload: EVERY_PAYLOAD }),
     );
     expect(rendered.subject.length).toBeGreaterThan(0);
     expect(rendered.body.length).toBeGreaterThan(0);
@@ -129,18 +135,7 @@ describe('Keine Nachricht stellt einen Nachfolger in Aussicht', () => {
   it.each(ALL_KINDS)('%s spricht nicht von Ersatz fuer den Empfaenger', (kind) => {
     const rendered = renderMessage(
       kind,
-      ctx({
-        payload: {
-          subject: 'Anmeldung',
-          body: 'Dein Link',
-          lines: ['BG Nordstadt gegen TV Ostheim: Schiedsrichter 1 offen.'],
-          detail: 'Eine Bestaetigung fehlt.',
-          hoursBefore: 24,
-          slotIndex: 0,
-          targetSlot: 1,
-          respondBy: inHours(5).toISOString(),
-        },
-      }),
+      ctx({ payload: EVERY_PAYLOAD }),
     );
     for (const phrase of FORBIDDEN) expect(rendered.body).not.toContain(phrase);
   });
@@ -171,22 +166,36 @@ describe('Antworten laufen ueber einen eindeutigen Link', () => {
   });
 });
 
-describe('Die Ausschreibung kennt ihren Leserkreis', () => {
-  it('bittet die Admins, den Platz zu besetzen', () => {
+describe('Die Admins bekommen eine Bilanz, keine Einzelnachricht', () => {
+  /*
+   * Zehn Luecken ergeben fuer einen Admin eine Nachricht und nicht zehn: was er
+   * braucht, ist der Stand der Saison und die Dringlichkeit des naechsten
+   * Falls, nicht zehnmal derselbe Aufruf.
+   */
+  it('nennt beide Zahlen und den Vorlauf des naechsten Falls', () => {
     const rendered = renderMessage(
-      'open-slot-announcement',
-      ctx({ payload: { round: 0, audience: 'admins' } }),
+      'admin-open-slots',
+      ctx({
+        payload: {
+          gamesWithGap: 7,
+          gamesWithoutAny: 2,
+          nextKickoff: inDays(3).toISOString(),
+        },
+      }),
     );
-    expect(rendered.body).toContain('nur an die Admins');
-    expect(rendered.body).not.toContain('Wer sich zuerst eintraegt');
+    expect(rendered.body).toContain('für 7 Spiele Schiedsrichter');
+    expect(rendered.body).toContain('2 Spiele haben noch gar keinen Schiedsrichter');
+    expect(rendered.body).toContain('startet in 3 Tagen');
+    expect(rendered.body).toContain('https://schiriplan.test/uebersicht');
   });
 
-  it('fordert alle anderen zum Eintragen auf', () => {
+  it('nennt keinen Vorlauf, den es nicht gibt', () => {
     const rendered = renderMessage(
-      'open-slot-announcement',
-      ctx({ payload: { round: 0, audience: 'all' } }),
+      'admin-open-slots',
+      ctx({ payload: { gamesWithGap: 1, gamesWithoutAny: 0, nextKickoff: null } }),
     );
-    expect(rendered.body).toContain('Wer sich zuerst eintraegt');
+    expect(rendered.body).not.toContain('undefined');
+    expect(rendered.body).not.toContain('NaN');
   });
 });
 
@@ -202,8 +211,10 @@ describe('Regel 17 — die Verschiebung nennt den alten Termin', () => {
         },
       }),
     );
-    expect(rendered.body).toContain('Sa 05.09.2026');
-    expect(rendered.body).toContain('Bisher: Sa 29.08.2026, 10:30 Uhr');
+    // Zuerst das Spiel, das der Leser kennt — mit seinem bisherigen Termin.
+    expect(rendered.body).toContain('Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim');
+    expect(rendered.body).toContain('Neue Zeit: Sa 05.09.2026, 10:30 Uhr');
+    expect(rendered.body).toContain('Neuer Ort: Sporthalle Nordstadt, Feld 2.');
   });
 
   it('bittet bei einer Absage nicht um eine Antwort — es gibt nichts zu entscheiden', () => {
@@ -222,22 +233,61 @@ describe('Regeln 13 und 14 — die Nachrueck-Anfrage nennt ihre Frist', () => {
       'promotion-offer',
       ctx({ payload: { targetSlot: 0, respondBy: '2026-08-01T20:00:00Z' } }),
     );
-    expect(rendered.body).toContain('Bitte antworte bis Sa 01.08.2026, 22:00 Uhr.');
+    expect(rendered.body).toContain('Bitte sage bis Sa 01.08.2026, 22:00 Uhr zu oder ab.');
     expect(rendered.body).toContain('Schiedsrichter 1');
+    // Der Knopf sagt, was er tut — zusagen oder absagen, beides an einer Stelle.
+    expect(rendered.body).toContain('Zu oder Absagen:');
   });
 
   it('bleibt verstaendlich, wenn die Frist fehlt', () => {
     const rendered = renderMessage('promotion-offer', ctx({ payload: {} }));
-    expect(rendered.body).toContain('moeglichst bald');
-    expect(rendered.body).toContain('einen Platz');
+    expect(rendered.body).toContain('möglichst bald');
+    expect(rendered.body).toContain('ein Platz ist frei geworden');
   });
 });
 
-describe('Regel 3 — die Ausschreibung sagt, dass es schnell gehen muss', () => {
-  it('nennt First come, first served und verlinkt die offenen Spiele', () => {
+describe('Die Ausschreibung fragt, ob jemand das Spiel uebernimmt', () => {
+  it('bittet um Uebernahme und verlinkt die offenen Spiele', () => {
     const rendered = renderMessage('open-slot-announcement', ctx({ payload: { round: 0 } }));
-    expect(rendered.body).toContain('Wer sich zuerst eintraegt');
+    expect(rendered.body).toContain('fehlt uns noch ein Schiedsrichter');
+    expect(rendered.body).toContain('ob du das Spiel vielleicht übernehmen kannst');
     expect(rendered.body).toContain('https://schiriplan.test/spiele');
+  });
+});
+
+describe('Jede Nachricht traegt ihre WhatsApp-Vorlage', () => {
+  /*
+   * Ausserhalb des 24-Stunden-Fensters nimmt Meta nur eine freigegebene Vorlage
+   * an. Eine Art ohne Vorlage koennte also gar nicht zugestellt werden — das
+   * faellt hier auf und nicht erst beim Empfaenger.
+   */
+  it.each(ALL_KINDS)('%s nennt Name und Parameter', (kind) => {
+    const rendered = renderMessage(kind, ctx({ payload: EVERY_PAYLOAD }));
+    expect(rendered.template?.name).toMatch(/^schiriplan_[a-z_]+$/);
+    expect(rendered.template?.language).toBe('de');
+    for (const value of rendered.template?.parameters ?? []) {
+      // Meta laesst in einem Variablenwert keinen Zeilenumbruch zu.
+      expect(value).not.toMatch(/[\n\t]/);
+      expect(value.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('gibt den Antwort-Token als Knopfwert mit, wo eine Antwort erwartet wird', () => {
+    const rendered = renderMessage('confirmation-request', ctx());
+    expect(rendered.template?.buttonParameter).toBe('AAA.BBB');
+  });
+
+  it('laesst den Knopfwert weg, wo die Adresse fest in der Vorlage steht', () => {
+    const rendered = renderMessage('personal-reminder', ctx({ payload: { hoursBefore: 24 } }));
+    expect(rendered.template?.buttonParameter).toBeNull();
+  });
+
+  it('verbindet die Liste der Tagesuebersicht zu einer Zeile', () => {
+    const rendered = renderMessage(
+      'daily-digest',
+      ctx({ payload: { lines: ['Erste Zeile.', 'Zweite Zeile.'] } }),
+    );
+    expect(rendered.template?.parameters[2]).toBe('Erste Zeile. · Zweite Zeile.');
   });
 });
 
@@ -254,7 +304,7 @@ describe('Die Anmeldenachricht bleibt beim Anlegen geschrieben', () => {
     const stored = loginMessage({ name: 'Jonas Keller', link: 'https://x/y', code: '123456' });
     const rendered = renderMessage(
       'login',
-      ctx({ payload: { subject: stored.subject, body: stored.body } }),
+      ctx({ payload: { subject: stored.subject, body: stored.body, code: '123456' } }),
     );
     expect(rendered).toEqual(stored);
   });

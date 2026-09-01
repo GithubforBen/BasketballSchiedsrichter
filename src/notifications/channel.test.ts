@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { PermanentSendError, channelsByName, isPermanent, toWhatsAppNumber } from './channel';
+import {
+  PermanentSendError,
+  channelsByName,
+  isPermanent,
+  toWhatsAppNumber,
+  whatsappPayload,
+} from './channel';
 import type { OutgoingMessage } from './channel';
 
 /**
@@ -15,6 +21,12 @@ const message: OutgoingMessage = {
   key: 'reminder:g1:r-jk:24',
   subject: 'Erinnerung',
   body: 'Morgen um 10:30 Uhr.',
+  template: {
+    name: 'schiriplan_erinnerung',
+    language: 'de',
+    parameters: ['Jonas', '1 Tag', 'Sa 29.08.2026, 10:30 Uhr', 'Halle', 'in 22 Stunden'],
+    buttonParameter: null,
+  },
   recipient: { refereeId: 'r-jk', name: 'Jonas Keller', phone: '+49 151 23456789' },
 };
 
@@ -46,7 +58,7 @@ describe('Die Telefonnummer im Format der Cloud API', () => {
 });
 
 describe('Der WhatsApp-Kanal schickt genau eine Anfrage', () => {
-  it('adressiert die Cloud API mit Nummer, Text und Zugangsschluessel', async () => {
+  it('adressiert die Cloud API mit Nummer, Vorlage und Zugangsschluessel', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(200, { messages: [{ id: 'wamid' }] }));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -65,7 +77,8 @@ describe('Der WhatsApp-Kanal schickt genau eine Anfrage', () => {
     expect(typeof raw).toBe('string');
     const body = JSON.parse(raw as string) as Record<string, unknown>;
     expect(body['to']).toBe('4915123456789');
-    expect(body['text']).toEqual({ preview_url: false, body: message.body });
+    expect(body['type']).toBe('template');
+    expect((body['template'] as { name: string }).name).toBe('schiriplan_erinnerung');
   });
 
   it('meldet fehlende Zugangsdaten als dauerhaft — Wiederholen hilft da nicht', async () => {
@@ -143,5 +156,56 @@ describe('Der Entwicklungskanal verschickt nichts', () => {
     vi.stubGlobal('fetch', fetchMock);
     await channelsByName.dev.send(message);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('Der Rumpf einer WhatsApp-Nachricht', () => {
+  /*
+   * Ausserhalb des 24-Stunden-Fensters nimmt Meta nur eine freigegebene Vorlage
+   * an, und das Fenster steht bei einem Verein so gut wie nie offen. Was hier
+   * gebaut wird, ist deshalb der Normalfall und nicht die Ausnahme.
+   */
+  it('schickt die Vorlage mit ihren Werten, nicht den Fliesstext', () => {
+    const payload = whatsappPayload(message, '4915123456789') as {
+      type: string;
+      template: { name: string; language: { code: string }; components: readonly unknown[] };
+    };
+    expect(payload.type).toBe('template');
+    expect(payload.template.name).toBe('schiriplan_erinnerung');
+    expect(payload.template.language.code).toBe('de');
+    expect(payload.template.components).toEqual([
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: 'Jonas' },
+          { type: 'text', text: '1 Tag' },
+          { type: 'text', text: 'Sa 29.08.2026, 10:30 Uhr' },
+          { type: 'text', text: 'Halle' },
+          { type: 'text', text: 'in 22 Stunden' },
+        ],
+      },
+    ]);
+  });
+
+  it('haengt den Antwort-Token als Knopfwert an, wo es einen gibt', () => {
+    const payload = whatsappPayload(
+      { ...message, template: { ...message.template!, buttonParameter: 'AAA.BBB' } },
+      '4915123456789',
+    ) as { template: { components: readonly Record<string, unknown>[] } };
+    expect(payload.template.components[1]).toEqual({
+      type: 'button',
+      sub_type: 'url',
+      index: '0',
+      parameters: [{ type: 'text', text: 'AAA.BBB' }],
+    });
+  });
+
+  it('faellt ohne Vorlage auf den Fliesstext zurueck — der gilt nur im Fenster', () => {
+    const payload = whatsappPayload({ ...message, template: null }, '4915123456789') as {
+      type: string;
+      text: { body: string };
+    };
+    expect(payload.type).toBe('text');
+    expect(payload.text.body).toBe('Morgen um 10:30 Uhr.');
   });
 });

@@ -4,6 +4,7 @@ import { Button, Field, Input, Note, Tag } from '@/components/primitives';
 import { AdminShell, single } from '@/components/admin/AdminShell';
 import { CLUB } from '@/config/club';
 import { CSV_COLUMNS, CSV_EXAMPLE } from '@/domain/csv';
+import { licenseLabel } from '@/domain/license';
 import { qualifiedReferees } from '@/domain/rules';
 import { requireAdmin } from '@/server/guard';
 import { adminOverview, loadLeagues } from '@/server/queries/admin-view';
@@ -97,7 +98,7 @@ const NewGames = async ({ searchParams }: PageProps) => {
               <Field label="Gast" htmlFor="gast">
                 <Input id="gast" name="gast" required placeholder="TV Ostheim U14" />
               </Field>
-              <Field label="Liga / Altersklasse" htmlFor="liga" className="form-grid-wide">
+              <Field label="Liga / Altersklasse" htmlFor="liga">
                 <select id="liga" name="liga" className="input" defaultValue={league} required>
                   {activeLeagues.map((entry) => (
                     <option key={entry.id} value={entry.id}>
@@ -106,11 +107,18 @@ const NewGames = async ({ searchParams }: PageProps) => {
                   ))}
                 </select>
               </Field>
+              <Field label="Nötige Lizenz" htmlFor="lizenz">
+                <select id="lizenz" name="lizenz" className="input" defaultValue="E" required>
+                  <option value="E">E — Einstiegslizenz</option>
+                  <option value="D">D — nur mit D-Lizenz</option>
+                </select>
+              </Field>
             </div>
 
             <Note>
               Zwei gleichwertige Schiedsrichter und zwei Ersatzplätze — das gilt für jedes Spiel
-              und ist nicht einstellbar.
+              und ist nicht einstellbar. Wer die D-Lizenz hat, darf auch E-Spiele pfeifen; wer
+              gar keine hinterlegt hat, kann sich in kein Spiel eintragen.
             </Note>
 
             <div className="row" style={{ marginTop: 'var(--space-6)' }}>
@@ -138,7 +146,9 @@ const NewGames = async ({ searchParams }: PageProps) => {
                   }}
                 >
                   <span>{referee.name}</span>
-                  <span className="text-muted">{referee.initials}</span>
+                  <span className="text-muted">
+                    {referee.initials} · {licenseLabel(referee.license)}
+                  </span>
                 </li>
               ))}
               {qualified.length === 0 ? (

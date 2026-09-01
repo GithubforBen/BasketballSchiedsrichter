@@ -2,6 +2,7 @@ import { confirmationState } from './confirmation';
 import { nextPromotionStep, promotionResponseWindowMs } from './escalation';
 import {
   adminAlertIntent,
+  adminOpenSlotsIntent,
   dailyDigestIntent,
   openSlotAnnouncementIntent,
   personalReminderIntent,
@@ -12,9 +13,9 @@ import { notificationOrder, type RotationCandidate } from './rotation';
 import { qualifiedReferees } from './rules';
 import { matchdayLabel, timeLabel } from './schedule';
 import { refereeSlots, substituteSlots, SLOT_LABELS } from './slots';
-import { calendarDay, days, describeLeadTime, hours, localHour } from './time';
+import { calendarDay, days, describeLeadTime, hours, localHour, weeks } from './time';
 import type { AdminAlertSettings } from './alerts';
-import type { ClubSettings, Game, Referee, Slot, SlotIndex } from './types';
+import { REFEREE_SLOT_COUNT, type ClubSettings, type Game, type Referee, type Slot, type SlotIndex } from './types';
 
 /**
  * Der Nachrichtenplan. Regeln 10, 11, 13-15, 19-21, 32.
@@ -57,11 +58,28 @@ export interface NewPromotionOffer {
   respondBy: Date;
 }
 
+/**
+ * Ein kuenftiges Spiel, auf das Noetigste eingedampft: wann es angepfiffen
+ * wird und wie viele seiner beiden Schiedsrichter-Plaetze offen sind.
+ *
+ * Die Tagesbilanz der Admins zaehlt ueber die **ganze Saison**, nicht nur ueber
+ * den Planungshorizont — sonst hiesse "diese Saison" in Wahrheit "die
+ * naechsten zwei Monate". Der vollstaendige Spielstand waere dafuer zu teuer
+ * zu laden, diese beiden Angaben genuegen.
+ */
+export interface OpenSlotTally {
+  kickoff: Date;
+  /** Unbesetzte Schiedsrichter-Plaetze: 0, 1 oder 2. Ersatz zaehlt nicht mit. */
+  missingReferees: number;
+}
+
 export interface SchedulerInput {
   games: readonly ScheduledGame[];
   referees: readonly Referee[];
   /** Einsaetze im Rotationsfenster, nach Schiedsrichter-Id. Regel 19. */
   appearances: ReadonlyMap<string, number>;
+  /** Alle kuenftigen Spiele der Saison, fuer die Tagesbilanz der Admins. */
+  openSlots: readonly OpenSlotTally[];
   settings: ClubSettings;
   alerts: AdminAlertSettings;
   timeZone: string;
@@ -187,7 +205,6 @@ export const dueConfirmationAlerts = (
   alerts: AdminAlertSettings,
   adminIds: readonly string[],
   referees: ReadonlyMap<string, Referee>,
-  timeZone: string,
   now: Date,
 ): readonly NotificationIntent[] => {
   if (!alerts.confirmationOverdue || adminIds.length === 0) return [];
@@ -199,17 +216,21 @@ export const dueConfirmationAlerts = (
     const assignment = slot.assignment;
     if (!assignment) continue;
     if (confirmationState(slot, game, settings, now) !== 'overdue') continue;
-    const name = referees.get(assignment.refereeId)?.name ?? assignment.refereeId;
+    const referee = referees.get(assignment.refereeId);
+    const name = referee?.firstName?.trim() || referee?.name || assignment.refereeId;
+    /*
+     * Nur der Anlass, ohne Spielbezeichnung: die Vorlage nennt das Spiel in
+     * einer eigenen Variablen, und die wird beim Versand frisch gelesen. Ein
+     * hier eingebauter Termin waere nach einer Verlegung falsch.
+     */
     intents.push(
       adminAlertIntent(
         game.id,
         adminIds,
         'confirmation-overdue',
         assignment.refereeId,
-        `${name} hat die Pflichtbestaetigung fuer ${game.home} gegen ${game.away} seit ` +
-          `${settings.confirmationFollowUpHours} Stunden nicht beantwortet. ` +
-          `Anpfiff ${matchdayLabel(game.kickoff, timeZone)}, ${timeLabel(game.kickoff, timeZone)} Uhr ` +
-          `(${describeLeadTime(game.kickoff, now)}).`,
+        `${name} hat die Pflichtbestaetigung seit ${settings.confirmationFollowUpHours} ` +
+          'Stunden nicht beantwortet.',
       ),
     );
   }
@@ -288,15 +309,15 @@ export const planPromotions = (
  * die einzige Nachricht, die auf einen Schlag an viele Personen geht, und
  * bestimmt damit die Kosten fast allein (Regel 33):
  *
- * - `all`    an alle Qualifizierten, in Rotationsreihenfolge (Regel 19)
- * - `admins` nur an die aktiven Admins — die Luecke wird von Hand besetzt
- * - `off`    an niemanden; sie steht nur in Uebersicht und Meldungen
+ * - `all`    an alle Qualifizierten mit passender Lizenz, in
+ *            Rotationsreihenfolge (Regel 19)
+ * - `admins` an niemanden aus dieser Runde — die Admins bekommen stattdessen
+ *            einmal am Tag die Bilanz aller Luecken (`dueAdminOpenSlots`)
+ * - `off`    an niemanden; die Luecke steht nur in Uebersicht und Meldungen
  *
- * Frueher ging die erste Ausschreibung immer raus, weil sonst niemand von der
- * Luecke erfuehre. Mit `admins` gibt es dafuer jetzt einen leiseren Weg — und
- * mit `off` eine bewusste Entscheidung des Vereins, die der Code nicht
- * ueberstimmt. Der Schalter fuer die automatische Nachfrage steuert weiterhin
- * nur die Wiederholungen.
+ * Frueher ging auch an die Admins eine Nachricht **je Spiel**. Das war fuer sie
+ * unbrauchbar: zehn Luecken ergaben zehn gleichlautende Aufrufe. Sie bekommen
+ * dieselbe Sache jetzt einmal am Tag als Bilanz.
  */
 export const openSlotAnnouncement = (
   entry: ScheduledGame,
@@ -306,7 +327,7 @@ export const openSlotAnnouncement = (
   now: Date,
 ): NotificationIntent | null => {
   const { game, slots } = entry;
-  if (settings.openSlotVisibility === 'off') return null;
+  if (settings.openSlotVisibility !== 'all') return null;
 
   const round = nudgeRound(game.kickoff, now);
   if (round > 0 && !settings.autoNudge) return null;
@@ -315,26 +336,11 @@ export const openSlotAnnouncement = (
     slots.flatMap((s) => (s.assignment ? [s.assignment.refereeId] : [])),
   );
 
-  if (settings.openSlotVisibility === 'admins') {
-    /*
-     * An die Admins geht die Ausschreibung ohne Ruecksicht auf die
-     * Qualifikation: sie sollen den Platz besetzen und nicht selbst pfeifen.
-     * Wer schon in diesem Spiel steht, braucht sie trotzdem nicht.
-     */
-    const adminIds = referees
-      .filter((r) => r.role === 'admin' && r.active && !assigned.has(r.id))
-      .map((r) => r.id);
-    if (adminIds.length === 0) return null;
-    return openSlotAnnouncementIntent(
-      game.id,
-      adminIds,
-      game.vacancyVersion,
-      round,
-      'admins',
-    );
-  }
-
-  const candidates: RotationCandidate[] = qualifiedReferees(referees, game.leagueId)
+  const candidates: RotationCandidate[] = qualifiedReferees(
+    referees,
+    game.leagueId,
+    game.requiredLicense,
+  )
     .filter((r) => !assigned.has(r.id))
     .map((referee) => ({ referee, countInWindow: appearances.get(referee.id) ?? 0 }));
 
@@ -346,8 +352,49 @@ export const openSlotAnnouncement = (
     order.map((r) => r.id),
     game.vacancyVersion,
     round,
-    'all',
   );
+};
+
+/**
+ * Regeln 15 und 32: die Tagesbilanz der offenen Plaetze fuer die Admins.
+ *
+ * Sie tritt an die Stelle der Einzelausschreibung, wenn die Einstellung "nur
+ * die Admins" gilt, und beantwortet die drei Fragen, die ein Admin an einem
+ * Abend hat: Wie viele Spiele haben eine Luecke? Bei wie vielen fehlt gleich
+ * jeder? Und wie eilig ist der naechste Fall?
+ *
+ * Gezaehlt wird ueber alle kuenftigen Spiele der Saison, nicht ueber den
+ * Planungshorizont — und nur ueber die beiden Schiedsrichter-Plaetze. Ein
+ * fehlender Ersatz ist kein Loch im Spielplan.
+ *
+ * Sie geht hoechstens einmal je Kalendertag raus und haelt sich dabei an
+ * dieselbe Abendstunde wie die Tagesuebersicht: eine Bilanz um drei Uhr
+ * nachts weckt nur.
+ *
+ * Anders als die Einzelausschreibung haengt sie nicht an der Nachrueck-Kaskade
+ * und nicht am Schalter fuer die automatische Nachfrage: sie meldet den Stand
+ * und nicht ein Ereignis. Wer sie nicht will, stellt die Ausschreibung auf
+ * "alle Qualifizierten" oder auf "aus".
+ */
+export const dueAdminOpenSlots = (
+  input: SchedulerInput,
+  adminIds: readonly string[],
+  now: Date,
+): NotificationIntent | null => {
+  if (input.settings.openSlotVisibility !== 'admins') return null;
+  if (adminIds.length === 0) return null;
+  if (localHour(now, input.timeZone) < DIGEST_HOUR) return null;
+
+  const withGap = input.openSlots
+    .filter((entry) => entry.missingReferees > 0 && entry.kickoff.getTime() > now.getTime())
+    .sort((a, b) => a.kickoff.getTime() - b.kickoff.getTime());
+  if (withGap.length === 0) return null;
+
+  return adminOpenSlotsIntent(adminIds, calendarDay(now, input.timeZone), {
+    gamesWithGap: withGap.length,
+    gamesWithoutAny: withGap.filter((entry) => entry.missingReferees >= REFEREE_SLOT_COUNT).length,
+    nextKickoff: withGap[0]?.kickoff ?? null,
+  });
 };
 
 /**
@@ -355,20 +402,50 @@ export const openSlotAnnouncement = (
  *
  * Sie geht genau einmal pro Kalendertag raus — der Schluessel traegt das Datum
  * in Vereinszeit, nicht die Laufzeit des Cron-Jobs.
+ *
+ * **Eine Nachricht je Admin**, und der Inhalt kann sich unterscheiden: der
+ * Zeitraum steht im Profil. Ohne Grenze stuende am Saisonanfang der halbe
+ * Spielplan in der Nachricht; vier Wochen sind der Vorschlag, den jeder fuer
+ * sich aendert. Wer die Uebersicht gar nicht will, schaltet sie in seinem
+ * Profil ab — der vereinsweite Schalter bleibt daneben bestehen und schaltet
+ * sie fuer alle ab.
  */
 export const dueDigest = (
   input: SchedulerInput,
-  adminIds: readonly string[],
+  admins: readonly Referee[],
   now: Date,
-): NotificationIntent | null => {
-  if (!input.alerts.dailyDigest || adminIds.length === 0) return null;
-  if (localHour(now, input.timeZone) < DIGEST_HOUR) return null;
+): readonly NotificationIntent[] => {
+  if (!input.alerts.dailyDigest || admins.length === 0) return [];
+  if (localHour(now, input.timeZone) < DIGEST_HOUR) return [];
 
+  const day = calendarDay(now, input.timeZone);
   const upcoming = input.games.filter(
     (e) => e.game.state !== 'cancelled' && e.game.kickoff.getTime() > now.getTime(),
   );
+
+  const intents: NotificationIntent[] = [];
+  for (const admin of admins) {
+    if (!admin.digestEnabled) continue;
+    const until = now.getTime() + weeks(Math.max(1, admin.digestWeeks));
+    const lines = digestLines(
+      upcoming.filter((e) => e.game.kickoff.getTime() <= until),
+      input,
+      now,
+    );
+    if (lines.length === 0) continue;
+    intents.push(dailyDigestIntent(admin.id, day, lines));
+  }
+  return intents;
+};
+
+/** Eine Zeile je Spiel, das Aufmerksamkeit braucht. */
+const digestLines = (
+  entries: readonly ScheduledGame[],
+  input: SchedulerInput,
+  now: Date,
+): readonly string[] => {
   const lines: string[] = [];
-  for (const entry of upcoming) {
+  for (const entry of entries) {
     const missing = refereeSlots(entry.slots).filter((s) => s.assignment === null);
     const openSubstitutes = substituteSlots(entry.slots).filter((s) => s.assignment === null);
     const unconfirmed = refereeSlots(entry.slots).filter(
@@ -394,9 +471,7 @@ export const dueDigest = (
         `(${entry.game.leagueId}): ${parts.join(', ')}.`,
     );
   }
-
-  if (lines.length === 0) return null;
-  return dailyDigestIntent(adminIds, calendarDay(now, input.timeZone), lines);
+  return lines;
 };
 
 /**
@@ -407,7 +482,8 @@ export const dueDigest = (
  */
 export const planNotifications = (input: SchedulerInput, now: Date): NotificationPlan => {
   const refereesById = new Map(input.referees.map((r) => [r.id, r]));
-  const adminIds = input.referees.filter((r) => r.role === 'admin' && r.active).map((r) => r.id);
+  const admins = input.referees.filter((r) => r.role === 'admin' && r.active);
+  const adminIds = admins.map((r) => r.id);
 
   const intents: NotificationIntent[] = [];
   const expiredOfferIds: string[] = [];
@@ -417,15 +493,7 @@ export const planNotifications = (input: SchedulerInput, now: Date): Notificatio
     intents.push(...duePersonalReminders(entry, refereesById, now));
     intents.push(...dueConfirmations(entry, input.settings, now));
     intents.push(
-      ...dueConfirmationAlerts(
-        entry,
-        input.settings,
-        input.alerts,
-        adminIds,
-        refereesById,
-        input.timeZone,
-        now,
-      ),
+      ...dueConfirmationAlerts(entry, input.settings, input.alerts, adminIds, refereesById, now),
     );
 
     const promotion = planPromotions(entry, input.settings, now);
@@ -444,8 +512,10 @@ export const planNotifications = (input: SchedulerInput, now: Date): Notificatio
     }
   }
 
-  const digest = dueDigest(input, adminIds, now);
-  if (digest) intents.push(digest);
+  const openSlots = dueAdminOpenSlots(input, adminIds, now);
+  if (openSlots) intents.push(openSlots);
+
+  intents.push(...dueDigest(input, admins, now));
 
   return { intents, expiredOfferIds, newOffers };
 };

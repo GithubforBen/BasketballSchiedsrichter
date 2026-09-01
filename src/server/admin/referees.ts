@@ -2,9 +2,10 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { and, eq, gte, sql as sqlRaw } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { firstNameSuggestion } from '@/domain/license';
 import { START_PASSWORD_VALID_DAYS, hasUsableStartPassword } from '@/domain/password';
 import { slotKind } from '@/domain/slots';
-import type { SlotIndex } from '@/domain/types';
+import type { License, SlotIndex } from '@/domain/types';
 import { applyStartPassword } from '../auth/password-login';
 import { normalisePhone } from '../auth/phone';
 import { isUniqueViolation } from '../assignments';
@@ -28,9 +29,13 @@ const audit = async (
 
 export interface NewRefereeInput {
   name: string;
+  /** Anrede in jeder Nachricht. Leer heisst: das erste Wort des Namens. */
+  firstName: string;
   initials: string;
   phone: string;
   role: 'referee' | 'admin';
+  /** Lizenz, `null` wenn noch keine vorliegt. Ohne sie kein Eintragen. */
+  license: License | null;
 }
 
 /**
@@ -48,6 +53,13 @@ export const createReferee = async (
 ): Promise<AdminResult> => {
   const name = input.name.trim();
   const initials = input.initials.trim().toUpperCase();
+  /*
+   * Bleibt das Feld leer, nimmt das Anlegen das erste Wort des Namens. Das
+   * trifft in den meisten Faellen zu und laesst sich in der Tabelle
+   * korrigieren — besser als eine Nachricht ohne Anrede.
+   */
+  const firstName =
+    input.firstName.trim() === '' ? firstNameSuggestion(name) : input.firstName.trim();
 
   if (name === '') return fail('Bitte einen Namen angeben.');
   if (!/^[A-ZÄÖÜ]{2,4}$/.test(initials)) {
@@ -62,7 +74,15 @@ export const createReferee = async (
 
   const id = randomUUID();
   try {
-    await db.insert(schema.referees).values({ id, name, initials, phone: phone.phone, role: input.role });
+    await db.insert(schema.referees).values({
+      id,
+      name,
+      firstName,
+      initials,
+      phone: phone.phone,
+      role: input.role,
+      license: input.license,
+    });
   } catch (error) {
     if (isUniqueViolation(error)) {
       return fail('Kürzel oder Telefonnummer sind schon vergeben.');
@@ -71,7 +91,12 @@ export const createReferee = async (
   }
 
   await applyStartPassword(id, name);
-  await audit(actorId, 'referee.create', id, { name, initials, role: input.role });
+  await audit(actorId, 'referee.create', id, {
+    name,
+    initials,
+    role: input.role,
+    lizenz: input.license,
+  });
   return {
     ok: true,
     message:
@@ -81,9 +106,11 @@ export const createReferee = async (
 };
 
 export interface RefereeUpdate {
+  firstName: string;
   initials: string;
   phone: string;
   role: 'referee' | 'admin';
+  license: License | null;
   active: boolean;
 }
 
@@ -97,6 +124,8 @@ export const updateReferee = async (
   if (!/^[A-ZÄÖÜ]{2,4}$/.test(initials)) {
     return fail('Das Kürzel besteht aus zwei bis vier Buchstaben.');
   }
+  const firstName = input.firstName.trim();
+  if (firstName === '') return fail('Bitte einen Vornamen angeben — er steht in jeder Nachricht.');
   const phone = normalisePhone(input.phone);
   if (!phone.ok) return fail(phone.message);
 
@@ -118,14 +147,26 @@ export const updateReferee = async (
   try {
     await db
       .update(schema.referees)
-      .set({ initials, phone: phone.phone, role: input.role, active: input.active })
+      .set({
+        firstName,
+        initials,
+        phone: phone.phone,
+        role: input.role,
+        license: input.license,
+        active: input.active,
+      })
       .where(eq(schema.referees.id, refereeId));
   } catch (error) {
     if (isUniqueViolation(error)) return fail('Kürzel oder Telefonnummer sind schon vergeben.');
     throw error;
   }
 
-  await audit(actorId, 'referee.update', refereeId, { initials, role: input.role, active: input.active });
+  await audit(actorId, 'referee.update', refereeId, {
+    initials,
+    role: input.role,
+    lizenz: input.license,
+    active: input.active,
+  });
   return { ok: true, message: 'Gespeichert.' };
 };
 

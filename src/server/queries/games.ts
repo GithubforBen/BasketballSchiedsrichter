@@ -21,6 +21,7 @@ export const toGame = (row: GameRow): Game => ({
   home: row.home,
   away: row.away,
   venue: row.venue,
+  requiredLicense: row.requiredLicense,
   state: row.state,
   vacancyVersion: row.vacancyVersion,
   overrides: {

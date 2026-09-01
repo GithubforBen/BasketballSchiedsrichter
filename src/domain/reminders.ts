@@ -11,6 +11,21 @@ import type { ClubSettings } from './types';
 /** Die Schnellauswahl aus dem Mockup: 7 Tage, 3 Tage, 2 Tage, 1 Tag, 3 Std, 1 Std. */
 export const REMINDER_PRESETS: readonly number[] = [168, 72, 48, 24, 3, 1];
 
+/**
+ * Zeitraum der Tagesuebersicht in Wochen. Regel 20.
+ *
+ * Vier Wochen als Vorschlag: weit genug, um eine Luecke rechtzeitig zu sehen,
+ * kurz genug, dass die Nachricht noch lesbar bleibt. Unter einer Woche waere
+ * sie nutzlos — die Austragefrist allein sind drei Wochen —, ueber einem Jahr
+ * sinnlos.
+ */
+export const DIGEST_WEEKS_DEFAULT = 4;
+export const DIGEST_WEEKS_MIN = 1;
+export const DIGEST_WEEKS_MAX = 52;
+
+/** Die Auswahl im Profil. Andere Werte sind erlaubt, diese sind die haeufigen. */
+export const DIGEST_WEEK_PRESETS: readonly number[] = [1, 2, 3, 4, 8, 12];
+
 export type ReminderOutcome =
   | { kind: 'added'; hoursBefore: number }
   | { kind: 'duplicate'; message: string }

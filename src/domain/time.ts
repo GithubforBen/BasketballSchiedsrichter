@@ -12,6 +12,7 @@ export const DAY_MS = 24 * HOUR_MS;
 
 export const hours = (n: number): number => n * HOUR_MS;
 export const days = (n: number): number => n * DAY_MS;
+export const weeks = (n: number): number => n * 7 * DAY_MS;
 
 /** Millisekunden bis zum Anpfiff. Negativ, wenn der Anpfiff vorbei ist. */
 export const msUntil = (target: Date, now: Date): number => target.getTime() - now.getTime();

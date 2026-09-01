@@ -29,6 +29,8 @@ export const NOTIFICATION_KINDS = [
   'promotion-offer',
   /** Regel 15 / 32: Ausschreibung eines offenen Platzes an alle Qualifizierten. */
   'open-slot-announcement',
+  /** Regel 15 / 32: Tagesbilanz der offenen Plaetze fuer die Admins. */
+  'admin-open-slots',
   /** Regel 17: Neuer Termin mit Absage-Option. */
   'relocation',
   /** Regel 21: Persoenliche Erinnerung vor Anpfiff. */
@@ -42,13 +44,6 @@ export const NOTIFICATION_KINDS = [
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
-
-/**
- * Wer eine Ausschreibung bekommt. Die Einstellung steht im Adminbereich:
- * `all` schreibt allen Qualifizierten aus, `admins` nur den Admins, `off`
- * schaltet die Ausschreibung ganz ab.
- */
-export type OpenSlotAudience = 'all' | 'admins';
 
 export const isNotificationKind = (value: string): value is NotificationKind =>
   (NOTIFICATION_KINDS as readonly string[]).includes(value);
@@ -130,14 +125,48 @@ export const openSlotAnnouncementIntent = (
   recipientIds: readonly string[],
   vacancyVersion: number,
   round: number,
-  audience: OpenSlotAudience = 'all',
 ): NotificationIntent => ({
   kind: 'open-slot-announcement',
   recipientIds,
   gameId,
   key: `open-slot:${gameId}:${vacancyVersion}:${round}`,
   expectsReply: false,
-  payload: { round, audience },
+  payload: { round },
+});
+
+/**
+ * Die Tagesbilanz der offenen Plaetze fuer die Admins. Regeln 15 und 32.
+ *
+ * Sie ist bewusst **keine** Nachricht je Spiel: ein Admin, der zehn Luecken
+ * hat, braucht keine zehn Nachrichten mit demselben Aufruf, sondern eine mit
+ * dem Stand der Saison. Deshalb haengt der Schluessel am Kalendertag und nicht
+ * am Spiel — sie geht hoechstens einmal am Tag raus.
+ *
+ * Ersatzplaetze zaehlen nicht mit: ein fehlender Ersatz ist keine Luecke im
+ * Spielplan, sondern ein fehlendes Polster.
+ */
+export const adminOpenSlotsIntent = (
+  adminIds: readonly string[],
+  day: string,
+  summary: {
+    /** Spiele, bei denen Schiedsrichter 1 oder 2 unbesetzt ist. */
+    gamesWithGap: number;
+    /** Spiele, bei denen beide Schiedsrichter-Plaetze unbesetzt sind. */
+    gamesWithoutAny: number;
+    /** Anpfiff des naechsten Spiels mit Luecke. */
+    nextKickoff: Date | null;
+  },
+): NotificationIntent => ({
+  kind: 'admin-open-slots',
+  recipientIds: adminIds,
+  gameId: null,
+  key: `open-slots-admin:${day}`,
+  expectsReply: false,
+  payload: {
+    gamesWithGap: summary.gamesWithGap,
+    gamesWithoutAny: summary.gamesWithoutAny,
+    nextKickoff: summary.nextKickoff?.toISOString() ?? null,
+  },
 });
 
 export const confirmationRequestIntent = (
@@ -224,6 +253,12 @@ export const adminAlertIntent = (
   adminIds: readonly string[],
   reason: string,
   subject: string,
+  /**
+   * Was los ist — **ohne** das Spiel zu nennen. Die Vorlage trennt beides:
+   * das Spiel steht in einer eigenen Variablen und wird beim Versand frisch
+   * gelesen, damit ein zwischenzeitlich verlegtes Spiel den neuen Termin
+   * zeigt und nicht den, der beim Anlegen galt.
+   */
   detail: string,
 ): NotificationIntent => ({
   kind: 'admin-alert',
@@ -234,14 +269,21 @@ export const adminAlertIntent = (
   payload: { reason, detail },
 });
 
-/** Regel 20: eine Zusammenfassung pro Kalendertag, nicht pro Lauf. */
+/**
+ * Regel 20: eine Zusammenfassung pro Kalendertag, nicht pro Lauf.
+ *
+ * Eine Absicht **je Admin**, nicht eine an alle: der Zeitraum steht im Profil
+ * und kann sich von Admin zu Admin unterscheiden, also unterscheidet sich auch
+ * die Liste. Der Schluessel bleibt derselbe — er ist zusammen mit dem
+ * Empfaenger eindeutig, und das genuegt gegen den Doppelversand.
+ */
 export const dailyDigestIntent = (
-  adminIds: readonly string[],
+  adminId: string,
   day: string,
   lines: readonly string[],
 ): NotificationIntent => ({
   kind: 'daily-digest',
-  recipientIds: adminIds,
+  recipientIds: [adminId],
   gameId: null,
   key: `digest:${day}`,
   expectsReply: false,

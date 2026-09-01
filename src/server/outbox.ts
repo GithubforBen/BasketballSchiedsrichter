@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, gte, inArray, sql } from 'drizzle-orm';
 import { CLUB } from '@/config/club';
 import { db, schema } from '@/db';
+import { salutationName } from '@/domain/license';
 import { isNotificationKind, type NotificationIntent } from '@/domain/notifications';
 import { answerClaimsFor, issueAnswerToken } from '@/notifications/action-links';
 import { activeChannel, isPermanent, type Channel } from '@/notifications/channel';
@@ -249,7 +250,12 @@ export const dispatchOutbox = async (options: DispatchOptions = {}): Promise<Dis
   }
 
   const recipients = await db
-    .select({ id: schema.referees.id, name: schema.referees.name, phone: schema.referees.phone })
+    .select({
+      id: schema.referees.id,
+      name: schema.referees.name,
+      firstName: schema.referees.firstName,
+      phone: schema.referees.phone,
+    })
     .from(schema.referees)
     .where(inArray(schema.referees.id, [...new Set(rows.map((r) => r.recipient_id))]));
   const byReferee = new Map(recipients.map((r) => [r.id, r]));
@@ -300,7 +306,12 @@ export const dispatchOutbox = async (options: DispatchOptions = {}): Promise<Dis
     });
 
     const rendered = renderMessage(row.kind, {
-      recipientName: recipient.name,
+      /*
+       * Angesprochen wird mit dem Vornamen. Faellt er aus — ein Konto, das
+       * noch niemand nachgepflegt hat —, bleibt der volle Name: eine Nachricht
+       * ohne Anrede waere schlimmer als eine zu foermliche.
+       */
+      recipientName: salutationName(recipient),
       game,
       payload: row.payload,
       baseUrl: env.baseUrl,

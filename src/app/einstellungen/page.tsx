@@ -31,7 +31,7 @@ const OPEN_SLOT_CHOICES: readonly OpenSlotVisibility[] = ['all', 'admins', 'off'
 
 const OPEN_SLOT_LABELS: Readonly<Record<OpenSlotVisibility, string>> = {
   all: 'alle Qualifizierten (in Rotationsreihenfolge)',
-  admins: 'nur die Admins',
+  admins: 'nur die Admins — eine Tagesbilanz statt vieler Einzelnachrichten',
   off: 'niemanden — Ausschreibung aus',
 };
 
@@ -171,6 +171,10 @@ const Settings = async ({ searchParams }: PageProps) => {
           </select>
         </Field>
         <p className="text-muted" style={{ fontSize: '12px' }}>
+          „Alle Qualifizierten“ heißt: eine Nachricht je offenem Spiel an jeden, der die Liga und
+          die nötige Lizenz hat. „Nur die Admins“ schickt stattdessen einmal am Abend eine Bilanz
+          — wie viele Spiele eine Lücke haben, bei wie vielen gar kein Schiedsrichter steht und
+          wie eilig der nächste Fall ist. Zehn Lücken ergeben so eine Nachricht und nicht zehn.
           Steht die Ausschreibung auf „aus“, erfährt niemand von einer Lücke — sie steht dann nur
           in der Übersicht und in den Meldungen. Die Nachrück-Anfragen an Ersatzleute laufen
           unabhängig davon weiter.
@@ -273,7 +277,7 @@ const Settings = async ({ searchParams }: PageProps) => {
         <Switch
           name="meldungTaeglich"
           label="Tägliche Zusammenfassung aller offenen Spiele"
-          description="Eine Nachricht am Tag statt vieler einzelner."
+          description="Eine Nachricht am Tag statt vieler einzelner. Der Schalter gilt für alle Admins; wie weit die Zusammenfassung vorausschaut — und ob sie überhaupt kommt — stellt jeder Admin in seinem Profil ein."
           checked
         />
         <Switch

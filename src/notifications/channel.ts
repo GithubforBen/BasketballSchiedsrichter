@@ -128,13 +128,73 @@ const describeCloudError = (status: number, body: unknown): Error => {
 };
 
 /**
+ * Der Rumpf einer Nachricht, so wie ihn die Cloud API erwartet.
+ *
+ * Ausserhalb des 24-Stunden-Fensters nimmt Meta **nur** eine freigegebene
+ * Vorlage an, und das Fenster steht bei einem Verein so gut wie nie offen.
+ * Traegt die Nachricht eine Vorlage, geht sie deshalb als `type: 'template'`
+ * raus — mit den Werten fuer den Textteil und, wo einer noetig ist, dem Wert
+ * des dynamischen URL-Knopfes.
+ *
+ * Ohne Vorlage bleibt der Fliesstext. Er ist kein Ersatz, sondern der Fall
+ * "im Fenster": er kommt nur an, wenn der Empfaenger in den letzten 24 Stunden
+ * selbst geschrieben hat. Der Versand scheitert sonst mit einem dauerhaften
+ * Fehler — und genau das soll er, statt lautlos nichts zu tun.
+ */
+export const whatsappPayload = (message: OutgoingMessage, to: string): unknown => {
+  const { template } = message;
+  if (!template) {
+    return {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to,
+      type: 'text',
+      text: { preview_url: false, body: message.body },
+    };
+  }
+
+  const components: unknown[] = [];
+  if (template.parameters.length > 0) {
+    components.push({
+      type: 'body',
+      parameters: template.parameters.map((value) => ({ type: 'text', text: value })),
+    });
+  }
+  if (template.buttonParameter !== null) {
+    /*
+     * Der Antwort-Token gehoert in eine eigene Komponente und nicht in den
+     * Text: Meta erlaubt im URL-Knopf genau eine Variable, und nur am Ende der
+     * Adresse. `index: '0'` ist der erste Knopf der Vorlage — mehr als einen
+     * hat keine.
+     */
+    components.push({
+      type: 'button',
+      sub_type: 'url',
+      index: '0',
+      parameters: [{ type: 'text', text: template.buttonParameter }],
+    });
+  }
+
+  return {
+    messaging_product: 'whatsapp',
+    recipient_type: 'individual',
+    to,
+    type: 'template',
+    template: {
+      name: template.name,
+      language: { code: template.language },
+      components,
+    },
+  };
+};
+
+/**
  * Meta WhatsApp Cloud API.
  *
- * Verschickt wird eine freie Textnachricht. Das genuegt innerhalb des
- * 24-Stunden-Fensters nach einer Antwort des Nutzers; ausserhalb verlangt Meta
- * eine freigegebene Vorlage. Die Texte stehen deshalb geschlossen in
- * `templates.ts` und lassen sich dort eins zu eins als Vorlage einreichen,
- * ohne dass sich am Versandweg etwas aendert.
+ * Die Texte stehen geschlossen in `templates.ts` — dort steht jede Nachricht
+ * als Vorlagentext samt Werten, und derselbe Text wird fuer E-Mail und
+ * Vorschau eingesetzt. Vorschau und Versand koennen deshalb nicht
+ * auseinanderlaufen.
  */
 const whatsappChannel: Channel = {
   name: 'whatsapp',
@@ -155,13 +215,9 @@ const whatsappChannel: Channel = {
           authorization: `Bearer ${token}`,
           'content-type': 'application/json',
         },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: toWhatsAppNumber(message.recipient.phone),
-          type: 'text',
-          text: { preview_url: false, body: message.body },
-        }),
+        body: JSON.stringify(
+          whatsappPayload(message, toWhatsAppNumber(message.recipient.phone)),
+        ),
       },
     );
 

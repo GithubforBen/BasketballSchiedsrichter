@@ -30,8 +30,22 @@ export const referees = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    /**
+     * Vorname, fuer die Anrede in jeder Nachricht.
+     *
+     * Eigene Spalte und nicht aus `name` abgeleitet: bei "Anna-Lena Mueller"
+     * traefe das erste Wort zu, bei "von der Heide Tim" nicht. Der Admin
+     * pflegt ihn; beim Anlegen wird das erste Wort des Namens vorgeschlagen.
+     */
+    firstName: text('first_name').notNull().default(''),
     /** Oeffentlich sichtbares Kuerzel. Regel 29. */
     initials: text('initials').notNull(),
+    /**
+     * Schiedsrichter-Lizenz. `null` heisst: keine — dann ist keine Eintragung
+     * moeglich, auch nicht in eine Liga, fuer die die Qualifikation vorliegt.
+     * D deckt D und E ab, E nur E.
+     */
+    license: text('license', { enum: ['E', 'D'] }),
     /** In E.164, damit der Nachrichtenversand keine Formate raten muss. */
     phone: text('phone').notNull(),
     role: text('role', { enum: ['referee', 'admin'] })
@@ -41,6 +55,16 @@ export const referees = pgTable(
     active: boolean('active').notNull().default(true),
     /** Persoenliche Erinnerungen als Vorlauf in Stunden. Regel 21. */
     reminderHours: jsonb('reminder_hours').$type<number[]>().notNull().default([]),
+    /**
+     * Zeitraum der Tagesuebersicht in Wochen, je Admin einstellbar.
+     *
+     * Sie listet die Spiele, die Aufmerksamkeit brauchen. Ohne Grenze steht am
+     * Saisonanfang der halbe Spielplan darin und die Nachricht wird unlesbar;
+     * vier Wochen sind der Vorschlag, den jeder Admin fuer sich aendert.
+     */
+    digestWeeks: integer('digest_weeks').notNull().default(4),
+    /** Ob dieser Admin die Tagesuebersicht ueberhaupt bekommt. */
+    digestEnabled: boolean('digest_enabled').notNull().default(true),
     /**
      * Passwort, nur als scrypt-Hash. Regel 39 — Klartext ist ueberall verboten.
      * Null heisst: das Konto hat noch gar kein Passwort und kommt nicht rein.
@@ -95,6 +119,13 @@ export const games = pgTable(
     home: text('home').notNull(),
     away: text('away').notNull(),
     venue: text('venue').notNull(),
+    /**
+     * Lizenz, die zum Pfeifen dieses Spiels noetig ist. E ist die niedrigere,
+     * D die hoehere: wer D hat, darf auch E-Spiele pfeifen, umgekehrt nicht.
+     */
+    requiredLicense: text('required_license', { enum: ['E', 'D'] })
+      .notNull()
+      .default('E'),
     state: text('state', { enum: ['scheduled', 'moved', 'cancelled'] })
       .notNull()
       .default('scheduled'),

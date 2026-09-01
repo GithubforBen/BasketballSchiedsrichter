@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, gte, inArray, lt, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
 import { CLUB } from '@/config/club';
 import { db, schema } from '@/db';
 import { promotionOfferIntent, type NotificationIntent } from '@/domain/notifications';
@@ -10,12 +10,13 @@ import { buildSlots } from '@/domain/slots';
 import {
   planNotifications,
   type NewPromotionOffer,
+  type OpenSlotTally,
   type PromotionOfferRecord,
   type ScheduledGame,
   type SchedulerInput,
 } from '@/domain/scheduler';
 import { countsAsRefereed } from '@/domain/stats';
-import type { SlotIndex } from '@/domain/types';
+import { REFEREE_SLOT_COUNT, type SlotIndex } from '@/domain/types';
 import { toAssignment, toGame } from './queries/games';
 import { loadAllReferees } from './queries/referees';
 import { loadAlertSettings, loadSettings } from './queries/settings';
@@ -139,6 +140,36 @@ const loadHorizon = async (now: Date): Promise<readonly ScheduledGame[]> => {
 };
 
 /**
+ * Die offenen Schiedsrichter-Plaetze **aller** kuenftigen Spiele.
+ *
+ * Nicht aus `loadHorizon` abgeleitet: der Planungshorizont endet nach 60
+ * Tagen, die Tagesbilanz der Admins spricht aber von "dieser Saison". Geladen werden deshalb nur zwei Angaben je Spiel — Anpfiff und die
+ * Zahl der unbesetzten Schiedsrichter-Plaetze —, und die kosten auch ueber
+ * einen ganzen Spielplan wenig.
+ *
+ * Ersatzplaetze (Index 2 und 3) bleiben aussen vor: ein fehlender Ersatz ist
+ * kein Loch im Spielplan.
+ */
+const loadOpenSlots = async (now: Date): Promise<readonly OpenSlotTally[]> => {
+  const rows = await db
+    .select({
+      kickoff: schema.games.kickoff,
+      taken: sql<number>`(
+        select count(*)::int from assignments a
+        where a.game_id = ${schema.games.id} and a.slot_index < ${REFEREE_SLOT_COUNT}
+      )`,
+    })
+    .from(schema.games)
+    .where(and(gte(schema.games.kickoff, now), ne(schema.games.state, 'cancelled')))
+    .orderBy(asc(schema.games.kickoff));
+
+  return rows.map((row) => ({
+    kickoff: row.kickoff,
+    missingReferees: Math.max(0, REFEREE_SLOT_COUNT - row.taken),
+  }));
+};
+
+/**
  * Legt eine Nachrueck-Anfrage an und macht daraus die Nachricht.
  *
  * Die Reihenfolge ist wichtig: erst die Zeile, dann die Nachricht. Der
@@ -167,8 +198,9 @@ const loadInput = async (now: Date): Promise<SchedulerInput> => {
     loadAllReferees(),
   ]);
   const games = await loadHorizon(now);
+  const openSlots = await loadOpenSlots(now);
   const appearances = await appearancesInWindow(settings.rotationWindow, now);
-  return { games, referees, appearances, settings, alerts, timeZone: CLUB.timeZone };
+  return { games, referees, appearances, openSlots, settings, alerts, timeZone: CLUB.timeZone };
 };
 
 /**

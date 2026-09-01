@@ -8,7 +8,7 @@ import { nextPromotionStep } from '@/domain/escalation';
 import { relocationIntent } from '@/domain/notifications';
 import { buildSlots, slotKind, SLOT_LABELS } from '@/domain/slots';
 import { localToUtc } from '@/domain/time';
-import type { SlotIndex } from '@/domain/types';
+import type { License, SlotIndex } from '@/domain/types';
 import { isUniqueViolation } from '../assignments';
 import { toAssignment, toGame } from '../queries/games';
 import { loadSettings } from '../queries/settings';
@@ -51,6 +51,8 @@ export interface NewGameInput {
   home: string;
   away: string;
   venue: string;
+  /** Lizenz, die zum Pfeifen noetig ist. E ist die niedrigere. */
+  requiredLicense: License;
 }
 
 /** Legt ein einzelnes Spiel an. */
@@ -76,12 +78,17 @@ export const createGame = async (
         home: input.home.trim(),
         away: input.away.trim(),
         venue: input.venue.trim(),
+        requiredLicense: input.requiredLicense,
       });
       await writeAudit(tx, {
         actorId,
         action: 'game.create',
         gameId: id,
-        detail: { league: input.leagueId, kickoff: kickoff.toISOString() },
+        detail: {
+          league: input.leagueId,
+          kickoff: kickoff.toISOString(),
+          lizenz: input.requiredLicense,
+        },
       });
     });
   } catch (error) {
@@ -94,7 +101,9 @@ export const createGame = async (
   return {
     ok: true,
     gameId: id,
-    message: `Spiel angelegt. Alle mit Qualifikation ${input.leagueId} können sich eintragen.`,
+    message:
+      `Spiel angelegt. Alle mit Qualifikation ${input.leagueId} und mindestens ` +
+      `Lizenz ${input.requiredLicense} können sich eintragen.`,
   };
 };
 
@@ -151,6 +160,7 @@ export const importCsv = async (actorId: string, text: string): Promise<AdminRes
           home: row.home,
           away: row.away,
           venue: row.venue,
+          requiredLicense: row.license,
         })
         .onConflictDoNothing();
     }
@@ -176,6 +186,7 @@ export interface EditGameInput {
   localDate: string;
   localTime: string;
   venue: string;
+  requiredLicense: License;
   reason: 'moved' | 'venue' | 'cancelled';
   overrideWithdraw: boolean;
   overrideSubstituteRequest: boolean;
@@ -218,6 +229,7 @@ export const editGame = async (
       .set({
         kickoff,
         venue: input.venue.trim(),
+        requiredLicense: input.requiredLicense,
         state: cancelled ? 'cancelled' : notifies ? 'moved' : row.state,
         relocationVersion: version,
         overrideWithdraw: input.overrideWithdraw,
@@ -233,6 +245,7 @@ export const editGame = async (
       detail: {
         timeChanged,
         venueChanged,
+        lizenz: input.requiredLicense,
         affected: affected.length,
         overrides: {
           withdraw: input.overrideWithdraw,

@@ -3,6 +3,7 @@ import { DEFAULT_ALERT_SETTINGS } from './alerts';
 import {
   DIGEST_HOUR,
   NUDGE_LEAD_DAYS,
+  dueAdminOpenSlots,
   dueConfirmationAlerts,
   dueConfirmations,
   dueDigest,
@@ -15,7 +16,7 @@ import {
   type ScheduledGame,
   type SchedulerInput,
 } from './scheduler';
-import { totalCostUnits } from './notifications';
+import { totalCostUnits, type NotificationIntent } from './notifications';
 import {
   NOW,
   TIME_ZONE,
@@ -50,6 +51,7 @@ const input = (over: Partial<SchedulerInput> = {}): SchedulerInput => ({
   games: [],
   referees: [],
   appearances: new Map(),
+  openSlots: [],
   settings: settings(),
   alerts: DEFAULT_ALERT_SETTINGS,
   timeZone: TIME_ZONE,
@@ -176,13 +178,17 @@ describe('Regeln 10 und 11 — Pflichtbestaetigung und Nachfassen', () => {
       settings(),
       DEFAULT_ALERT_SETTINGS,
       ['r-admin'],
-      refereeMap(makeReferee({ id: 'r-jk', name: 'Jonas Keller' })),
-      TIME_ZONE,
+      refereeMap(makeReferee({ id: 'r-jk', name: 'Jonas Keller', firstName: 'Jonas' })),
       NOW,
     );
     expect(alerts).toHaveLength(2);
     expect(alerts[0]?.recipientIds).toEqual(['r-admin']);
-    expect(String(alerts[0]?.payload['detail'])).toContain('Jonas Keller');
+    /*
+     * Nur der Anlass, ohne Spielbezeichnung: die Vorlage nennt das Spiel in
+     * einer eigenen Variablen und liest es beim Versand frisch.
+     */
+    expect(String(alerts[0]?.payload['detail'])).toContain('Jonas');
+    expect(String(alerts[0]?.payload['detail'])).not.toContain('BG Nordstadt');
   });
 
   it('meldet zwei offene Bestaetigungen als zwei Meldungen, nicht als eine', () => {
@@ -192,7 +198,6 @@ describe('Regeln 10 und 11 — Pflichtbestaetigung und Nachfassen', () => {
       DEFAULT_ALERT_SETTINGS,
       ['r-admin'],
       refereeMap(),
-      TIME_ZONE,
       NOW,
     );
     expect(new Set(alerts.map((a) => a.key)).size).toBe(2);
@@ -205,7 +210,6 @@ describe('Regeln 10 und 11 — Pflichtbestaetigung und Nachfassen', () => {
       { ...DEFAULT_ALERT_SETTINGS, confirmationOverdue: false },
       ['r-admin'],
       refereeMap(),
-      TIME_ZONE,
       NOW,
     );
     expect(alerts).toEqual([]);
@@ -384,7 +388,12 @@ describe('Regeln 19 und 32 — die Ausschreibung und ihre Reihenfolge', () => {
     expect(intent).toBeNull();
   });
 
-  it('schreibt bei "nur Admins" allein den Admins aus — auch ohne Qualifikation', () => {
+  it('schickt bei "nur Admins" gar keine Einzelnachricht — dafuer gibt es die Bilanz', () => {
+    /*
+     * Zehn Luecken ergaben frueher zehn gleichlautende Aufrufe an dieselben
+     * Admins. Sie bekommen die Sache jetzt einmal am Abend als Bilanz; die
+     * Einzelausschreibung bleibt den Qualifizierten vorbehalten.
+     */
     const admin = makeReferee({ id: 'r-admin', role: 'admin', qualifications: ['U18'] });
     const intent = openSlotAnnouncement(
       entry({ game: makeGame({ kickoff: inDays(20) }), slots: gap }),
@@ -393,20 +402,27 @@ describe('Regeln 19 und 32 — die Ausschreibung und ihre Reihenfolge', () => {
       settings({ openSlotVisibility: 'admins' }),
       NOW,
     );
-    expect(intent?.recipientIds).toEqual(['r-admin']);
-    expect(intent?.payload['audience']).toBe('admins');
+    expect(intent).toBeNull();
   });
 
-  it('laesst bei "nur Admins" stillgelegte Admins aus', () => {
-    const admin = makeReferee({ id: 'r-admin', role: 'admin', active: false });
+  it('laesst aus, wem die Lizenz fuer dieses Spiel fehlt', () => {
+    /*
+     * Eine Ausschreibung an jemanden, der sich anschliessend nicht eintragen
+     * darf, kostet Geld (Regel 33) und stiftet Verwirrung.
+     */
+    const mitE = makeReferee({ id: 'r-e', qualifications: ['U14'], license: 'E' });
+    const ohne = makeReferee({ id: 'r-o', qualifications: ['U14'], license: null });
     const intent = openSlotAnnouncement(
-      entry({ game: makeGame({ kickoff: inDays(20) }), slots: gap }),
-      [jk, admin],
+      entry({
+        game: makeGame({ kickoff: inDays(20), requiredLicense: 'D' }),
+        slots: gap,
+      }),
+      [jk, mitE, ohne],
       new Map(),
-      settings({ openSlotVisibility: 'admins' }),
+      settings(),
       NOW,
     );
-    expect(intent).toBeNull();
+    expect(intent?.recipientIds).toEqual(['r-jk']);
   });
 
   it('die Wiederholung dagegen schon — sie kostet erneut Geld', () => {
@@ -455,13 +471,16 @@ describe('Regel 20 — die Tageszusammenfassung', () => {
       referees: [admin],
     });
 
+  const first = (intents: readonly NotificationIntent[]): NotificationIntent | undefined =>
+    intents[0];
+
   it('geht erst ab der eingestellten Ortszeit raus', () => {
-    expect(dueDigest(offen(morgens), ['r-admin'], morgens)).toBeNull();
-    expect(dueDigest(offen(abends), ['r-admin'], abends)).not.toBeNull();
+    expect(dueDigest(offen(morgens), [admin], morgens)).toHaveLength(0);
+    expect(dueDigest(offen(abends), [admin], abends)).toHaveLength(1);
   });
 
   it('traegt den Kalendertag in Vereinszeit im Schluessel', () => {
-    expect(dueDigest(offen(abends), ['r-admin'], abends)?.key).toBe('digest:2026-08-01');
+    expect(first(dueDigest(offen(abends), [admin], abends))?.key).toBe('digest:2026-08-01');
   });
 
   it('richtet sich nach der Ortszeit, nicht nach UTC', () => {
@@ -471,13 +490,14 @@ describe('Regel 20 — die Tageszusammenfassung', () => {
      * ginge zur falschen Tageszeit raus.
      */
     const nachMitternacht = new Date('2026-08-01T22:30:00Z');
-    expect(dueDigest(offen(nachMitternacht), ['r-admin'], nachMitternacht)).toBeNull();
+    expect(dueDigest(offen(nachMitternacht), [admin], nachMitternacht)).toHaveLength(0);
   });
 
   it('nennt, was an dem Spiel fehlt', () => {
-    const digest = dueDigest(offen(abends), ['r-admin'], abends);
-    const lines = digest?.payload['lines'] as readonly string[];
-    expect(lines[0]).toContain('Schiedsrichter 1 und Schiedsrichter 2 offen');
+    const lines = first(dueDigest(offen(abends), [admin], abends))?.payload['lines'] as
+      | readonly string[]
+      | undefined;
+    expect(lines?.[0]).toContain('Schiedsrichter 1 und Schiedsrichter 2 offen');
   });
 
   it('nennt in jeder Zeile Datum, Uhrzeit und den Vorlauf', () => {
@@ -485,10 +505,11 @@ describe('Regel 20 — die Tageszusammenfassung', () => {
      * Ohne Datum muesste der Admin nachschlagen, welcher Tag "in 10 Tagen"
      * ist; ohne Vorlauf muesste er nachrechnen, wie eilig es ist.
      */
-    const digest = dueDigest(offen(abends), ['r-admin'], abends);
-    const lines = digest?.payload['lines'] as readonly string[];
-    expect(lines[0]).toContain('Di 11.08.2026, 19:00 Uhr');
-    expect(lines[0]).toContain('(in 10 Tagen)');
+    const lines = first(dueDigest(offen(abends), [admin], abends))?.payload['lines'] as
+      | readonly string[]
+      | undefined;
+    expect(lines?.[0]).toContain('Di 11.08.2026, 19:00 Uhr');
+    expect(lines?.[0]).toContain('(in 10 Tagen)');
   });
 
   it('schweigt, wenn nichts offen ist — eine leere Zusammenfassung kostet nur Geld', () => {
@@ -496,16 +517,105 @@ describe('Regel 20 — die Tageszusammenfassung', () => {
       games: [entry({ slots: slotsFrom(['a', 'b', 'c', 'd'], (x) => ({ ...x, confirmedAt: NOW })) })],
       referees: [admin],
     });
-    expect(dueDigest(voll, ['r-admin'], abends)).toBeNull();
+    expect(dueDigest(voll, [admin], abends)).toHaveLength(0);
   });
 
-  it('schweigt, wenn der Admin sie abgeschaltet hat', () => {
+  it('schweigt, wenn der Verein sie abgeschaltet hat', () => {
     const aus = { ...offen(abends), alerts: { ...DEFAULT_ALERT_SETTINGS, dailyDigest: false } };
-    expect(dueDigest(aus, ['r-admin'], abends)).toBeNull();
+    expect(dueDigest(aus, [admin], abends)).toHaveLength(0);
+  });
+
+  it('schweigt fuer den Admin, der sie in seinem Profil abgeschaltet hat', () => {
+    const stumm = makeReferee({ id: 'r-admin', role: 'admin', digestEnabled: false });
+    expect(dueDigest(offen(abends), [stumm], abends)).toHaveLength(0);
+  });
+
+  it('haelt sich an den Zeitraum aus dem Profil', () => {
+    /*
+     * Der eine Admin plant vier Wochen voraus, der andere kuemmert sich nur um
+     * das kommende Wochenende. Beide bekommen dieselbe Nachricht mit
+     * unterschiedlichem Inhalt — dasselbe Spiel in zehn Tagen steht nur bei
+     * dem einen drin.
+     */
+    const weit = makeReferee({ id: 'r-weit', role: 'admin', digestWeeks: 4 });
+    const nah = makeReferee({ id: 'r-nah', role: 'admin', digestWeeks: 1 });
+    const stand = input({
+      games: [entry({ game: makeGame({ kickoff: inDays(10, abends) }) })],
+      referees: [weit, nah],
+    });
+
+    const intents = dueDigest(stand, [weit, nah], abends);
+    expect(intents.map((i) => i.recipientIds[0])).toEqual(['r-weit']);
+  });
+
+  it('schickt jedem Admin seine eigene Nachricht', () => {
+    const a = makeReferee({ id: 'r-a', role: 'admin' });
+    const b = makeReferee({ id: 'r-b', role: 'admin' });
+    const intents = dueDigest(
+      input({
+        games: [entry({ game: makeGame({ kickoff: inDays(10, abends) }) })],
+        referees: [a, b],
+      }),
+      [a, b],
+      abends,
+    );
+    expect(intents).toHaveLength(2);
+    expect(intents.every((i) => i.recipientIds.length === 1)).toBe(true);
   });
 
   it('geht ab der eingestellten Stunde raus, nicht frueher', () => {
     expect(DIGEST_HOUR).toBe(18);
+  });
+});
+
+describe('Regeln 15 und 32 — die Tagesbilanz der offenen Plaetze', () => {
+  const abends = new Date('2026-08-01T17:00:00Z'); // 19 Uhr Ortszeit
+  const morgens = new Date('2026-08-01T06:00:00Z');
+  const admin = makeReferee({ id: 'r-admin', role: 'admin' });
+
+  const stand = (now: Date): SchedulerInput =>
+    input({
+      referees: [admin],
+      settings: settings({ openSlotVisibility: 'admins' }),
+      openSlots: [
+        { kickoff: inDays(3, now), missingReferees: 1 },
+        { kickoff: inDays(5, now), missingReferees: 2 },
+        { kickoff: inDays(9, now), missingReferees: 0 },
+        { kickoff: inDays(12, now), missingReferees: 2 },
+      ],
+    });
+
+  it('zaehlt Luecken und ganz unbesetzte Spiele getrennt', () => {
+    const intent = dueAdminOpenSlots(stand(abends), ['r-admin'], abends);
+    expect(intent?.payload['gamesWithGap']).toBe(3);
+    expect(intent?.payload['gamesWithoutAny']).toBe(2);
+  });
+
+  it('nennt das zeitlich naechste Spiel mit Luecke', () => {
+    const intent = dueAdminOpenSlots(stand(abends), ['r-admin'], abends);
+    expect(intent?.payload['nextKickoff']).toBe(inDays(3, abends).toISOString());
+  });
+
+  it('geht hoechstens einmal am Tag raus', () => {
+    const intent = dueAdminOpenSlots(stand(abends), ['r-admin'], abends);
+    expect(intent?.key).toBe('open-slots-admin:2026-08-01');
+  });
+
+  it('wartet auf den Abend — eine Bilanz um drei Uhr nachts weckt nur', () => {
+    expect(dueAdminOpenSlots(stand(morgens), ['r-admin'], morgens)).toBeNull();
+  });
+
+  it('schweigt, solange an alle Qualifizierten ausgeschrieben wird', () => {
+    const anAlle = { ...stand(abends), settings: settings({ openSlotVisibility: 'all' }) };
+    expect(dueAdminOpenSlots(anAlle, ['r-admin'], abends)).toBeNull();
+  });
+
+  it('schweigt, wenn keine Luecke offen ist', () => {
+    const voll = {
+      ...stand(abends),
+      openSlots: [{ kickoff: inDays(3, abends), missingReferees: 0 }],
+    };
+    expect(dueAdminOpenSlots(voll, ['r-admin'], abends)).toBeNull();
   });
 });
 

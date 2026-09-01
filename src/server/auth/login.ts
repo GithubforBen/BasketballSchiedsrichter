@@ -111,7 +111,12 @@ export const requestLogin = async (
     gameId: null,
     key,
     expectsReply: false,
-    payload: { subject: rendered.subject, body: rendered.body },
+    /*
+     * Der Code steht neben dem fertigen Text: ueber WhatsApp geht nur er raus.
+     * In eine AUTHENTICATION-Vorlage passt kein Link, und den Text kann die
+     * Vorlage nicht aufnehmen — sie hat einen festen Aufbau.
+     */
+    payload: { subject: rendered.subject, body: rendered.body, code: issued.code },
   });
   await dispatchOutbox({ onlyKey: key, now });
 

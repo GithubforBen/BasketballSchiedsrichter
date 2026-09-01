@@ -116,6 +116,7 @@ suite('Adminbereich', () => {
       home: `${prefix}-heim`,
       away: `${prefix}-gast`,
       venue: 'Testhalle',
+      requiredLicense: 'E',
     });
     expect(result.ok, result.message).toBe(true);
     return result.ok ? (result.gameId ?? '') : '';
@@ -141,6 +142,7 @@ suite('Adminbereich', () => {
         home: `${prefix}-heim`,
         away: `${prefix}-gast`,
         venue: 'Andere Halle',
+        requiredLicense: 'E',
       });
       expect(again.ok).toBe(false);
       expect(again.message).toContain('gibt es schon');
@@ -154,6 +156,7 @@ suite('Adminbereich', () => {
         home: '',
         away: `${prefix}-gast`,
         venue: 'Halle',
+        requiredLicense: 'E',
       });
       expect(result.ok).toBe(false);
     });
@@ -220,6 +223,7 @@ suite('Adminbereich', () => {
       }).format(inDays(daysAhead)),
       localTime: '10:30',
       venue,
+      requiredLicense: 'E' as const,
       reason: 'moved' as const,
       overrideWithdraw: false,
       overrideSubstituteRequest: false,
@@ -280,6 +284,7 @@ suite('Adminbereich', () => {
       await claimNextSlot(gameId, a);
       const result = await editGame(admin, gameId, {
         ...editInput(30, 'Testhalle'),
+        requiredLicense: 'E',
         reason: 'cancelled',
       });
       expect(result.message).toContain('abgesagt');
@@ -324,6 +329,8 @@ suite('Adminbereich', () => {
         name: `${prefix} Neu`,
         initials: code,
         phone: '0151 55500011',
+        firstName: 'Test',
+        license: 'E',
         role: 'referee',
       });
       expect(result.ok, result.message).toBe(true);
@@ -337,6 +344,8 @@ suite('Adminbereich', () => {
         name: 'Doppelt',
         initials: usedInitials.get(a) ?? '',
         phone: '0151 55500012',
+        firstName: 'Test',
+        license: 'E',
         role: 'referee',
       });
       expect(result.ok).toBe(false);
@@ -345,11 +354,28 @@ suite('Adminbereich', () => {
 
     it('prüft die Form des Kürzels und der Telefonnummer', async () => {
       expect(
-        (await createReferee(admin, { name: 'X', initials: 'j', phone: '0151 1234567', role: 'referee' }))
-          .ok,
+        (
+          await createReferee(admin, {
+            name: 'X',
+            firstName: 'X',
+            initials: 'j',
+            phone: '0151 1234567',
+            role: 'referee',
+            license: 'E',
+          })
+        ).ok,
       ).toBe(false);
       expect(
-        (await createReferee(admin, { name: 'X', initials: 'XY', phone: 'Telefon', role: 'referee' })).ok,
+        (
+          await createReferee(admin, {
+            name: 'X',
+            firstName: 'X',
+            initials: 'XY',
+            phone: 'Telefon',
+            role: 'referee',
+            license: 'E',
+          })
+        ).ok,
       ).toBe(false);
     });
 
@@ -375,6 +401,8 @@ suite('Adminbereich', () => {
       const onlyOne = (rows[0]?.n ?? 0) <= 1;
 
       const result = await updateReferee(admin, admin, {
+        firstName: 'Admin',
+        license: 'D' as const,
         initials: usedInitials.get(admin) ?? '',
         phone: '0151 55500099',
         role: 'referee',
@@ -387,6 +415,8 @@ suite('Adminbereich', () => {
         // Es gibt weitere Admins — dann ist die Änderung erlaubt.
         expect(result.ok).toBe(true);
         await updateReferee(admin, admin, {
+          firstName: 'Admin',
+          license: 'D' as const,
           initials: usedInitials.get(admin) ?? '',
           phone: '0151 55500099',
           role: 'admin',

@@ -1,27 +1,35 @@
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { passwordState, startPassword, type PasswordState } from '@/domain/password';
-import type { Referee } from '@/domain/types';
+import type { License, Referee } from '@/domain/types';
 
 /** Umrechnung von Datenbankzeilen in den fachlichen Typ. */
 export interface RefereeRow {
   id: string;
   name: string;
+  firstName: string;
   initials: string;
   phone: string;
   role: 'referee' | 'admin';
+  license: License | null;
   reminderHours: number[];
+  digestWeeks: number;
+  digestEnabled: boolean;
   active: boolean;
 }
 
 const toReferee = (row: RefereeRow, qualifications: readonly string[]): Referee => ({
   id: row.id,
   name: row.name,
+  firstName: row.firstName,
   initials: row.initials,
   phone: row.phone,
   role: row.role,
   qualifications,
+  license: row.license,
   reminderHours: row.reminderHours,
+  digestWeeks: row.digestWeeks,
+  digestEnabled: row.digestEnabled,
   active: row.active,
 });
 
