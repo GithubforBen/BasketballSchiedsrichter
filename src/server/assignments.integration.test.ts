@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { ensureLeagues } from '../../test/ligen';
 import {
   claimNextSlot,
   confirmAssignment,
@@ -28,6 +29,10 @@ suite('Besetzung', () => {
   const b = `${prefix}-b`;
   const c = `${prefix}-c`;
   const unqualified = `${prefix}-u`;
+  /** Qualifiziert, aber ohne Lizenz — der Fall, der nichts pfeifen darf. */
+  const unlicensed = `${prefix}-n`;
+  /** Qualifiziert mit der niedrigeren Lizenz E. */
+  const lowLicense = `${prefix}-e`;
 
   /**
    * Anpfiff in `n` Tagen, immer um 10:00 Ortszeit.
@@ -53,9 +58,15 @@ suite('Besetzung', () => {
     return new Date(naive.getTime() - offset);
   };
 
-  const makeReferee = async (id: string, initials: string, leagues: readonly string[]) => {
-    await sql`INSERT INTO referees (id, name, initials, phone)
-              VALUES (${id}, ${`Person ${initials}`}, ${initials},
+  /** `license` ist bewusst ein Parameter — geprueft wird auch der Fall ohne. */
+  const makeReferee = async (
+    id: string,
+    initials: string,
+    leagues: readonly string[],
+    license: 'E' | 'D' | null = 'D',
+  ) => {
+    await sql`INSERT INTO referees (id, name, first_name, license, initials, phone)
+              VALUES (${id}, ${`Person ${initials}`}, 'Person', ${license}, ${initials},
                       ${`+4915${Math.floor(Math.random() * 900000000 + 100000000)}`})`;
     for (const league of leagues) {
       await sql`INSERT INTO qualifications (referee_id, league_id) VALUES (${id}, ${league})`;
@@ -82,10 +93,13 @@ suite('Besetzung', () => {
 
   beforeAll(async () => {
     sql = postgres(url ?? '', { max: 10 });
+    await ensureLeagues(sql);
     await makeReferee(a, `X${prefix.slice(-3)}A`, ['U14', 'U16']);
     await makeReferee(b, `X${prefix.slice(-3)}B`, ['U14', 'U16']);
     await makeReferee(c, `X${prefix.slice(-3)}C`, ['U14', 'U16']);
     await makeReferee(unqualified, `X${prefix.slice(-3)}U`, ['U18']);
+    await makeReferee(unlicensed, `X${prefix.slice(-3)}N`, ['U14', 'U16'], null);
+    await makeReferee(lowLicense, `X${prefix.slice(-3)}E`, ['U14', 'U16'], 'E');
   });
 
   afterEach(async () => {
@@ -146,6 +160,31 @@ suite('Besetzung', () => {
     await claimNextSlot(gameId, b);
     await claimNextSlot(gameId, c);
     expect((await occupants()).map((r) => r.split(':')[0])).toEqual(['0', '1', '2']);
+  });
+
+  it('ohne Lizenz geht nichts, auch mit Qualifikation', async () => {
+    /*
+     * Die Lizenz steht neben der Qualifikation, nicht an ihrer Stelle: diese
+     * Person darf die Liga, aber hat gar keine Lizenz — und damit kein Spiel.
+     * Sehen darf sie den Spielplan trotzdem; das prueft die Oberflaeche.
+     */
+    await makeGame(gameId, inDays(30));
+    const result = await claimNextSlot(gameId, unlicensed);
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('Lizenz');
+  });
+
+  it('die niedrigere Lizenz reicht nicht für ein Spiel, das die höhere verlangt', async () => {
+    await sql`INSERT INTO games (id, kickoff, league_id, home, away, venue, required_license)
+              VALUES (${gameId}, ${inDays(30)}, 'U14', 'Heim', 'Gast', 'Halle', 'D')`;
+    const result = await claimNextSlot(gameId, lowLicense);
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain('Lizenz D');
+  });
+
+  it('die höhere Lizenz deckt das Spiel mit der niedrigeren ab', async () => {
+    await makeGame(gameId, inDays(30));
+    expect((await claimNextSlot(gameId, lowLicense)).ok).toBe(true);
   });
 
   it('Regel 4: ohne Qualifikation geht nichts, mit Begründung', async () => {

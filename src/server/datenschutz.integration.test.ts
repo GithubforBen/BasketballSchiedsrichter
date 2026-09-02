@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { ensureLeagues } from '../../test/ligen';
 import { deleteReferee } from './admin/referees';
 import { applyRetention, DEFAULT_RETENTION } from './aufbewahrung';
 import { applyStartPassword } from './auth/password-login';
@@ -27,8 +28,8 @@ suite('Datenschutz', () => {
   const initials = () => `${letter()}${letter()}${letter()}${letter()}`;
 
   const makeReferee = async (id: string, role: 'referee' | 'admin' = 'referee') => {
-    await sql`INSERT INTO referees (id, name, initials, phone, role, reminder_hours)
-      VALUES (${id}, ${`Person ${id.slice(-6)}`}, ${initials()},
+    await sql`INSERT INTO referees (id, name, first_name, license, initials, phone, role, reminder_hours)
+      VALUES (${id}, ${`Person ${id.slice(-6)}`}, 'Person', 'D', ${initials()},
               ${`+4915${Math.floor(Math.random() * 1e9)}`}, ${role}, '[24, 72]'::jsonb)
       ON CONFLICT (id) DO NOTHING`;
     await sql`INSERT INTO qualifications (referee_id, league_id) VALUES (${id}, 'U14')
@@ -53,8 +54,9 @@ suite('Datenschutz', () => {
     return Number(rows[0]?.n ?? 0);
   };
 
-  beforeAll(() => {
+  beforeAll(async () => {
     sql = postgres(url ?? '', { max: 10 });
+    await ensureLeagues(sql);
   });
 
   beforeEach(async () => {

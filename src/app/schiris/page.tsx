@@ -86,9 +86,11 @@ const Referees = async ({ searchParams }: PageProps) => {
           <thead>
             <tr>
               <th>Name</th>
+              <th>Vorname</th>
               <th>Kürzel</th>
               <th>Telefon</th>
               <th>Rolle</th>
+              <th>Lizenz</th>
               {activeLeagues.map((league) => (
                 <th key={league.id}>{league.name}</th>
               ))}
@@ -110,6 +112,20 @@ const Referees = async ({ searchParams }: PageProps) => {
               <tr key={referee.id}>
                 <td style={{ fontFamily: 'var(--font-heading)', fontWeight: 800 }}>
                   {referee.name}
+                </td>
+                <td>
+                  {/*
+                    Der Vorname steht in jeder Nachricht. Er ist ein eigenes
+                    Feld, weil das erste Wort des Namens nicht immer der
+                    Vorname ist.
+                  */}
+                  <Input
+                    form={`person-${referee.id}`}
+                    name="vorname"
+                    defaultValue={referee.firstName}
+                    style={{ width: '110px' }}
+                    aria-label={`Vorname von ${referee.name}`}
+                  />
                 </td>
                 <td>
                   <Input
@@ -140,6 +156,25 @@ const Referees = async ({ searchParams }: PageProps) => {
                   >
                     <option value="referee">Schiri</option>
                     <option value="admin">Admin</option>
+                  </select>
+                </td>
+                <td>
+                  {/*
+                    Ohne Lizenz kann sich niemand eintragen — sehen darf er
+                    trotzdem jedes Spiel. Deshalb ist "keine" ein gültiger Wert
+                    und nicht bloß ein leeres Feld.
+                  */}
+                  <select
+                    form={`person-${referee.id}`}
+                    name="lizenz"
+                    className="input"
+                    defaultValue={referee.license ?? ''}
+                    aria-label={`Lizenz von ${referee.name}`}
+                    style={{ width: '100px' }}
+                  >
+                    <option value="">keine</option>
+                    <option value="E">E</option>
+                    <option value="D">D</option>
                   </select>
                 </td>
                 {activeLeagues.map((league) => {
@@ -231,9 +266,10 @@ const Referees = async ({ searchParams }: PageProps) => {
       </div>
 
       <Note>
-        Nur qualifizierte Schiedsrichter können sich für ein Spiel eintragen. Wird eine
-        Qualifikation entzogen, bleiben bestehende Eintragungen erhalten — sie einfach zu löschen
-        würde ein Spiel unbemerkt unbesetzt lassen.
+        Eintragen kann sich nur, wer für die Liga qualifiziert ist <em>und</em> die nötige Lizenz
+        hat: D deckt D und E ab, E nur E, ohne Lizenz geht gar nichts. Den Spielplan sieht
+        weiterhin jeder. Wird eine Qualifikation oder eine Lizenz entzogen, bleiben bestehende
+        Eintragungen erhalten — sie einfach zu löschen würde ein Spiel unbemerkt unbesetzt lassen.
       </Note>
 
       <section style={{ marginTop: 'var(--space-8)', maxWidth: '640px' }}>
@@ -242,6 +278,13 @@ const Referees = async ({ searchParams }: PageProps) => {
           <div className="form-grid" style={{ marginTop: 'var(--space-3)' }}>
             <Field label="Name" htmlFor="neu-name">
               <Input id="neu-name" name="name" required placeholder="Vorname Nachname" />
+            </Field>
+            <Field
+              label="Vorname"
+              htmlFor="neu-vorname"
+              hint="Anrede in jeder Nachricht — leer heißt: das erste Wort des Namens"
+            >
+              <Input id="neu-vorname" name="vorname" placeholder="Jonas" />
             </Field>
             <Field label="Kürzel" htmlFor="neu-kuerzel" hint="Zwei bis vier Buchstaben">
               <Input id="neu-kuerzel" name="kuerzel" required placeholder="JK" maxLength={4} />
@@ -257,6 +300,17 @@ const Referees = async ({ searchParams }: PageProps) => {
               <select id="neu-rolle" name="rolle" className="input" defaultValue="referee">
                 <option value="referee">Schiedsrichter</option>
                 <option value="admin">Admin</option>
+              </select>
+            </Field>
+            <Field
+              label="Lizenz"
+              htmlFor="neu-lizenz"
+              hint="Ohne Lizenz ist keine Eintragung möglich"
+            >
+              <select id="neu-lizenz" name="lizenz" className="input" defaultValue="">
+                <option value="">keine</option>
+                <option value="E">E</option>
+                <option value="D">D</option>
               </select>
             </Field>
           </div>

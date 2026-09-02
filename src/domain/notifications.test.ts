@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   adminAlertIntent,
+  adminOpenSlotsIntent,
   assignmentIntent,
   confirmationRequestIntent,
   dailyDigestIntent,
@@ -109,10 +110,15 @@ describe('Jede Nachricht ist idempotent und zaehlbar — Review-Checkliste', () 
     'confirmation-follow-up': confirmationRequestIntent('g1', 'r-jk', 'follow-up'),
     'promotion-offer': promotionOfferIntent('o1', 'g1', 'r-tf', 0, new Date()),
     'open-slot-announcement': openSlotAnnouncementIntent('g1', ['a', 'b'], 0, 0),
+    'admin-open-slots': adminOpenSlotsIntent(['r-admin'], '2026-08-01', {
+      gamesWithGap: 3,
+      gamesWithoutAny: 1,
+      nextKickoff: new Date('2026-08-05T08:30:00Z'),
+    }),
     relocation: relocationIntent('g1', ['a'], 1, previousTerm),
     'personal-reminder': personalReminderIntent('g1', 'r-jk', 24),
     'admin-alert': adminAlertIntent('g1', ['r-admin'], 'confirmation-overdue', 'r-jk', 'Text'),
-    'daily-digest': dailyDigestIntent(['r-admin'], '2026-08-01', ['Zeile']),
+    'daily-digest': dailyDigestIntent('r-admin', '2026-08-01', ['Zeile']),
   };
 
   it('traegt fuer jede Art einen Schluessel', () => {

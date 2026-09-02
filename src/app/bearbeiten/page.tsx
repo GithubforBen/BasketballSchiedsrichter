@@ -100,8 +100,20 @@ const EditGame = async ({ searchParams }: PageProps) => {
             <Field label="Uhrzeit" htmlFor="zeit">
               <Input id="zeit" name="zeit" type="time" defaultValue={time} required />
             </Field>
-            <Field label="Ort / Halle" htmlFor="ort" className="form-grid-wide">
+            <Field label="Ort / Halle" htmlFor="ort">
               <Input id="ort" name="ort" defaultValue={detail.game.venue} required />
+            </Field>
+            <Field label="Nötige Lizenz" htmlFor="lizenz">
+              <select
+                id="lizenz"
+                name="lizenz"
+                className="input"
+                defaultValue={detail.game.requiredLicense}
+                required
+              >
+                <option value="E">E — Einstiegslizenz</option>
+                <option value="D">D — nur mit D-Lizenz</option>
+              </select>
             </Field>
           </div>
 

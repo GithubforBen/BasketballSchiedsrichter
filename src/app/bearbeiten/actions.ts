@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { isLicense } from '@/domain/license';
 import type { SlotIndex } from '@/domain/types';
 import { editGameRoute } from '@/routes';
 import { editGame, removeFromGame } from '@/server/admin/games';
@@ -25,6 +26,7 @@ export const saveGameAction = async (formData: FormData): Promise<void> => {
     localDate: read(formData, 'datum'),
     localTime: read(formData, 'zeit'),
     venue: read(formData, 'ort'),
+    requiredLicense: isLicense(read(formData, 'lizenz')) ? (read(formData, 'lizenz') as 'E' | 'D') : 'E',
     reason: reason === 'cancelled' ? 'cancelled' : reason === 'venue' ? 'venue' : 'moved',
     overrideWithdraw: checked(formData, 'freigabeAustragen'),
     overrideSubstituteRequest: checked(formData, 'freigabeErsatz'),

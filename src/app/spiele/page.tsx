@@ -9,7 +9,7 @@ import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
 import { confirmationDueAt, confirmationState } from '@/domain/confirmation';
 import { dateLabel, groupByMatchday, matchTitle, statusOf, timeLabel } from '@/domain/schedule';
-import { isQualified } from '@/domain/rules';
+import { isLicensedFor, isQualified } from '@/domain/rules';
 import { slotOf } from '@/domain/slots';
 import { slotViews, substituteRequestView } from '@/domain/slot-actions';
 import { describeHoursDative, describeLeadTime } from '@/domain/time';
@@ -163,7 +163,13 @@ const OpenGames = async ({ searchParams }: PageProps) => {
         </div>
 
         {day.games.map((entry) => {
+          /*
+           * Sehen darf jeder jedes Spiel — eintragen nur, wer die Liga *und*
+           * die Lizenz hat. Steht der Grund nicht am Spiel, sucht die Person
+           * einen Knopf, den es fuer sie nicht gibt.
+           */
           const qualified = isQualified(referee, entry.game.leagueId);
+          const licensed = isLicensedFor(referee, entry.game);
           const context = {
             game: entry.game,
             slots: entry.slots,
@@ -186,11 +192,16 @@ const OpenGames = async ({ searchParams }: PageProps) => {
               slots={slotViews(context)}
               substituteRequest={substituteRequestView(context)}
               initials={initials}
-              qualified={qualified}
-              qualificationNote={
+              eligible={qualified && licensed}
+              eligibilityNote={
                 (qualified
                   ? `Qualifiziert für ${entry.game.leagueId}. `
                   : `Keine Qualifikation für ${entry.game.leagueId}. `) +
+                (licensed
+                  ? ''
+                  : referee.license === null
+                    ? 'Für dich ist keine Lizenz hinterlegt — ohne sie ist keine Eintragung möglich. '
+                    : `Dieses Spiel verlangt Lizenz ${entry.game.requiredLicense}, du hast ${referee.license}. `) +
                 'Plätze werden der Reihe nach vergeben: Schiri 1 → Schiri 2 → Ersatz 1 → Ersatz 2.'
               }
               leadNote={`Anpfiff ${describeLeadTime(entry.game.kickoff, now)}`}

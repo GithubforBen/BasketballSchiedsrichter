@@ -1,3 +1,6 @@
+import { isLicense } from './license';
+import type { License } from './types';
+
 /**
  * CSV-Import fuer Spielplaene. Regel: Spalten `Datum;Zeit;Liga;Heim;Gast;Ort`,
  * Semikolon getrennt, erste Zeile Kopfzeile.
@@ -8,6 +11,16 @@
 
 export const CSV_COLUMNS = ['Datum', 'Zeit', 'Liga', 'Heim', 'Gast', 'Ort'] as const;
 
+/**
+ * Die Lizenzspalte, die hinter den Pflichtspalten stehen darf.
+ *
+ * Freiwillig und nicht Teil von `CSV_COLUMNS`: die Dateien, die der Verband
+ * herausgibt, kennen sie nicht, und ein Import soll daran nicht scheitern.
+ * Fehlt sie oder bleibt sie leer, gilt die niedrigere Lizenz E.
+ */
+export const CSV_LICENSE_COLUMN = 'Lizenz';
+export const DEFAULT_CSV_LICENSE: License = 'E';
+
 export interface CsvRow {
   /** Zeilennummer in der Datei, ab 1 — fuer die Fehlermeldung. */
   line: number;
@@ -17,6 +30,8 @@ export interface CsvRow {
   home: string;
   away: string;
   venue: string;
+  /** Noetige Lizenz. Ohne Spalte steht hier die niedrigere. */
+  license: License;
   /** Ortszeit als `YYYY-MM-DDTHH:mm`, sobald Datum und Zeit lesbar waren. */
   localKickoff: string | null;
   /** Was an dieser Zeile nicht stimmt. Leer, wenn sie in Ordnung ist. */
@@ -67,14 +82,28 @@ export const parseCsv = (text: string, knownLeagues: readonly string[]): CsvPars
 
 const readRow = (line: string, lineNumber: number, knownLeagues: readonly string[]): CsvRow => {
   const cells = line.split(SEPARATOR).map((cell) => cell.trim());
-  const [date = '', time = '', league = '', home = '', away = '', venue = ''] = cells;
+  const [date = '', time = '', league = '', home = '', away = '', venue = '', licence = ''] = cells;
 
-  const base = { line: lineNumber, date, time, league, home, away, venue };
+  const base: Omit<CsvRow, 'localKickoff' | 'problem'> = {
+    line: lineNumber,
+    date,
+    time,
+    league,
+    home,
+    away,
+    venue,
+    license: DEFAULT_CSV_LICENSE,
+  };
   const fail = (problem: string): CsvRow => ({ ...base, localKickoff: null, problem });
 
   if (cells.length < CSV_COLUMNS.length) {
     return fail(`Zeile hat nur ${cells.length} von ${CSV_COLUMNS.length} Spalten.`);
   }
+  const upper = licence.toUpperCase();
+  if (upper !== '' && !isLicense(upper)) {
+    return fail(`Lizenz „${licence}“ gibt es nicht — erlaubt sind E und D.`);
+  }
+  base.license = upper === '' ? DEFAULT_CSV_LICENSE : upper;
   if (home === '' || away === '') return fail('Heim oder Gast fehlt.');
   if (venue === '') return fail('Ort fehlt.');
   if (!knownLeagues.includes(league)) {
@@ -163,9 +192,9 @@ export const dedupe = (
 
 /** Die Beispiel-CSV aus dem Mockup, als Vorbelegung des Eingabefelds. */
 export const CSV_EXAMPLE = [
-  CSV_COLUMNS.join(SEPARATOR),
-  '19.09.2026;10:00;U14;BG Nordstadt;TSG Aue;Sporthalle Nordstadt',
-  '19.09.2026;12:00;U16;BG Nordstadt;SG Weiher;Sporthalle Nordstadt',
-  '19.09.2026;14:30;U18;BG Nordstadt;BBC Talheim;Zeppelinhalle',
-  '20.09.2026;11:00;Senioren;BG Nordstadt;TSV Kirchheim;Zeppelinhalle',
+  [...CSV_COLUMNS, CSV_LICENSE_COLUMN].join(SEPARATOR),
+  '19.09.2026;10:00;U14;BG Nordstadt;TSG Aue;Sporthalle Nordstadt;E',
+  '19.09.2026;12:00;U16;BG Nordstadt;SG Weiher;Sporthalle Nordstadt;E',
+  '19.09.2026;14:30;U18;BG Nordstadt;BBC Talheim;Zeppelinhalle;D',
+  '20.09.2026;11:00;Senioren;BG Nordstadt;TSV Kirchheim;Zeppelinhalle;D',
 ].join('\n');

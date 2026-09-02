@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { ensureLeagues } from '../../test/ligen';
 import { issueAnswerToken, type AnswerClaims } from '@/notifications/action-links';
 import { openAnswer, readAnswer, submitAnswer } from './answers';
 import { env } from './env';
@@ -58,12 +59,13 @@ suite('Antwortlinks', () => {
 
   beforeAll(async () => {
     sql = postgres(url ?? '', { max: 5 });
+    await ensureLeagues(sql);
     for (const [id, initials] of [
       [referee, `Q${prefix.slice(-2).toUpperCase()}A`],
       [other, `Q${prefix.slice(-2).toUpperCase()}B`],
     ] as const) {
-      await sql`INSERT INTO referees (id, name, initials, phone)
-                VALUES (${id}, ${`Person ${id}`}, ${initials},
+      await sql`INSERT INTO referees (id, name, first_name, license, initials, phone)
+                VALUES (${id}, ${`Person ${id}`}, 'Person', 'D', ${initials},
                         ${`+4915${Math.floor(Math.random() * 900000000 + 100000000)}`})`;
       await sql`INSERT INTO qualifications (referee_id, league_id) VALUES (${id}, 'U14')`;
     }

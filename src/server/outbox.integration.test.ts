@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { ensureLeagues } from '../../test/ligen';
 import { personalReminderIntent, type NotificationIntent } from '@/domain/notifications';
 import { PermanentSendError, type Channel, type OutgoingMessage } from '@/notifications/channel';
 import { costUsedToday, dispatchOutbox, enqueue, retryDelayMinutes, MAX_ATTEMPTS } from './outbox';
@@ -51,12 +52,13 @@ suite('Outbox', () => {
 
   beforeAll(async () => {
     sql = postgres(url ?? '', { max: 10 });
+    await ensureLeagues(sql);
     for (const [id, initials] of [
       [referee, `${prefix.slice(-2).toUpperCase()}X`],
       [other, `${prefix.slice(-2).toUpperCase()}Y`],
     ] as const) {
-      await sql`INSERT INTO referees (id, name, initials, phone, role)
-        VALUES (${id}, ${`Person ${id}`}, ${initials}, ${`+4915${Math.floor(Math.random() * 1e9)}`},
+      await sql`INSERT INTO referees (id, name, first_name, license, initials, phone, role)
+        VALUES (${id}, ${`Person ${id}`}, 'Person', 'D', ${initials}, ${`+4915${Math.floor(Math.random() * 1e9)}`},
                 'referee')`;
     }
     gameId = `${prefix}-game`;
@@ -283,8 +285,8 @@ suite('Outbox', () => {
        */
       const { db } = await import('@/db');
       const ghost = `${prefix}-ghost`;
-      await sql`INSERT INTO referees (id, name, initials, phone)
-        VALUES (${ghost}, 'Geist', ${`${prefix.slice(-2).toUpperCase()}Z`},
+      await sql`INSERT INTO referees (id, name, first_name, license, initials, phone)
+        VALUES (${ghost}, 'Geist', 'Geist', 'D', ${`${prefix.slice(-2).toUpperCase()}Z`},
                 ${`+4915${Math.floor(Math.random() * 1e9)}`})`;
       await enqueue(db, intent(24, ghost));
       expect(await rowsOf(intent(24, ghost).key)).toHaveLength(1);

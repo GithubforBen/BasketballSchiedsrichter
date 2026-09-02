@@ -50,6 +50,13 @@
       "when": 1787857961775,
       "tag": "0006_nachrichten_schalter",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788293296619,
+      "tag": "0007_lizenz_vorname_uebersicht",
+      "breakpoints": true
     }
   ]
 }

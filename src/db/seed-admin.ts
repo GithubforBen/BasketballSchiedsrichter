@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { INITIAL_LEAGUES } from '@/config/club';
+import { firstNameSuggestion } from '@/domain/license';
 import { START_PASSWORD_VALID_DAYS, hasUsableStartPassword } from '@/domain/password';
 import { applyStartPassword } from '@/server/auth/password-login';
 import { normalisePhone } from '@/server/auth/phone';
@@ -47,7 +48,20 @@ const run = async (): Promise<void> => {
   }
 
   const id = randomUUID();
-  await db.insert(schema.referees).values({ id, name, initials, phone: parsed.phone, role: 'admin' });
+  /*
+   * Der erste Admin bekommt die hoehere Lizenz: er soll sich in jedes Spiel
+   * eintragen koennen, sonst steht die frische Anwendung fuer ihn still. Der
+   * Vorname kommt aus dem Namen und laesst sich in der Verwaltung korrigieren.
+   */
+  await db.insert(schema.referees).values({
+    id,
+    name,
+    firstName: firstNameSuggestion(name),
+    initials,
+    phone: parsed.phone,
+    role: 'admin',
+    license: 'D',
+  });
   const start = await applyStartPassword(id, name);
   await db
     .insert(schema.qualifications)

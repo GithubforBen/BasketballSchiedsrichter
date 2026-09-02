@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { isLicense } from '@/domain/license';
 import { adminResultRoute } from '@/routes';
 import { createReferee, deleteReferee, setQualification, updateReferee } from '@/server/admin/referees';
 import { resetPasswordByAdmin } from '@/server/auth/password-login';
@@ -17,13 +18,21 @@ const read = (formData: FormData, key: string): string => {
 const role = (formData: FormData): 'referee' | 'admin' =>
   read(formData, 'rolle') === 'admin' ? 'admin' : 'referee';
 
+/** Die Lizenz aus dem Formular. Der leere Wert heisst: keine Lizenz. */
+const license = (formData: FormData): 'E' | 'D' | null => {
+  const value = read(formData, 'lizenz');
+  return isLicense(value) ? value : null;
+};
+
 export const createRefereeAction = async (formData: FormData): Promise<void> => {
   const user = await requireAdmin();
   const result = await createReferee(user.id, {
     name: read(formData, 'name'),
+    firstName: read(formData, 'vorname'),
     initials: read(formData, 'kuerzel'),
     phone: read(formData, 'telefon'),
     role: role(formData),
+    license: license(formData),
   });
   revalidatePath('/schiris');
   redirect(adminResultRoute('/schiris', result));
@@ -32,9 +41,11 @@ export const createRefereeAction = async (formData: FormData): Promise<void> => 
 export const updateRefereeAction = async (formData: FormData): Promise<void> => {
   const user = await requireAdmin();
   const result = await updateReferee(user.id, read(formData, 'person'), {
+    firstName: read(formData, 'vorname'),
     initials: read(formData, 'kuerzel'),
     phone: read(formData, 'telefon'),
     role: role(formData),
+    license: license(formData),
     active: formData.get('aktiv') === 'an',
   });
   revalidatePath('/schiris');

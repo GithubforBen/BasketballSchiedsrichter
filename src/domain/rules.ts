@@ -1,3 +1,4 @@
+import { licenseCovers } from './license';
 import { isAssigned, nextFreeSlot, slotOf, substituteSlots, SLOT_LABELS } from './slots';
 import { calendarDay, days, hasPassed, withinLeadTime } from './time';
 import {
@@ -6,6 +7,7 @@ import {
   type ClubSettings,
   type Decision,
   type Game,
+  type License,
   type Referee,
   type Slot,
   type SlotIndex,
@@ -14,6 +16,17 @@ import {
 /** Regel 4: Qualifikationspruefung. Pflicht, vom Admin nicht abschaltbar. */
 export const isQualified = (referee: Referee, leagueId: string): boolean =>
   referee.qualifications.includes(leagueId);
+
+/**
+ * Lizenzpruefung. Ebenfalls Pflicht und ebenfalls nicht abschaltbar.
+ *
+ * Sie steht neben der Qualifikation und nicht an ihrer Stelle: die
+ * Qualifikation sagt, fuer welche Liga jemand eingeteilt werden darf, die
+ * Lizenz, welche Spiele er ueberhaupt pfeifen darf. Wer keine Lizenz hat,
+ * kommt fuer kein Spiel in Frage — sehen darf er trotzdem jedes.
+ */
+export const isLicensedFor = (referee: Referee, game: Pick<Game, 'requiredLicense'>): boolean =>
+  licenseCovers(referee.license, game.requiredLicense);
 
 interface GameGuardInput {
   game: Game;
@@ -61,6 +74,24 @@ export const canClaimSlot = (ctx: ClaimContext): Decision => {
     return deny(
       'not-qualified',
       'Fuer diese Liga fehlt dir die Qualifikation. Der Admin vergibt sie im Schiedsrichter-Bereich.',
+    );
+  }
+
+  /*
+   * Die Lizenz kommt nach der Qualifikation, weil sie der seltenere Grund ist:
+   * wer sie gar nicht hat, soll das als Erstes erfahren, wenn die Liga sonst
+   * passen wuerde.
+   */
+  if (ctx.referee.license === null) {
+    return deny(
+      'license-missing',
+      'Fuer dich ist keine Lizenz hinterlegt — ohne sie ist keine Eintragung moeglich. Der Admin traegt sie im Schiedsrichter-Bereich ein.',
+    );
+  }
+  if (!isLicensedFor(ctx.referee, ctx.game)) {
+    return deny(
+      'license-too-low',
+      `Dieses Spiel verlangt die Lizenz ${ctx.game.requiredLicense}, du hast die Lizenz ${ctx.referee.license}.`,
     );
   }
 
@@ -200,9 +231,22 @@ export const canRequestSubstitute = (ctx: SubstituteRequestContext): Decision =>
 
 /**
  * Regel 4 in der Breite: wer kommt fuer dieses Spiel ueberhaupt in Frage?
- * Grundlage fuer Erinnerungen und fuer die Liste im Adminbereich.
+ * Grundlage fuer Ausschreibungen und fuer die Liste im Adminbereich.
+ *
+ * Die Lizenz gehoert hier dazu und nicht nur in die Eintragungspruefung: eine
+ * Ausschreibung an jemanden, der sich anschliessend nicht eintragen darf,
+ * kostet Geld (Regel 33) und stiftet nur Verwirrung. Wird kein Spiel
+ * uebergeben, bleibt es bei der reinen Ligapruefung — dann ist die Lizenz
+ * nicht bekannt und die Liste absichtlich weiter gefasst.
  */
 export const qualifiedReferees = (
   referees: readonly Referee[],
   leagueId: string,
-): readonly Referee[] => referees.filter((r) => r.active && isQualified(r, leagueId));
+  requiredLicense?: License,
+): readonly Referee[] =>
+  referees.filter(
+    (r) =>
+      r.active &&
+      isQualified(r, leagueId) &&
+      (requiredLicense === undefined || licenseCovers(r.license, requiredLicense)),
+  );

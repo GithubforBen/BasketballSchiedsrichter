@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { licenseCovers } from './license';
 import {
   inDays,
   inHours,
@@ -94,6 +95,52 @@ describe('Regel 4 — Qualifikation ist Pflicht', () => {
       makeReferee({ id: 'c', qualifications: ['U14'], active: false }),
     ];
     expect(qualifiedReferees(refs, 'U14').map((r) => r.id)).toEqual(['a']);
+  });
+});
+
+describe('Die Lizenz entscheidet ueber das Eintragen, nicht ueber das Sehen', () => {
+  /*
+   * D ist die hoehere Lizenz und deckt E mit ab; E deckt nur E. Wer gar keine
+   * hat, kann sich in kein Spiel eintragen — auch nicht in eines seiner Liga.
+   * Am Spielplan aendert das nichts: den sieht jeder vollstaendig.
+   */
+  it('rechnet D auf E an, aber nicht umgekehrt', () => {
+    expect(licenseCovers('D', 'E')).toBe(true);
+    expect(licenseCovers('D', 'D')).toBe(true);
+    expect(licenseCovers('E', 'E')).toBe(true);
+    expect(licenseCovers('E', 'D')).toBe(false);
+    expect(licenseCovers(null, 'E')).toBe(false);
+  });
+
+  it('lehnt ohne Lizenz jedes Spiel ab', () => {
+    const referee = makeReferee({ qualifications: ['U14'], license: null });
+    expect(claim({ referee })).toMatchObject({ allowed: false, reason: 'license-missing' });
+  });
+
+  it('lehnt ein D-Spiel gegenueber einer E-Lizenz ab', () => {
+    const referee = makeReferee({ qualifications: ['U14'], license: 'E' });
+    const result = claim({ referee, game: makeGame({ requiredLicense: 'D' }) });
+    expect(result).toMatchObject({ allowed: false, reason: 'license-too-low' });
+  });
+
+  it('laesst die hoehere Lizenz auch das niedrigere Spiel pfeifen', () => {
+    const referee = makeReferee({ qualifications: ['U14'], license: 'D' });
+    expect(claim({ referee, game: makeGame({ requiredLicense: 'E' }) }).allowed).toBe(true);
+  });
+
+  it('nennt zuerst die fehlende Qualifikation — sie ist der grundlegendere Grund', () => {
+    const referee = makeReferee({ qualifications: [], license: null });
+    expect(claim({ referee })).toMatchObject({ allowed: false, reason: 'not-qualified' });
+  });
+
+  it('laesst bei der Kandidatenliste aus, wem die Lizenz fehlt', () => {
+    const refs = [
+      makeReferee({ id: 'a', qualifications: ['U14'], license: 'D' }),
+      makeReferee({ id: 'b', qualifications: ['U14'], license: 'E' }),
+      makeReferee({ id: 'c', qualifications: ['U14'], license: null }),
+    ];
+    expect(qualifiedReferees(refs, 'U14', 'D').map((r) => r.id)).toEqual(['a']);
+    expect(qualifiedReferees(refs, 'U14', 'E').map((r) => r.id)).toEqual(['a', 'b']);
   });
 });
 

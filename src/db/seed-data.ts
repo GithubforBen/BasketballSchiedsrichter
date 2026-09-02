@@ -1,4 +1,5 @@
 import { localToUtc } from '@/domain/time';
+import type { License } from '@/domain/types';
 
 /**
  * Die Daten aus dem Mockup, damit die Oberflaeche gegen dieselben Faelle
@@ -15,10 +16,14 @@ import { localToUtc } from '@/domain/time';
 export interface SeedReferee {
   id: string;
   name: string;
+  /** Anrede in jeder Nachricht. */
+  firstName: string;
   initials: string;
   phone: string;
   role: 'referee' | 'admin';
   qualifications: readonly string[];
+  /** Lizenz. `null` zeigt den Fall "kein Eintragen moeglich" im Beispiel. */
+  license: License | null;
   /** Einsaetze der laufenden Saison, fuer Statistik und Ranking. */
   seasonCount: number;
 }
@@ -27,55 +32,67 @@ export const SEED_REFEREES: readonly SeedReferee[] = [
   {
     id: 'r-jk',
     name: 'Jonas Keller',
+    firstName: 'Jonas',
     initials: 'JK',
     phone: '+4915123456789',
     role: 'referee',
     qualifications: ['U14', 'U16', 'U18', 'Senioren'],
+    license: 'D',
     seasonCount: 7,
   },
   {
     id: 'r-lb',
     name: 'Lena Brandt',
+    firstName: 'Lena',
     initials: 'LB',
     phone: '+49160884210',
     role: 'referee',
     qualifications: ['U14', 'U16'],
+    license: 'E',
     seasonCount: 8,
   },
   {
     id: 'r-tf',
     name: 'Timo Färber',
+    firstName: 'Timo',
     initials: 'TF',
     phone: '+49171552903',
     role: 'referee',
     qualifications: ['U16', 'U18', 'Erwachsene', 'Senioren'],
+    license: 'D',
     seasonCount: 11,
   },
   {
     id: 'r-ay',
     name: 'Aylin Yildiz',
+    firstName: 'Aylin',
     initials: 'AY',
     phone: '+49152337118',
     role: 'referee',
     qualifications: ['U14', 'U18'],
+    license: null,
     seasonCount: 4,
   },
   {
     id: 'r-ms',
     name: 'Marco Silva',
+    firstName: 'Marco',
     initials: 'MS',
     phone: '+49176908442',
     role: 'referee',
     qualifications: ['U14', 'U16', 'U18', 'Erwachsene', 'Senioren'],
+    license: 'D',
     seasonCount: 9,
   },
   {
     id: 'r-nb',
     name: 'Nele Baumann',
+    firstName: 'Nele',
     initials: 'NB',
     phone: '+49157220671',
     role: 'admin',
     qualifications: ['U14', 'U16', 'U18', 'Erwachsene', 'Senioren'],
+    license: 'D',
     seasonCount: 12,
   },
 ];
@@ -90,6 +107,8 @@ export interface SeedGame {
   home: string;
   away: string;
   venue: string;
+  /** Noetige Lizenz. Ohne Angabe die niedrigere. */
+  requiredLicense?: License;
   /** Belegung der vier Plaetze, `null` fuer frei. */
   slots: readonly (string | null)[];
   /** Plaetze, deren Pflichtbestaetigung bereits vorliegt. */
@@ -148,6 +167,7 @@ export const SEED_GAMES: readonly SeedGame[] = [
     home: 'BG Nordstadt',
     away: 'TSV Kirchheim',
     venue: 'Zeppelinhalle',
+    requiredLicense: 'D',
     slots: [null, null, null, null],
   },
   {
@@ -158,6 +178,7 @@ export const SEED_GAMES: readonly SeedGame[] = [
     home: 'BG Nordstadt',
     away: 'TSG Aue',
     venue: 'Sporthalle Nordstadt, Feld 2',
+    requiredLicense: 'D',
     slots: ['r-ms', null, null, null],
   },
   {

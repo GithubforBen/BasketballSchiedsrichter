@@ -23,18 +23,38 @@ export interface League {
   active: boolean;
 }
 
+/**
+ * Schiedsrichter-Lizenz. E ist die niedrigere, D die hoehere.
+ *
+ * `null` heisst: keine Lizenz. Wer keine hat, darf sich in gar kein Spiel
+ * eintragen — auch nicht in eine Liga, fuer die die Qualifikation vorliegt.
+ * Sehen darf er weiterhin jedes Spiel.
+ */
+export type License = 'E' | 'D';
+
 export interface Referee {
   id: string;
   /** Vollstaendiger Name. Nur nach Login sichtbar. Regel 29. */
   name: string;
+  /**
+   * Vorname. Jede Nachricht spricht damit an — "Hallo Jonas" und nicht
+   * "Hallo Jonas Keller".
+   */
+  firstName: string;
   /** Oeffentlich sichtbares Kuerzel, z. B. "JK". Regel 29. */
   initials: string;
   phone: string;
   role: 'referee' | 'admin';
   /** IDs der Ligen, fuer die diese Person pfeifen darf. Regel 4. */
   qualifications: readonly string[];
+  /** Lizenz dieser Person, `null` wenn keine vorliegt. */
+  license: License | null;
   /** Persoenliche Erinnerungen als Vorlauf in Stunden vor Anpfiff. Regel 21. */
   reminderHours: readonly number[];
+  /** Zeitraum der Tagesuebersicht in Wochen. Nur fuer Admins von Belang. */
+  digestWeeks: number;
+  /** Ob dieser Admin die Tagesuebersicht bekommt. */
+  digestEnabled: boolean;
   active: boolean;
 }
 
@@ -48,6 +68,8 @@ export interface Game {
   home: string;
   away: string;
   venue: string;
+  /** Lizenz, die zum Pfeifen dieses Spiels noetig ist. */
+  requiredLicense: License;
   state: GameState;
   /**
    * Zaehlt, wie oft an diesem Spiel ein Schiedsrichter-Platz frei geworden ist.
@@ -187,6 +209,8 @@ export type DenialReason =
   | 'game-cancelled'
   | 'kickoff-passed'
   | 'not-qualified'
+  | 'license-missing'
+  | 'license-too-low'
   | 'already-assigned'
   | 'slot-taken'
   | 'slot-out-of-order'

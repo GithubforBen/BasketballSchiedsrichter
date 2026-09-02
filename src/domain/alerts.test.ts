@@ -26,7 +26,32 @@ describe('Regel 20 — Meldungen an die Admins', () => {
     expect(alert?.detail).toContain('1 von 2 Schiedsrichter-Plaetzen offen');
     expect(alert?.detail).toContain('in 5 Tagen');
     // Nur die beiden U14-Qualifizierten, nicht der U16-Schiedsrichter.
-    expect(alert?.meta).toContain('2 qualifizierte');
+    expect(alert?.meta).toContain('2 Schiedsrichter mit Qualifikation U14');
+  });
+
+  it('zaehlt nur mit, wer auch die noetige Lizenz hat', () => {
+    /*
+     * Eine Ausschreibung an jemanden, der sich anschliessend nicht eintragen
+     * darf, kostet Geld und stiftet Verwirrung — also zaehlt die Meldung ihn
+     * auch nicht als Kandidaten.
+     */
+    const alerts = buildAdminAlerts(
+      [
+        {
+          game: makeGame({ kickoff: inDays(5), requiredLicense: 'D' }),
+          slots: slotsFrom(['r-lb', null, null, null]),
+        },
+      ],
+      [
+        makeReferee({ id: 'r-jk', qualifications: ['U14'], license: 'D' }),
+        makeReferee({ id: 'r-lb', name: 'Lena Brandt', qualifications: ['U14'], license: 'E' }),
+        makeReferee({ id: 'r-ay', name: 'Aylin Yildiz', qualifications: ['U14'], license: null }),
+      ],
+      settings(),
+      DEFAULT_ALERT_SETTINGS,
+      NOW,
+    );
+    expect(alerts[0]?.meta).toContain('1 Schiedsrichter mit Qualifikation U14 und Lizenz D');
   });
 
   it('meldet fehlenden Ersatz nur, wenn beide Schiedsrichter stehen', () => {

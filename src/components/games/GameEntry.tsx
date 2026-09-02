@@ -28,8 +28,10 @@ export interface GameEntryProps {
   /** Kuerzel je Person, fuer die Besetzungszeilen. */
   initials: ReadonlyMap<string, string>;
   /** Hinweis zur Qualifikation und zur Reihenfolge der Plaetze. */
-  qualificationNote: string;
-  qualified: boolean;
+  /** Warum sich diese Person hier eintragen kann — oder warum nicht. */
+  eligibilityNote: string;
+  /** Ob Qualifikation **und** Lizenz fuer dieses Spiel reichen. */
+  eligible: boolean;
   /** "Anpfiff in 5 Tagen · Austragen möglich" */
   leadNote: string;
   confirmation: ConfirmationState | null;
@@ -51,8 +53,8 @@ export const GameEntry = ({
   slots,
   substituteRequest,
   initials,
-  qualificationNote,
-  qualified,
+  eligibilityNote,
+  eligible,
   leadNote,
   confirmation,
   confirmationHint,
@@ -63,6 +65,8 @@ export const GameEntry = ({
     <div>
       <div className="row" style={{ gap: 'var(--space-2)' }}>
         <Tag tone="neutral">{game.leagueId}</Tag>
+        {/* Die noetige Lizenz steht am Spiel, nicht nur im Hinweistext darunter. */}
+        <Tag tone="neutral">Lizenz {game.requiredLicense}</Tag>
         <Status view={status} />
       </div>
       <h3 className="game-teams">{matchTitle(game)}</h3>
@@ -73,10 +77,10 @@ export const GameEntry = ({
         style={{
           fontSize: '12px',
           marginTop: 'var(--space-2)',
-          color: qualified ? 'var(--text-dim)' : 'var(--color-accent-700)',
+          color: eligible ? 'var(--text-dim)' : 'var(--color-accent-700)',
         }}
       >
-        {qualificationNote}
+        {eligibilityNote}
       </p>
       <div className="text-muted" style={{ fontSize: '12px' }}>
         {leadNote}

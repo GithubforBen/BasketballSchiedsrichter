@@ -1,16 +1,30 @@
 import type { Metadata } from 'next';
-import { Button, Note, Panel } from '@/components/primitives';
+import { Button, Field, Note, Panel } from '@/components/primitives';
 import { ReminderSlider } from '@/components/profile/ReminderSlider';
 import { FOOTER_NAV, REFEREE_NAV, REFEREE_TABS } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB, INITIAL_LEAGUES } from '@/config/club';
-import { REMINDER_PRESETS, remindersLabel, sortReminders } from '@/domain/reminders';
+import { licenseLabel } from '@/domain/license';
+import {
+  DIGEST_WEEKS_DEFAULT,
+  DIGEST_WEEKS_MAX,
+  DIGEST_WEEKS_MIN,
+  DIGEST_WEEK_PRESETS,
+  REMINDER_PRESETS,
+  remindersLabel,
+  sortReminders,
+} from '@/domain/reminders';
 import { describeHours, describeHoursDative } from '@/domain/time';
 import { formatPhone } from '@/server/auth/phone';
 import { requireUser } from '@/server/guard';
 import { loadReferee, loadReminders } from '@/server/queries/referees';
 import { loadSettings } from '@/server/queries/settings';
-import { addReminderAction, confirmReminderAction, removeReminderAction } from './actions';
+import {
+  addReminderAction,
+  confirmReminderAction,
+  removeReminderAction,
+  saveDigestAction,
+} from './actions';
 
 /**
  * Profil und Erinnerungen.
@@ -96,6 +110,18 @@ const Profile = async ({ searchParams }: PageProps) => {
               </div>
             </div>
             <div className="field">
+              <span className="field-label">Vorname (Anrede in Nachrichten)</span>
+              <div className="readonly-field">
+                {referee.firstName || referee.name} <span className="text-muted">· nur Admin</span>
+              </div>
+            </div>
+            <div className="field">
+              <span className="field-label">Lizenz</span>
+              <div className="readonly-field">
+                {licenseLabel(referee.license)} <span className="text-muted">· nur Admin</span>
+              </div>
+            </div>
+            <div className="field">
               <span className="field-label">Qualifikationen</span>
               <ul className="chip-row" style={{ marginTop: 'var(--space-1)' }}>
                 {INITIAL_LEAGUES.map((league) => {
@@ -115,8 +141,10 @@ const Profile = async ({ searchParams }: PageProps) => {
           </div>
 
           <Note>
-            Änderungen an Name, Kürzel und Telefonnummer bitte beim Verein melden — die App gibt
-            sie nur dem Admin zur Bearbeitung frei.
+            Änderungen an Name, Kürzel, Telefonnummer und Lizenz bitte beim Verein melden — die
+            App gibt sie nur dem Admin zur Bearbeitung frei. Eintragen kannst du dich nur in
+            Spiele, für die deine Lizenz reicht: D deckt D und E ab, E nur E. Den Spielplan
+            siehst du immer vollständig.
           </Note>
 
           {/*
@@ -142,6 +170,58 @@ const Profile = async ({ searchParams }: PageProps) => {
             an einen Admin der Abteilung.
           </p>
         </section>
+
+        {/*
+          Die Tagesuebersicht geht nur an Admins — deshalb steht das Formular
+          auch nur bei ihnen. Der Zeitraum gehoert ins eigene Profil und nicht
+          in die Vereinseinstellungen: der eine Admin plant vier Wochen voraus,
+          der andere kuemmert sich nur um das kommende Wochenende.
+        */}
+        {user.role === 'admin' ? (
+          <section>
+            <h2 className="kicker">Tagesübersicht</h2>
+            <p className="text-muted" style={{ fontSize: '13px' }}>
+              Einmal am Abend, sobald ein Spiel im gewählten Zeitraum einen offenen Platz oder
+              eine ausstehende Bestätigung hat. Kürzer heißt: weniger Zeilen, aber auch weniger
+              Vorwarnung.
+            </p>
+
+            <form action={saveDigestAction} className="stack" style={{ marginTop: 'var(--space-4)' }}>
+              <Field
+                label="Zeitraum in Wochen"
+                htmlFor="wochen"
+                hint={`Zwischen ${DIGEST_WEEKS_MIN} und ${DIGEST_WEEKS_MAX}, Standard ${DIGEST_WEEKS_DEFAULT}`}
+              >
+                <select
+                  id="wochen"
+                  name="wochen"
+                  className="input"
+                  defaultValue={String(referee.digestWeeks)}
+                >
+                  {DIGEST_WEEK_PRESETS.map((value) => (
+                    <option key={value} value={value}>
+                      {value === 1 ? '1 Woche' : `${value} Wochen`}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <label className="check-inline">
+                <input
+                  type="checkbox"
+                  name="uebersicht"
+                  value="an"
+                  defaultChecked={referee.digestEnabled}
+                />
+                <span>Tagesübersicht an mich schicken</span>
+              </label>
+              <div className="row">
+                <Button type="submit" variant="secondary">
+                  Speichern
+                </Button>
+              </div>
+            </form>
+          </section>
+        ) : null}
 
         <section>
           <h2 className="kicker">Zusätzliche Erinnerungen</h2>
