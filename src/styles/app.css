@@ -670,6 +670,25 @@ body {
   }
 }
 
+/* Nachladen weiterer Spieltage. */
+.load-more {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 2px solid var(--color-divider);
+  font-size: 12px;
+}
+
+.load-more-end {
+  margin-top: var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 2px solid var(--color-divider);
+  font-size: 12px;
+}
+
 /* — Antwortseite eines Nachrichtenlinks — */
 
 .answer-facts {
