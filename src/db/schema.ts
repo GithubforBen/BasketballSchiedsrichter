@@ -43,9 +43,9 @@ export const referees = pgTable(
     /**
      * Schiedsrichter-Lizenz. `null` heisst: keine — dann ist keine Eintragung
      * moeglich, auch nicht in eine Liga, fuer die die Qualifikation vorliegt.
-     * D deckt D und E ab, E nur E.
+     * C deckt C, D und E ab, D deckt D und E, E nur E.
      */
-    license: text('license', { enum: ['E', 'D'] }),
+    license: text('license', { enum: ['E', 'D', 'C'] }),
     /** In E.164, damit der Nachrichtenversand keine Formate raten muss. */
     phone: text('phone').notNull(),
     role: text('role', { enum: ['referee', 'admin'] })
@@ -116,14 +116,26 @@ export const games = pgTable(
     leagueId: text('league_id')
       .notNull()
       .references(() => leagues.id),
+    /**
+     * Das Kuerzel des Verbands, so wie es in der Spielplandatei stand —
+     * `XU14Bz`, `Herren Kreisliga B, Gruppe 1`. Die Liga daneben ist die
+     * gedeutete Altersklasse; dieses Feld behaelt, was dabei verloren ginge.
+     * Wer sich eintraegt, will es sehen: nicht jeder pfeift jede Klasse gern.
+     * Leer bei Spielen, die von Hand angelegt wurden.
+     */
+    leagueLabel: text('league_label').notNull().default(''),
     home: text('home').notNull(),
     away: text('away').notNull(),
     venue: text('venue').notNull(),
     /**
-     * Lizenz, die zum Pfeifen dieses Spiels noetig ist. E ist die niedrigere,
-     * D die hoehere: wer D hat, darf auch E-Spiele pfeifen, umgekehrt nicht.
+     * Lizenz, die zum Pfeifen dieses Spiels noetig ist. E ist die niedrigste,
+     * darueber D, darueber C: wer die hoehere hat, darf auch die Spiele der
+     * niedrigeren pfeifen, umgekehrt nie.
+     *
+     * Die Spalte ist einfacher Text ohne Pruefbedingung in der Datenbank; der
+     * `enum` gilt nur in TypeScript. Deshalb kam C ohne Migration dazu.
      */
-    requiredLicense: text('required_license', { enum: ['E', 'D'] })
+    requiredLicense: text('required_license', { enum: ['E', 'D', 'C'] })
       .notNull()
       .default('E'),
     state: text('state', { enum: ['scheduled', 'moved', 'cancelled'] })
@@ -146,10 +158,17 @@ export const games = pgTable(
   (table) => [
     index('games_kickoff_idx').on(table.kickoff),
     /**
-     * Duplikaterkennung fuer den CSV-Import: dasselbe Spiel zur selben Zeit
-     * zwischen denselben Mannschaften gibt es nur einmal.
+     * Nachschlagehilfe fuer die Duplikaterkennung des CSV-Imports — bewusst
+     * **nicht** eindeutig.
+     *
+     * Dieselbe Paarung zur selben Zeit gibt es sehr wohl zweimal: der Verband
+     * setzt in derselben Halle zwei Begegnungen parallel an, und jede braucht
+     * ihre eigenen Schiedsrichter. Solange hier ein eindeutiger Index stand,
+     * verschwand die zweite stillschweigend. Der Import zaehlt stattdessen,
+     * wie oft eine Paarung in der Datei und wie oft sie in der Datenbank
+     * steht (siehe `dedupe`), und bleibt so trotzdem wiederholbar.
      */
-    uniqueIndex('games_natural_key').on(table.kickoff, table.home, table.away),
+    index('games_natural_key').on(table.kickoff, table.home, table.away),
   ],
 );
 

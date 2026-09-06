@@ -5,6 +5,7 @@ import { AdminShell, single } from '@/components/admin/AdminShell';
 import { CLUB } from '@/config/club';
 import { statusOf, timeLabel, matchTitle } from '@/domain/schedule';
 import { describeLeadTime } from '@/domain/time';
+import { leagueDisplay } from '@/domain/league';
 import { editGameRoute } from '@/routes';
 import { requireAdmin } from '@/server/guard';
 import { adminOverview, adminRows } from '@/server/queries/admin-view';
@@ -126,7 +127,7 @@ const Overview = async ({ searchParams }: PageProps) => {
                           {timeLabel(row.game.kickoff, CLUB.timeZone)}
                         </td>
                         <td>
-                          <Tag tone="neutral">{row.game.leagueId}</Tag>
+                          <Tag tone="neutral">{leagueDisplay(row.game)}</Tag>
                         </td>
                         <td>{matchTitle(row.game)}</td>
                         <td className="text-muted">{row.game.venue}</td>

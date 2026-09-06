@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import type { License } from '@/domain/types';
 import { ensureLeagues } from '../../test/ligen';
 import {
   claimNextSlot,
@@ -63,7 +64,7 @@ suite('Besetzung', () => {
     id: string,
     initials: string,
     leagues: readonly string[],
-    license: 'E' | 'D' | null = 'D',
+    license: License | null = 'D',
   ) => {
     await sql`INSERT INTO referees (id, name, first_name, license, initials, phone)
               VALUES (${id}, ${`Person ${initials}`}, 'Person', ${license}, ${initials},

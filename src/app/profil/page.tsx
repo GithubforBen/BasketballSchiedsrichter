@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { Button, Field, Note, Panel } from '@/components/primitives';
 import { ReminderSlider } from '@/components/profile/ReminderSlider';
-import { FOOTER_NAV, REFEREE_NAV, REFEREE_TABS } from '@/components/shell/navigation';
+import { FOOTER_NAV, navFor } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
-import { CLUB, INITIAL_LEAGUES } from '@/config/club';
+import { CLUB } from '@/config/club';
 import { licenseLabel } from '@/domain/license';
 import {
   DIGEST_WEEKS_DEFAULT,
@@ -14,9 +14,10 @@ import {
   remindersLabel,
   sortReminders,
 } from '@/domain/reminders';
-import { describeHours, describeHoursDative } from '@/domain/time';
-import { formatPhone } from '@/server/auth/phone';
+import { describeHours } from '@/domain/time';
+import { formatPhone } from '@/domain/phone';
 import { requireUser } from '@/server/guard';
+import { loadLeagues } from '@/server/queries/leagues';
 import { loadReferee, loadReminders } from '@/server/queries/referees';
 import { loadSettings } from '@/server/queries/settings';
 import {
@@ -53,10 +54,11 @@ const Profile = async ({ searchParams }: PageProps) => {
   const user = await requireUser(now);
   const params = await searchParams;
 
-  const [referee, reminders, settings] = await Promise.all([
+  const [referee, reminders, settings, leagues] = await Promise.all([
     loadReferee(user.id),
     loadReminders(user.id),
     loadSettings(),
+    loadLeagues(),
   ]);
   if (!referee) throw new Error(`Konto ${user.id} nicht gefunden`);
 
@@ -66,10 +68,12 @@ const Profile = async ({ searchParams }: PageProps) => {
   const hint = single(params.hinweis);
   const error = single(params.fehler);
 
+  const { nav, tabs } = navFor(user.role);
+
   return (
     <Shell
-      nav={REFEREE_NAV}
-      tabs={REFEREE_TABS}
+      nav={nav}
+      tabs={tabs}
       footerNav={FOOTER_NAV}
       current="/profil"
       user={{ name: user.name, initials: user.initials }}
@@ -90,41 +94,44 @@ const Profile = async ({ searchParams }: PageProps) => {
       <div className="profile-grid">
         <section>
           <h2 className="kicker">Stammdaten</h2>
+          <p className="text-muted" style={{ fontSize: '12px', marginTop: 'var(--space-1)' }}>
+            Diese Angaben ändert nur ein Admin — melde dich bei ihm, wenn etwas nicht stimmt.
+          </p>
           <div className="stack" style={{ marginTop: 'var(--space-3)' }}>
             <div className="field">
               <span className="field-label">Name</span>
               <div className="readonly-field">
-                {referee.name} <span className="text-muted">· nur Admin</span>
+                {referee.name}
               </div>
             </div>
             <div className="field">
               <span className="field-label">Kürzel (öffentlich)</span>
               <div className="readonly-field">
-                {referee.initials} <span className="text-muted">· nur Admin</span>
+                {referee.initials}
               </div>
             </div>
             <div className="field">
               <span className="field-label">Telefonnummer</span>
               <div className="readonly-field" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {formatPhone(referee.phone)} <span className="text-muted">· nur Admin</span>
+                {formatPhone(referee.phone)}
               </div>
             </div>
             <div className="field">
               <span className="field-label">Vorname (Anrede in Nachrichten)</span>
               <div className="readonly-field">
-                {referee.firstName || referee.name} <span className="text-muted">· nur Admin</span>
+                {referee.firstName || referee.name}
               </div>
             </div>
             <div className="field">
               <span className="field-label">Lizenz</span>
               <div className="readonly-field">
-                {licenseLabel(referee.license)} <span className="text-muted">· nur Admin</span>
+                {licenseLabel(referee.license)}
               </div>
             </div>
             <div className="field">
               <span className="field-label">Qualifikationen</span>
               <ul className="chip-row" style={{ marginTop: 'var(--space-1)' }}>
-                {INITIAL_LEAGUES.map((league) => {
+                {leagues.map(({ id: league }) => {
                   const on = referee.qualifications.includes(league);
                   return (
                     <li
@@ -143,7 +150,8 @@ const Profile = async ({ searchParams }: PageProps) => {
           <Note>
             Änderungen an Name, Kürzel, Telefonnummer und Lizenz bitte beim Verein melden — die
             App gibt sie nur dem Admin zur Bearbeitung frei. Eintragen kannst du dich nur in
-            Spiele, für die deine Lizenz reicht: D deckt D und E ab, E nur E. Den Spielplan
+            Spiele, für die deine Lizenz reicht: C deckt C, D und E ab, D deckt D und E, E nur
+            E. Den Spielplan
             siehst du immer vollständig.
           </Note>
 
@@ -228,7 +236,7 @@ const Profile = async ({ searchParams }: PageProps) => {
           <p className="text-muted" style={{ fontSize: '13px' }}>
             Frei wählbar zwischen {describeHours(settings.reminderMaxHours)} und{' '}
             {describeHours(settings.reminderMinHours)} vor Anpfiff. Die Pflichtbestätigung{' '}
-            {describeHoursDative(settings.confirmationLeadHours)} vor dem Spiel kommt immer
+            {describeHours(settings.confirmationLeadHours)} vor dem Spiel kommt immer
             zusätzlich und zählt nicht mit.
           </p>
 

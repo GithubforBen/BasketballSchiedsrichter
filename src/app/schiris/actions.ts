@@ -3,8 +3,15 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { isLicense } from '@/domain/license';
+import type { License } from '@/domain/types';
 import { adminResultRoute } from '@/routes';
-import { createReferee, deleteReferee, setQualification, updateReferee } from '@/server/admin/referees';
+import {
+  createReferee,
+  deleteReferee,
+  importRefereeCsv,
+  setQualification,
+  updateReferee,
+} from '@/server/admin/referees';
 import { resetPasswordByAdmin } from '@/server/auth/password-login';
 import { requireAdmin } from '@/server/guard';
 
@@ -19,7 +26,7 @@ const role = (formData: FormData): 'referee' | 'admin' =>
   read(formData, 'rolle') === 'admin' ? 'admin' : 'referee';
 
 /** Die Lizenz aus dem Formular. Der leere Wert heisst: keine Lizenz. */
-const license = (formData: FormData): 'E' | 'D' | null => {
+const license = (formData: FormData): License | null => {
   const value = read(formData, 'lizenz');
   return isLicense(value) ? value : null;
 };
@@ -33,7 +40,25 @@ export const createRefereeAction = async (formData: FormData): Promise<void> => 
     phone: read(formData, 'telefon'),
     role: role(formData),
     license: license(formData),
+    // Die Häkchen der Liga-Spalten aus der neuen Zeile.
+    leagueIds: formData
+      .getAll('ligen')
+      .flatMap((value) => (typeof value === 'string' && value !== '' ? [value] : [])),
   });
+  revalidatePath('/schiris');
+  redirect(adminResultRoute('/schiris', result));
+};
+
+/**
+ * Import einer ganzen Liste. Regel 30 gilt weiter: auch hier legt der Admin an.
+ *
+ * Die Rueckmeldung geht ohne die Datei zurueck. Sie stand frueher beim
+ * Spielplan im Abfrageteil der Adresse und landete damit im Browserverlauf —
+ * bei einer Liste mit Telefonnummern waere das deutlich schlimmer.
+ */
+export const importRefereeCsvAction = async (formData: FormData): Promise<void> => {
+  const user = await requireAdmin();
+  const result = await importRefereeCsv(user.id, read(formData, 'csv'));
   revalidatePath('/schiris');
   redirect(adminResultRoute('/schiris', result));
 };

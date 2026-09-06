@@ -18,6 +18,7 @@ export const toGame = (row: GameRow): Game => ({
   id: row.id,
   kickoff: row.kickoff,
   leagueId: row.leagueId,
+  leagueLabel: row.leagueLabel,
   home: row.home,
   away: row.away,
   venue: row.venue,

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db, schema, sql } from '@/db';
-import { normalisePhone, formatPhone } from '@/server/auth/phone';
+import { normalisePhone, formatPhone } from '@/domain/phone';
 import {
   issueRecoveryToken,
   listRecoveryTokens,
@@ -53,7 +53,7 @@ const issue = async (): Promise<void> => {
 
   console.log(
     [
-      `Notzugang fuer ${referee.name} ausgestellt.`,
+      `Notzugang für ${referee.name} ausgestellt.`,
       '',
       `  Id:    ${id}`,
       `  Token: ${token}`,
@@ -62,7 +62,7 @@ const issue = async (): Promise<void> => {
       'Ableitung. Aufschreiben und dorthin legen, wo der Vereinsschluessel liegt.',
       '',
       'Eingeloest wird er unter /notzugang. Er gilt genau einmal und danach nicht mehr;',
-      'widerrufen laesst er sich jederzeit mit --widerrufen.',
+      'widerrufen lässt er sich jederzeit mit --widerrufen.',
     ].join('\n'),
   );
 };
@@ -77,7 +77,7 @@ const list = async (): Promise<void> => {
   const state = (entry: (typeof entries)[number]): string => {
     if (entry.revokedAt) return `widerrufen ${entry.revokedAt.toISOString().slice(0, 10)}`;
     if (entry.usedAt) return `benutzt ${entry.usedAt.toISOString().slice(0, 10)}`;
-    return 'gueltig';
+    return 'gültig';
   };
 
   for (const entry of entries) {

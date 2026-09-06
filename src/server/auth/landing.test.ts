@@ -4,6 +4,13 @@ import { KNOWN_SCREENS, landingScreen } from './landing';
 describe('Bildschirm nach dem Login', () => {
   it('öffnet beim ersten Mal Kalender & Verlauf', () => {
     expect(landingScreen(null)).toBe('/kalender');
+    expect(landingScreen(null, 'referee')).toBe('/kalender');
+  });
+
+  it('setzt einen Admin beim ersten Mal in seinen eigenen Bereich', () => {
+    // `/kalender` traegt die Navigation der Schiedsrichter: ein Admin saehe
+    // dort keinen Weg in die Verwaltung und hielte sich fuer keinen Admin.
+    expect(landingScreen(null, 'admin')).toBe('/uebersicht');
   });
 
   it('öffnet den zuletzt benutzten Bildschirm wieder', () => {
@@ -17,6 +24,7 @@ describe('Bildschirm nach dem Login', () => {
     // Weiterleitung benutzt — ungeprüft wäre er ein offenes Ziel.
     for (const evil of ['https://example.org', '//example.org', '/../admin', '/gibtesnicht']) {
       expect(landingScreen(evil)).toBe('/kalender');
+      expect(landingScreen(evil, 'admin')).toBe('/uebersicht');
     }
   });
 });

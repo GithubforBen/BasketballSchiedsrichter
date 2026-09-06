@@ -100,16 +100,46 @@ describe('Regel 4 — Qualifikation ist Pflicht', () => {
 
 describe('Die Lizenz entscheidet ueber das Eintragen, nicht ueber das Sehen', () => {
   /*
-   * D ist die hoehere Lizenz und deckt E mit ab; E deckt nur E. Wer gar keine
-   * hat, kann sich in kein Spiel eintragen — auch nicht in eines seiner Liga.
-   * Am Spielplan aendert das nichts: den sieht jeder vollstaendig.
+   * E ist die niedrigste Lizenz, darueber D, darueber C. Jede deckt die
+   * niedrigeren mit ab, keine die hoeheren. Wer gar keine hat, kann sich in
+   * kein Spiel eintragen — auch nicht in eines seiner Liga. Am Spielplan
+   * aendert das nichts: den sieht jeder vollstaendig.
    */
-  it('rechnet D auf E an, aber nicht umgekehrt', () => {
-    expect(licenseCovers('D', 'E')).toBe(true);
+  it('rechnet die hoehere Lizenz auf die niedrigeren an, aber nie umgekehrt', () => {
+    expect(licenseCovers('C', 'C')).toBe(true);
+    expect(licenseCovers('C', 'D')).toBe(true);
+    expect(licenseCovers('C', 'E')).toBe(true);
     expect(licenseCovers('D', 'D')).toBe(true);
+    expect(licenseCovers('D', 'E')).toBe(true);
     expect(licenseCovers('E', 'E')).toBe(true);
+
+    expect(licenseCovers('D', 'C')).toBe(false);
+    expect(licenseCovers('E', 'C')).toBe(false);
     expect(licenseCovers('E', 'D')).toBe(false);
     expect(licenseCovers(null, 'E')).toBe(false);
+  });
+
+  it('vergleicht den Rang und nicht den Buchstaben', () => {
+    // Alphabetisch stuende C vor D und E — der Rangfolge nach darueber.
+    expect(licenseCovers('C', 'E')).toBe(true);
+    expect(licenseCovers('E', 'C')).toBe(false);
+  });
+
+  it('sperrt ein C-Spiel gegen D und E', () => {
+    for (const license of ['D', 'E'] as const) {
+      const referee = makeReferee({ qualifications: ['U14'], license });
+      expect(claim({ referee, game: makeGame({ requiredLicense: 'C' }) })).toMatchObject({
+        allowed: false,
+        reason: 'license-too-low',
+      });
+    }
+  });
+
+  it('laesst C jedes Spiel pfeifen', () => {
+    const referee = makeReferee({ qualifications: ['U14'], license: 'C' });
+    for (const requiredLicense of ['C', 'D', 'E'] as const) {
+      expect(claim({ referee, game: makeGame({ requiredLicense }) }).allowed).toBe(true);
+    }
   });
 
   it('lehnt ohne Lizenz jedes Spiel ab', () => {
@@ -138,9 +168,11 @@ describe('Die Lizenz entscheidet ueber das Eintragen, nicht ueber das Sehen', ()
       makeReferee({ id: 'a', qualifications: ['U14'], license: 'D' }),
       makeReferee({ id: 'b', qualifications: ['U14'], license: 'E' }),
       makeReferee({ id: 'c', qualifications: ['U14'], license: null }),
+      makeReferee({ id: 'd', qualifications: ['U14'], license: 'C' }),
     ];
-    expect(qualifiedReferees(refs, 'U14', 'D').map((r) => r.id)).toEqual(['a']);
-    expect(qualifiedReferees(refs, 'U14', 'E').map((r) => r.id)).toEqual(['a', 'b']);
+    expect(qualifiedReferees(refs, 'U14', 'C').map((r) => r.id)).toEqual(['d']);
+    expect(qualifiedReferees(refs, 'U14', 'D').map((r) => r.id)).toEqual(['a', 'd']);
+    expect(qualifiedReferees(refs, 'U14', 'E').map((r) => r.id)).toEqual(['a', 'b', 'd']);
   });
 });
 

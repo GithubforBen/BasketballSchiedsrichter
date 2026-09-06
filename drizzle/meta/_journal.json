@@ -57,6 +57,20 @@
       "when": 1788293296619,
       "tag": "0007_lizenz_vorname_uebersicht",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788703769104,
+      "tag": "0008_ligen_zusammenlegen",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788706930591,
+      "tag": "0009_liga_kuerzel_und_doppelte_spiele",
+      "breakpoints": true
     }
   ]
 }

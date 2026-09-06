@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Button, Field, Input, Note, Tag } from '@/components/primitives';
+import { Button, Field, Input, Note } from '@/components/primitives';
 import { AdminShell, single } from '@/components/admin/AdminShell';
+import { CsvImport } from '@/components/admin/CsvImport';
 import { CLUB } from '@/config/club';
-import { CSV_COLUMNS, CSV_EXAMPLE } from '@/domain/csv';
-import { licenseLabel } from '@/domain/license';
+import { CSV_EXAMPLE } from '@/domain/csv';
+import { LICENSES, licenseLabel, licenseRequirementLabel } from '@/domain/license';
 import { qualifiedReferees } from '@/domain/rules';
 import { requireAdmin } from '@/server/guard';
 import { adminOverview, loadLeagues } from '@/server/queries/admin-view';
-import { previewCsv } from '@/server/admin/games';
+import { existingGameCounts } from '@/server/admin/games';
 import { loadSettings } from '@/server/queries/settings';
 import { createGameAction, importCsvAction } from './actions';
 
@@ -40,9 +41,9 @@ const NewGames = async ({ searchParams }: PageProps) => {
   const activeLeagues = leagues.filter((league) => league.active);
   const league = selectedLeague ?? activeLeagues[0]?.id ?? '';
 
-  const [{ referees }, preview] = await Promise.all([
+  const [{ referees }, existingGames] = await Promise.all([
     adminOverview(settings, now),
-    tab === 'csv' ? previewCsv(csvText) : Promise.resolve(null),
+    tab === 'csv' ? existingGameCounts() : Promise.resolve([]),
   ]);
   const qualified = qualifiedReferees(referees, league);
 
@@ -86,8 +87,22 @@ const NewGames = async ({ searchParams }: PageProps) => {
               <Field label="Datum" htmlFor="datum">
                 <Input id="datum" name="datum" type="date" required />
               </Field>
-              <Field label="Uhrzeit" htmlFor="zeit">
-                <Input id="zeit" name="zeit" type="time" required />
+              <Field label="Uhrzeit (24 Stunden)" htmlFor="zeit">
+                {/*
+                  Textfeld statt `type="time"`: dessen Anzeige folgt der
+                  Spracheinstellung des Browsers, und auf einem englischen
+                  Chrome stand dort "06:00 PM".
+                */}
+                <Input
+                  id="zeit"
+                  name="zeit"
+                  inputMode="numeric"
+                  pattern="([01]?[0-9]|2[0-3])[:.][0-5][0-9]"
+                  maxLength={5}
+                  placeholder="18:30"
+                  title="Uhrzeit als HH:MM, zum Beispiel 18:30"
+                  required
+                />
               </Field>
               <Field label="Ort / Halle" htmlFor="ort" className="form-grid-wide">
                 <Input id="ort" name="ort" required placeholder="Sporthalle Nordstadt, Feld 2" />
@@ -98,27 +113,44 @@ const NewGames = async ({ searchParams }: PageProps) => {
               <Field label="Gast" htmlFor="gast">
                 <Input id="gast" name="gast" required placeholder="TV Ostheim U14" />
               </Field>
-              <Field label="Liga / Altersklasse" htmlFor="liga">
-                <select id="liga" name="liga" className="input" defaultValue={league} required>
+              <Field label="Liga oder Kürzel" htmlFor="liga">
+                {/*
+                  Freitext mit Vorschlaegen statt Auswahlliste. Der Verband
+                  schreibt "XU14Bz", und genau das soll am Spiel stehen — die
+                  Altersklasse wird daraus gedeutet, wie beim CSV-Import.
+                */}
+                <Input
+                  id="liga"
+                  name="liga"
+                  list="ligen"
+                  defaultValue={league}
+                  placeholder="U14 oder XU14Bz"
+                  required
+                />
+                <datalist id="ligen">
                   {activeLeagues.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.name}
-                    </option>
+                    <option key={entry.id} value={entry.id} />
                   ))}
-                </select>
+                </datalist>
               </Field>
               <Field label="Nötige Lizenz" htmlFor="lizenz">
                 <select id="lizenz" name="lizenz" className="input" defaultValue="E" required>
-                  <option value="E">E — Einstiegslizenz</option>
-                  <option value="D">D — nur mit D-Lizenz</option>
+                  {LICENSES.map((license) => (
+                    <option key={license} value={license}>
+                      {licenseRequirementLabel(license)}
+                    </option>
+                  ))}
                 </select>
               </Field>
             </div>
 
             <Note>
               Zwei gleichwertige Schiedsrichter und zwei Ersatzplätze — das gilt für jedes Spiel
-              und ist nicht einstellbar. Wer die D-Lizenz hat, darf auch E-Spiele pfeifen; wer
-              gar keine hinterlegt hat, kann sich in kein Spiel eintragen.
+              und ist nicht einstellbar. Die höhere Lizenz deckt die niedrigeren mit ab: C
+              darf C, D und E pfeifen, D darf D und E, E nur E. Wer gar keine hinterlegt hat,
+              kann sich in kein Spiel eintragen. Bei der Liga darfst du das Kürzel des Verbands
+              eintragen — aus „XU14Bz“ wird U14, was keine Altersklasse nennt, gilt als
+              Senioren.
             </Note>
 
             <div className="row" style={{ marginTop: 'var(--space-6)' }}>
@@ -163,80 +195,13 @@ const NewGames = async ({ searchParams }: PageProps) => {
           </aside>
         </div>
       ) : (
-        <div className="split">
-          <form action={importCsvAction}>
-            <Field label="CSV einfügen" htmlFor="csv">
-              <textarea
-                id="csv"
-                name="csv"
-                className="input input-mono"
-                rows={10}
-                defaultValue={csvText}
-                style={{ width: '100%' }}
-              />
-            </Field>
-            <Note>
-              Spalten: {CSV_COLUMNS.join('; ')}. Semikolon getrennt, erste Zeile Kopfzeile.
-              Spiele, die es schon gibt, werden übersprungen — derselbe Import zweimal legt
-              nichts doppelt an.
-            </Note>
-            <Button type="submit" variant="primary">
-              Importieren
-            </Button>
-          </form>
-
-          <aside>
-            <h2 className="kicker">Vorschau</h2>
-            {preview?.fileProblem ? (
-              <p className="form-error">{preview.fileProblem}</p>
-            ) : (
-              <>
-                <div className="row" style={{ margin: 'var(--space-3) 0' }}>
-                  <Tag tone="accent">{preview?.fresh.length ?? 0} neu</Tag>
-                  <Tag tone="neutral">
-                    {(preview?.duplicates.length ?? 0) + (preview?.repeated.length ?? 0)} schon da
-                  </Tag>
-                  <Tag tone="outline">{preview?.invalid.length ?? 0} unbrauchbar</Tag>
-                </div>
-                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                  {preview?.fresh.map((row) => (
-                    <li
-                      key={`${row.line}`}
-                      style={{
-                        padding: 'var(--space-2) 0',
-                        borderBottom: '1px solid var(--color-divider)',
-                      }}
-                    >
-                      <div style={{ fontSize: '13px' }}>
-                        {row.home} — {row.away}
-                      </div>
-                      <div className="text-muted" style={{ fontSize: '11px' }}>
-                        {row.date} · {row.time} · {row.league} · {row.venue}
-                      </div>
-                    </li>
-                  ))}
-                  {preview?.invalid.map((row) => (
-                    <li
-                      key={`fehler-${row.line}`}
-                      style={{
-                        padding: 'var(--space-2) 0',
-                        borderBottom: '1px solid var(--color-divider)',
-                        color: 'var(--color-accent-700)',
-                        fontSize: '12px',
-                      }}
-                    >
-                      Zeile {row.line}: {row.problem}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            <p className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-3)' }}>
-              Die Vorschau zeigt den Stand der Datei im Feld. Nach dem Bearbeiten neu laden, um
-              sie zu aktualisieren.
-            </p>
-          </aside>
-        </div>
+        <CsvImport
+          action={importCsvAction}
+          knownLeagues={leagues.map((entry) => entry.id)}
+          existing={existingGames}
+          timeZone={CLUB.timeZone}
+          initialText={csvText}
+        />
       )}
     </AdminShell>
   );

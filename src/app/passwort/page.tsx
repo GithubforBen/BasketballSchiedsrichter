@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { Button, Field, Input, Note } from '@/components/primitives';
-import { FOOTER_NAV, PUBLIC_NAV, PUBLIC_TABS, REFEREE_NAV, REFEREE_TABS } from '@/components/shell/navigation';
+import { Button, Note } from '@/components/primitives';
+import { FOOTER_NAV, navFor, PUBLIC_NAV, PUBLIC_TABS } from '@/components/shell/navigation';
+import { PasswordField } from '@/components/auth/PasswordField';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
 import { START_PASSWORD_VALID_DAYS } from '@/domain/password';
@@ -35,6 +36,7 @@ const Password = async ({ searchParams }: PageProps) => {
   const error = single(params.fehler);
   const hint = single(params.hinweis);
   const forced = user.mustChangePassword;
+  const { nav, tabs } = navFor(user.role);
 
   return (
     <Shell
@@ -44,8 +46,8 @@ const Password = async ({ searchParams }: PageProps) => {
        * Weiterleitung zurück auf diese Seite (Regel 37). Ein Menü, dessen
        * Einträge alle im Kreis führen, wäre eine Zumutung.
        */
-      nav={forced ? PUBLIC_NAV : REFEREE_NAV}
-      tabs={forced ? PUBLIC_TABS : REFEREE_TABS}
+      nav={forced ? PUBLIC_NAV : nav}
+      tabs={forced ? PUBLIC_TABS : tabs}
       footerNav={FOOTER_NAV}
       current="/profil"
       user={{ name: user.name, initials: user.initials }}
@@ -70,45 +72,19 @@ const Password = async ({ searchParams }: PageProps) => {
         </p>
 
         <form action={changePasswordAction}>
-          <Field
+          <PasswordField
             label={forced ? 'Start-Passwort' : 'Bisheriges Passwort'}
-            htmlFor="bisher"
-            hint={
-              forced
-                ? 'Dein Vor- und Nachname, klein und zusammengeschrieben'
-                : undefined
-            }
-          >
-            <Input
-              id="bisher"
-              name="bisher"
-              type="password"
-              autoComplete="current-password"
-              required
-              autoFocus
-              style={{ minHeight: '46px' }}
-            />
-          </Field>
-          <Field label="Neues Passwort" htmlFor="neu">
-            <Input
-              id="neu"
-              name="neu"
-              type="password"
-              autoComplete="new-password"
-              required
-              style={{ minHeight: '46px' }}
-            />
-          </Field>
-          <Field label="Neues Passwort wiederholen" htmlFor="wiederholung">
-            <Input
-              id="wiederholung"
-              name="wiederholung"
-              type="password"
-              autoComplete="new-password"
-              required
-              style={{ minHeight: '46px' }}
-            />
-          </Field>
+            name="bisher"
+            autoComplete="current-password"
+            hint={forced ? 'Dein Vor- und Nachname, klein und zusammengeschrieben' : undefined}
+            autoFocus
+          />
+          <PasswordField label="Neues Passwort" name="neu" autoComplete="new-password" />
+          <PasswordField
+            label="Neues Passwort wiederholen"
+            name="wiederholung"
+            autoComplete="new-password"
+          />
           <Button type="submit" variant="primary" block>
             Passwort speichern
           </Button>

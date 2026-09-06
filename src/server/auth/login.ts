@@ -14,7 +14,7 @@ import {
   windowStart,
   type RateLimitRule,
 } from '../rate-limit';
-import { maskPhone, normalisePhone } from './phone';
+import { maskPhone, normalisePhone } from '@/domain/phone';
 import { checkToken, issueToken, loginLink, MAX_CODE_ATTEMPTS, type StoredToken } from './tokens';
 
 /**

@@ -4,6 +4,7 @@ import { matchTitle, timeLabel } from '@/domain/schedule';
 import type { SlotView, SubstituteRequestView } from '@/domain/slot-actions';
 import type { StatusView } from '@/domain/status';
 import type { Game } from '@/domain/types';
+import { leagueDisplay } from '@/domain/league';
 import {
   claimAction,
   confirmAction,
@@ -64,7 +65,7 @@ export const GameEntry = ({
 
     <div>
       <div className="row" style={{ gap: 'var(--space-2)' }}>
-        <Tag tone="neutral">{game.leagueId}</Tag>
+        <Tag tone="neutral">{leagueDisplay(game)}</Tag>
         {/* Die noetige Lizenz steht am Spiel, nicht nur im Hinweistext darunter. */}
         <Tag tone="neutral">Lizenz {game.requiredLicense}</Tag>
         <Status view={status} />

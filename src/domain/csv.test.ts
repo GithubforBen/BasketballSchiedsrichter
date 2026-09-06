@@ -2,14 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   CSV_COLUMNS,
   CSV_EXAMPLE,
+  countByKey,
   dedupe,
-  gameKey,
   parseCsv,
   parseGermanDate,
   parseTime,
 } from './csv';
+import { leagueFromLabel } from './league';
 
-const LEAGUES = ['U14', 'U16', 'U18', 'Erwachsene', 'Senioren'];
+const LEAGUES = ['U10', 'U12', 'U14', 'U16', 'U18', 'Senioren'];
 const header = CSV_COLUMNS.join(';');
 const file = (...rows: string[]) => [header, ...rows].join('\n');
 
@@ -48,7 +49,9 @@ describe('CSV einlesen', () => {
         '19.09.2026;10:00;U14;A;B;Halle',
         '31.02.2026;10:00;U14;A;B;Halle',
         '19.09.2026;25:00;U14;A;B;Halle',
-        '19.09.2026;10:00;Kreisliga;A;B;Halle',
+        // "Kreisliga" waere heute gueltig — ohne Altersklasse ist es ein
+        // Senioren-Spiel. Unbrauchbar ist erst eine Klasse, die es nicht gibt.
+        '19.09.2026;10:00;XU99Bz;A;B;Halle',
         '19.09.2026;10:00;U14;;B;Halle',
         '19.09.2026;10:00;U14;A;B',
       ),
@@ -107,47 +110,154 @@ describe('Datum und Uhrzeit', () => {
 describe('Duplikaterkennung', () => {
   const toKickoff = (local: string) => new Date(`${local}:00Z`);
   const rowsOf = (text: string) => parseCsv(text, LEAGUES).valid;
+  const counts = (...keys: string[]) => countByKey(
+    keys.map((key) => {
+      const [kickoff = '', home = '', away = ''] = key.split('|');
+      return { kickoff: toKickoff(kickoff), home, away };
+    }),
+  );
 
   it('überspringt Spiele, die es schon gibt', () => {
     const rows = rowsOf(file('19.09.2026;10:00;U14;A;B;Halle', '20.09.2026;11:00;U16;C;D;Halle'));
-    const existing = new Set([gameKey(toKickoff('2026-09-19T10:00'), 'A', 'B')]);
 
-    const result = dedupe(rows, toKickoff, existing);
+    const result = dedupe(rows, toKickoff, counts('2026-09-19T10:00|A|B'));
     expect(result.fresh).toHaveLength(1);
     expect(result.duplicates).toHaveLength(1);
     expect(result.fresh[0]?.home).toBe('C');
   });
 
-  it('überspringt Doppelte innerhalb derselben Datei', () => {
-    // Ohne diese Prüfung bräche der Import an der Eindeutigkeitsbedingung ab,
-    // statt sauber zu melden.
-    const rows = rowsOf(file('19.09.2026;10:00;U14;A;B;Halle', '19.09.2026;10:00;U14;A;B;Andere'));
-    const result = dedupe(rows, toKickoff, new Set());
+  it('legt dieselbe Paarung zweimal an, wenn die Datei sie zweimal nennt', () => {
+    /*
+     * Der Verband setzt zur selben Zeit in derselben Halle zwei Begegnungen
+     * an — beide brauchen eigene Schiedsrichter. Frueher fiel die zweite
+     * stillschweigend weg, aus vierzig Zeilen wurden vierunddreissig Spiele.
+     */
+    const rows = rowsOf(file('19.09.2026;10:00;U14;A;B;Halle', '19.09.2026;10:00;U14;A;B;Halle'));
+    const result = dedupe(rows, toKickoff, new Map());
+    expect(result.fresh).toHaveLength(2);
+    expect(result.duplicates).toHaveLength(0);
+  });
+
+  it('zählt gegen den Bestand: zweimal in der Datei, einmal vorhanden, eines entsteht', () => {
+    const rows = rowsOf(file('19.09.2026;10:00;U14;A;B;Halle', '19.09.2026;10:00;U14;A;B;Halle'));
+    const result = dedupe(rows, toKickoff, counts('2026-09-19T10:00|A|B'));
     expect(result.fresh).toHaveLength(1);
-    expect(result.repeated).toHaveLength(1);
+    expect(result.duplicates).toHaveLength(1);
+  });
+
+  it('erkennt dieselbe Mannschaft in anderer Schreibweise wieder', () => {
+    // Der Verband schreibt Vereine nicht immer gleich; "BG NORDSTADT" neben
+    // "BG Nordstadt" waere sonst ein zweites Spiel zur selben Zeit.
+    const rows = rowsOf(file('19.09.2026;10:00;U14;BG NORDSTADT;TV  Ostheim;Halle'));
+    const result = dedupe(rows, toKickoff, counts('2026-09-19T10:00|BG Nordstadt|TV Ostheim'));
+    expect(result.fresh).toHaveLength(0);
+    expect(result.duplicates).toHaveLength(1);
   });
 
   it('unterscheidet Spiele mit gleicher Paarung zu anderer Zeit', () => {
     const rows = rowsOf(file('19.09.2026;10:00;U14;A;B;Halle', '19.09.2026;14:00;U14;A;B;Halle'));
-    expect(dedupe(rows, toKickoff, new Set()).fresh).toHaveLength(2);
+    expect(dedupe(rows, toKickoff, new Map()).fresh).toHaveLength(2);
   });
 
   it('unterscheidet Heim- und Auswärtsspiel derselben Mannschaften', () => {
     const rows = rowsOf(file('19.09.2026;10:00;U14;A;B;Halle', '19.09.2026;10:00;U14;B;A;Halle'));
-    expect(dedupe(rows, toKickoff, new Set()).fresh).toHaveLength(2);
+    expect(dedupe(rows, toKickoff, new Map()).fresh).toHaveLength(2);
   });
 
   it('ist wiederholbar: derselbe Import ein zweites Mal legt nichts mehr an', () => {
-    const rows = rowsOf(file('19.09.2026;10:00;U14;A;B;Halle', '20.09.2026;11:00;U16;C;D;Halle'));
-    const first = dedupe(rows, toKickoff, new Set());
-    expect(first.fresh).toHaveLength(2);
+    const rows = rowsOf(
+      file(
+        '19.09.2026;10:00;U14;A;B;Halle',
+        '19.09.2026;10:00;U14;A;B;Halle',
+        '20.09.2026;11:00;U16;C;D;Halle',
+      ),
+    );
+    const first = dedupe(rows, toKickoff, new Map());
+    expect(first.fresh).toHaveLength(3);
 
-    const afterImport = new Set(
-      first.fresh.map((row) => gameKey(toKickoff(row.localKickoff ?? ''), row.home, row.away)),
+    const afterImport = countByKey(
+      first.fresh.map((row) => ({
+        kickoff: toKickoff(row.localKickoff ?? ''),
+        home: row.home,
+        away: row.away,
+      })),
     );
     const second = dedupe(rows, toKickoff, afterImport);
     expect(second.fresh).toHaveLength(0);
-    expect(second.duplicates).toHaveLength(2);
+    expect(second.duplicates).toHaveLength(3);
+  });
+});
+
+describe('Das Liga-Kürzel des Verbands', () => {
+  it('holt die Altersklasse aus dem Kürzel heraus', () => {
+    expect(leagueFromLabel('XU14Bz')).toBe('U14');
+    expect(leagueFromLabel('U16')).toBe('U16');
+    expect(leagueFromLabel('1. Regionalliga U18 männlich')).toBe('U18');
+    expect(leagueFromLabel('xu12a')).toBe('U12');
+  });
+
+  it('macht ein Senioren-Spiel aus allem ohne Altersklasse', () => {
+    expect(leagueFromLabel('Herren Kreisliga B, Gruppe 1')).toBe('Senioren');
+    expect(leagueFromLabel('Damen Bezirksoberliga')).toBe('Senioren');
+  });
+
+  it('behält das Kürzel an der Zeile — es wird angezeigt', () => {
+    const [row] = parseCsv(file('19.09.2026;10:00;XU14Bz;A;B;Halle'), LEAGUES).valid;
+    expect(row?.league).toBe('U14');
+    expect(row?.leagueLabel).toBe('XU14Bz');
+  });
+
+  it('meldet, wenn die gedeutete Liga im Verein fehlt', () => {
+    const [row] = parseCsv(file('19.09.2026;10:00;XU99Bz;A;B;Halle'), LEAGUES).invalid;
+    expect(row?.problem).toContain('U99');
+    expect(row?.problem).toContain('XU99Bz');
+  });
+});
+
+describe('Verrutschte Spalten', () => {
+  /*
+   * Der Fall, der vierzig Spiele in eine Halle namens "E" gelegt hat: der
+   * Zeile fehlte das Feld "Ort", die Lizenz rutschte hinein, und weil sie
+   * damit immer noch sechs Felder hatte, fiel nichts auf.
+   */
+  const header = 'Datum;Zeit;Liga;Heim;Gast;Ort;Lizenz';
+
+  it('meldet eine Zeile, der ein Feld fehlt', () => {
+    const result = parseCsv(
+      [header, '19.09.2026;10:00;XU14BZ2;Bergstraße;VfL Bensheim;E'].join('\n'),
+      ['U14'],
+    );
+    expect(result.valid).toEqual([]);
+    expect(result.invalid[0]?.problem).toContain('verrutscht');
+  });
+
+  it('meldet eine Zeile mit einem Semikolon zu viel', () => {
+    const result = parseCsv(
+      [header, '19.09.2026;10:00;XU14BZ2;Bergstraße;VfL Bensheim;Halle;Feld 2;E'].join('\n'),
+      ['U14'],
+    );
+    expect(result.valid).toEqual([]);
+    expect(result.invalid[0]?.problem).toContain('zu viel');
+  });
+
+  it('nimmt eine Zeile an, die genau so breit ist wie die Kopfzeile', () => {
+    const result = parseCsv(
+      [header, '19.09.2026;10:00;XU14BZ2;Bergstraße;VfL Bensheim;Halle;E'].join('\n'),
+      ['U14'],
+    );
+    expect(result.invalid).toEqual([]);
+    expect(result.valid[0]?.venue).toBe('Halle');
+  });
+
+  it('misst an der Kopfzeile und nicht an den Pflichtspalten', () => {
+    // Ohne Lizenzspalte sind sechs Felder richtig — dieselbe Zeile waere mit
+    // Lizenzspalte in der Kopfzeile zu schmal.
+    const ohne = parseCsv(
+      ['Datum;Zeit;Liga;Heim;Gast;Ort', '19.09.2026;10:00;XU14BZ2;A;B;Halle'].join('\n'),
+      ['U14'],
+    );
+    expect(ohne.invalid).toEqual([]);
+    expect(ohne.valid[0]?.venue).toBe('Halle');
   });
 });
 
@@ -175,9 +285,17 @@ describe('Die Lizenzspalte ist freiwillig', () => {
     expect(result.valid[0]?.license).toBe('D');
   });
 
-  it('weist eine Lizenz zurueck, die es nicht gibt', () => {
+  it('liest auch die hoechste Stufe C', () => {
     const result = parseCsv(
       ['Datum;Zeit;Liga;Heim;Gast;Ort;Lizenz', '19.09.2026;10:00;U14;A;B;Halle;C'].join('\n'),
+      leagues,
+    );
+    expect(result.valid[0]?.license).toBe('C');
+  });
+
+  it('weist eine Lizenz zurueck, die es nicht gibt', () => {
+    const result = parseCsv(
+      ['Datum;Zeit;Liga;Heim;Gast;Ort;Lizenz', '19.09.2026;10:00;U14;A;B;Halle;B'].join('\n'),
       leagues,
     );
     expect(result.invalid[0]?.problem).toContain('Lizenz');

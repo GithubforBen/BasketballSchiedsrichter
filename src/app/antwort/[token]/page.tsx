@@ -5,6 +5,7 @@ import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
 import { matchdayLabel, timeLabel } from '@/domain/schedule';
 import { describeLeadTime } from '@/domain/time';
+import { leagueDisplay } from '@/domain/league';
 import { openAnswer, readAnswer, type AnswerQuestion } from '@/server/answers';
 import { answerAction } from './actions';
 
@@ -99,7 +100,7 @@ const GameFacts = ({ question, now }: { question: AnswerQuestion; now: Date }) =
     <dl className="answer-facts">
       <dt>Spiel</dt>
       <dd>
-        {game.home} gegen {game.away} ({game.leagueId})
+        {game.home} gegen {game.away} ({leagueDisplay(game)})
       </dd>
       <dt>Anpfiff</dt>
       <dd>

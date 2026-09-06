@@ -45,7 +45,7 @@ export const AdminShell = ({
       <div className="page-head-text">
         {kicker ? <div className="kicker kicker-accent">{kicker}</div> : null}
         <h1>{title}</h1>
-        {lead ? <p className="text-muted">{lead}</p> : null}
+        {lead ? <p className="lead text-muted">{lead}</p> : null}
       </div>
       {actions ? <div className="row">{actions}</div> : null}
     </div>

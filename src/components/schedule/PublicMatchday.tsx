@@ -2,6 +2,7 @@ import { Initials, Status, Tag } from '@/components/primitives';
 import { matchTitle, statusOf, timeLabel, type Matchday } from '@/domain/schedule';
 import { refereeSlots, substituteSlots, SLOT_LABELS } from '@/domain/slots';
 import type { Slot } from '@/domain/types';
+import { leagueDisplay } from '@/domain/league';
 
 /**
  * Ein Spieltag in der oeffentlichen Ansicht.
@@ -62,7 +63,7 @@ export const PublicMatchday = ({ matchday, timeZone, initials }: PublicMatchdayP
             <tr key={entry.game.id}>
               <td style={{ whiteSpace: 'nowrap' }}>{timeLabel(entry.game.kickoff, timeZone)}</td>
               <td>
-                <Tag tone="neutral">{entry.game.leagueId}</Tag>
+                <Tag tone="neutral">{leagueDisplay(entry.game)}</Tag>
               </td>
               <td>{matchTitle(entry.game)}</td>
               <td className="text-muted">{entry.game.venue}</td>
@@ -96,7 +97,7 @@ export const PublicMatchday = ({ matchday, timeZone, initials }: PublicMatchdayP
             <div style={{ flex: 1 }}>
               <div className="game-card-title">{matchTitle(entry.game)}</div>
               <div className="text-muted" style={{ fontSize: '11px' }}>
-                {timeLabel(entry.game.kickoff, timeZone)} · {entry.game.leagueId} · {entry.game.venue}
+                {timeLabel(entry.game.kickoff, timeZone)} · {leagueDisplay(entry.game)} · {entry.game.venue}
               </div>
               <div className="row" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
                 {refereeSlots(entry.slots).map((slot) => (

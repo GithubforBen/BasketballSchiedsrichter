@@ -1,4 +1,5 @@
-import { isLicense } from './license';
+import { leagueFromLabel } from './league';
+import { LICENSES, isLicense } from './license';
 import type { License } from './types';
 
 /**
@@ -16,7 +17,7 @@ export const CSV_COLUMNS = ['Datum', 'Zeit', 'Liga', 'Heim', 'Gast', 'Ort'] as c
  *
  * Freiwillig und nicht Teil von `CSV_COLUMNS`: die Dateien, die der Verband
  * herausgibt, kennen sie nicht, und ein Import soll daran nicht scheitern.
- * Fehlt sie oder bleibt sie leer, gilt die niedrigere Lizenz E.
+ * Fehlt sie oder bleibt sie leer, gilt die niedrigste Lizenz E.
  */
 export const CSV_LICENSE_COLUMN = 'Lizenz';
 export const DEFAULT_CSV_LICENSE: License = 'E';
@@ -26,7 +27,10 @@ export interface CsvRow {
   line: number;
   date: string;
   time: string;
+  /** Die Liga, zu der die Zeile gehoert — aus dem Kuerzel gedeutet. */
   league: string;
+  /** Das Kuerzel, wie es in der Datei stand. Es wird angezeigt. */
+  leagueLabel: string;
   home: string;
   away: string;
   venue: string;
@@ -71,7 +75,19 @@ export const parseCsv = (text: string, knownLeagues: readonly string[]): CsvPars
     };
   }
 
-  const rows = lines.slice(1).map((line, index) => readRow(line, index + 2, knownLeagues));
+  /*
+   * Die Breite der Kopfzeile ist das Mass fuer jede Zeile.
+   *
+   * Vorher wurde nur gegen die sechs Pflichtspalten geprueft. Eine Zeile, der
+   * die Spalte "Ort" fehlte, hatte damit trotzdem sechs Felder — nur eines
+   * davon verrutscht: die Lizenz stand im Ort. Das ergab vierzig Spiele in
+   * einer Halle namens "E", und auffallen konnte es nirgends, weil ein Ort
+   * kein bestimmtes Format hat.
+   */
+  const width = header.length;
+  const rows = lines
+    .slice(1)
+    .map((line, index) => readRow(line, index + 2, knownLeagues, width));
   return {
     rows,
     valid: rows.filter((row) => row.problem === ''),
@@ -80,15 +96,21 @@ export const parseCsv = (text: string, knownLeagues: readonly string[]): CsvPars
   };
 };
 
-const readRow = (line: string, lineNumber: number, knownLeagues: readonly string[]): CsvRow => {
+const readRow = (
+  line: string,
+  lineNumber: number,
+  knownLeagues: readonly string[],
+  headerWidth: number,
+): CsvRow => {
   const cells = line.split(SEPARATOR).map((cell) => cell.trim());
-  const [date = '', time = '', league = '', home = '', away = '', venue = '', licence = ''] = cells;
+  const [date = '', time = '', label = '', home = '', away = '', venue = '', licence = ''] = cells;
 
   const base: Omit<CsvRow, 'localKickoff' | 'problem'> = {
     line: lineNumber,
     date,
     time,
-    league,
+    league: leagueFromLabel(label),
+    leagueLabel: label,
     home,
     away,
     venue,
@@ -96,18 +118,29 @@ const readRow = (line: string, lineNumber: number, knownLeagues: readonly string
   };
   const fail = (problem: string): CsvRow => ({ ...base, localKickoff: null, problem });
 
-  if (cells.length < CSV_COLUMNS.length) {
-    return fail(`Zeile hat nur ${cells.length} von ${CSV_COLUMNS.length} Spalten.`);
+  if (cells.length !== headerWidth) {
+    /*
+     * Zu wenige Felder heisst: eines fehlt und alles dahinter ist verrutscht.
+     * Zu viele heisst: irgendwo steckt ein Semikolon im Text. Beides macht die
+     * Zeile unbrauchbar, und beides ist ohne diesen Vergleich nicht zu sehen.
+     */
+    return fail(
+      `Zeile hat ${cells.length} Felder, die Kopfzeile ${headerWidth}. ` +
+        (cells.length < headerWidth
+          ? 'Es fehlt ein Semikolon — die Spalten dahinter sind verrutscht.'
+          : 'Ein Feld enthält ein Semikolon zu viel.'),
+    );
   }
   const upper = licence.toUpperCase();
   if (upper !== '' && !isLicense(upper)) {
-    return fail(`Lizenz „${licence}“ gibt es nicht — erlaubt sind E und D.`);
+    return fail(`Lizenz „${licence}“ gibt es nicht — erlaubt sind ${LICENSES.join(', ')}.`);
   }
   base.license = upper === '' ? DEFAULT_CSV_LICENSE : upper;
   if (home === '' || away === '') return fail('Heim oder Gast fehlt.');
   if (venue === '') return fail('Ort fehlt.');
-  if (!knownLeagues.includes(league)) {
-    return fail(`Liga „${league}“ ist im Verein nicht angelegt.`);
+  if (label === '') return fail('Liga fehlt.');
+  if (!knownLeagues.includes(base.league)) {
+    return fail(`Liga „${base.league}“ (aus „${label}“) ist im Verein nicht angelegt.`);
   }
 
   const isoDate = parseGermanDate(date);
@@ -144,50 +177,72 @@ export const parseTime = (value: string): string | null => {
 };
 
 /**
- * Der Schluessel, ueber den ein Spiel als dasselbe erkannt wird:
- * Anpfiff, Heim und Gast. Derselbe Schluessel liegt als eindeutiger Index in
- * der Datenbank — beides muss zusammenpassen, sonst wuerde der Import zwar
- * eine Vorschau anzeigen und dann am Schreiben scheitern.
+ * Der Schluessel, ueber den ein Spiel als dasselbe erkannt wird: Anpfiff,
+ * Heim und Gast.
+ *
+ * Die Namen werden dafuer vereinheitlicht — Grossschreibung und mehrfache
+ * Leerzeichen fallen weg. Der Verband schreibt denselben Verein nicht immer
+ * gleich, und `BG NORDSTADT` neben `BG Nordstadt` waere sonst ein zweites
+ * Spiel zur selben Zeit in derselben Halle.
  */
-export const gameKey = (kickoff: Date, home: string, away: string): string =>
-  `${kickoff.toISOString()}|${home}|${away}`;
+export const gameKey = (kickoff: Date, home: string, away: string): string => {
+  const plain = (name: string): string => name.replace(/\s+/g, ' ').trim().toLocaleLowerCase('de');
+  return `${kickoff.toISOString()}|${plain(home)}|${plain(away)}`;
+};
 
 export interface DedupeResult {
   /** Zeilen, die neu angelegt werden. */
   fresh: readonly CsvRow[];
   /** Zeilen, die es schon gibt — sie werden uebersprungen. */
   duplicates: readonly CsvRow[];
-  /** Zeilen, die innerhalb der Datei doppelt vorkommen. */
-  repeated: readonly CsvRow[];
 }
 
 /**
- * Trennt neue Zeilen von schon vorhandenen. Doppelte innerhalb derselben Datei
- * zaehlen ebenfalls als uebersprungen — sonst braeche der Import an der
- * Eindeutigkeitsbedingung ab, statt sauber zu melden.
+ * Trennt neue Zeilen von schon vorhandenen — **gezaehlt**, nicht nur gesehen.
+ *
+ * Zwei gleiche Zeilen in einer Datei sind zwei Spiele und nicht ein Tippfehler:
+ * Der Verband setzt zur selben Zeit in derselben Halle zwei Begegnungen an,
+ * und beide brauchen ihre eigenen Schiedsrichter. Frueher fiel die zweite
+ * stillschweigend weg — aus vierzig Zeilen wurden vierunddreissig Spiele.
+ *
+ * Verglichen wird deshalb, wie oft eine Paarung in der Datei steht und wie oft
+ * sie schon in der Datenbank steht. Steht sie zweimal in der Datei und einmal
+ * in der Datenbank, entsteht genau eine. Damit bleibt der Import wiederholbar:
+ * derselbe Lauf ein zweites Mal findet beide vor und legt nichts mehr an.
  */
 export const dedupe = (
   rows: readonly CsvRow[],
   toKickoff: (localKickoff: string) => Date,
-  existingKeys: ReadonlySet<string>,
+  existingCounts: ReadonlyMap<string, number>,
 ): DedupeResult => {
-  const seen = new Set<string>();
+  const seen = new Map<string, number>();
   const fresh: CsvRow[] = [];
   const duplicates: CsvRow[] = [];
-  const repeated: CsvRow[] = [];
 
   for (const row of rows) {
     if (row.localKickoff === null) continue;
     const key = gameKey(toKickoff(row.localKickoff), row.home, row.away);
-    if (existingKeys.has(key)) duplicates.push(row);
-    else if (seen.has(key)) repeated.push(row);
-    else {
-      seen.add(key);
-      fresh.push(row);
-    }
+    const before = seen.get(key) ?? 0;
+    seen.set(key, before + 1);
+    // Die ersten Vorkommen decken ab, was schon dasteht; erst was darueber
+    // hinausgeht, ist neu.
+    if (before < (existingCounts.get(key) ?? 0)) duplicates.push(row);
+    else fresh.push(row);
   }
 
-  return { fresh, duplicates, repeated };
+  return { fresh, duplicates };
+};
+
+/** Zaehlt vorhandene Spiele je Schluessel — die Gegenseite von `dedupe`. */
+export const countByKey = (
+  games: readonly { kickoff: Date; home: string; away: string }[],
+): ReadonlyMap<string, number> => {
+  const counts = new Map<string, number>();
+  for (const game of games) {
+    const key = gameKey(game.kickoff, game.home, game.away);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
 };
 
 /** Die Beispiel-CSV aus dem Mockup, als Vorbelegung des Eingabefelds. */

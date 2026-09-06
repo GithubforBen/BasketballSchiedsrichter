@@ -2,9 +2,19 @@ import { asc, eq } from 'drizzle-orm';
 import { CLUB } from '@/config/club';
 import { db, schema } from '@/db';
 import { buildAdminAlerts, type AdminAlert } from '@/domain/alerts';
-import { confirmationState, openConfirmations } from '@/domain/confirmation';
+import {
+  CONFIRMATION_LABELS,
+  confirmationState,
+  openConfirmations,
+} from '@/domain/confirmation';
 import { groupByMatchday, withSlots, type Matchday } from '@/domain/schedule';
-import { refereeSlots, slotKind, substituteSlots, SLOT_LABELS } from '@/domain/slots';
+import {
+  refereeSlots,
+  slotKind,
+  substituteSlots,
+  SLOT_LABELS,
+  SLOT_LABELS_SHORT,
+} from '@/domain/slots';
 import type { ClubSettings, Game, Referee, SlotIndex } from '@/domain/types';
 import { toAssignment, toGame } from './games';
 import { loadAlertSettings } from './settings';
@@ -119,18 +129,17 @@ export const adminGame = async (
       const state = confirmationState(slot, game, settings, now);
       return {
         index: slot.index,
-        role: SLOT_LABELS[slot.index],
+        /* Die Spalte daneben ist schmal — dort passt nur die kurze Form. */
+        role: SLOT_LABELS_SHORT[slot.index],
         refereeId,
         name: refereeId ? (nameOf.get(refereeId) ?? '—') : 'frei',
-        state: refereeId
-          ? isReferee
-            ? state === 'confirmed'
-              ? 'bestätigt'
-              : state === 'overdue'
-                ? 'Bestätigung überfällig'
-                : 'Bestätigung offen'
-            : 'Ersatz'
-          : 'offen',
+        /*
+         * Der Text kommt aus derselben Tabelle wie ueberall sonst. Vorher stand
+         * hier eine eigene Kette, die "scheduled" mit "pending" in einen Topf
+         * warf: eine Nachfrage, die noch gar nicht raus ist, stand damit als
+         * "Bestätigung offen" da — als haette jemand nicht geantwortet.
+         */
+        state: refereeId ? (isReferee ? CONFIRMATION_LABELS[state] : 'Ersatz') : 'offen',
         /* Schriftvarianten der Ampel — die vollen Toene sind als Text zu blass. */
         stateColor: refereeId
           ? isReferee
@@ -138,7 +147,9 @@ export const adminGame = async (
               ? 'var(--status-filled-text)'
               : state === 'overdue'
                 ? 'var(--status-open-text)'
-                : 'var(--status-substitute-missing-text)'
+                : state === 'pending'
+                  ? 'var(--status-substitute-missing-text)'
+                  : 'var(--text-dim)'
             : 'var(--text-dim)'
           : 'var(--status-open-text)',
       };
@@ -162,15 +173,31 @@ export const adminRows = async (
       );
     const refs = names(refereeSlots(entry.slots));
     const open = openConfirmations(entry.slots, entry.game, settings, now).length;
+    /*
+     * Solange die Nachfrage noch nicht raus ist, steht der Platz auf
+     * "scheduled" und zaehlt damit nicht als offen. Das hier trotzdem gruen
+     * als "bestaetigt" auszuweisen, waere die gefaehrlichste Auskunft der
+     * Uebersicht: der Admin sieht eine Zusage, die niemand gegeben hat.
+     */
+    const awaiting = entry.slots.filter(
+      (slot) => confirmationState(slot, entry.game, settings, now) === 'scheduled',
+    ).length;
 
     return {
       game: entry.game,
       relocationVersion: 0,
       refereeNames: refs,
       substituteNames: names(substituteSlots(entry.slots)),
-      confirmationLabel: refs.length === 0 ? '—' : open === 0 ? 'bestätigt' : `${open} offen`,
-      confirmationColor:
+      confirmationLabel:
         refs.length === 0
+          ? '—'
+          : open > 0
+            ? `${open} offen`
+            : awaiting > 0
+              ? 'Bestätigung folgt'
+              : 'bestätigt',
+      confirmationColor:
+        refs.length === 0 || (open === 0 && awaiting > 0)
           ? 'var(--text-dim)'
           : open === 0
             ? 'var(--status-filled)'
@@ -214,6 +241,4 @@ export const pendingAppearances = async (now: Date): Promise<readonly PendingApp
     }));
 };
 
-/** Alle Ligen, auch abgeschaltete. */
-export const loadLeagues = async () =>
-  db.select().from(schema.leagues).orderBy(asc(schema.leagues.sortOrder));
+export { loadLeagues } from './leagues';

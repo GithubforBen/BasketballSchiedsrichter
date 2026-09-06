@@ -28,7 +28,8 @@ export const GET = async (request: NextRequest): Promise<NextResponse> => {
   }
 
   // Regel 37: Das Start-Passwort oeffnet genau eine Seite — die Passwortseite.
-  const target = result.mustChangePassword ? '/passwort' : landingScreen(result.lastScreen);
+  const target =
+    result.mustChangePassword ? '/passwort' : landingScreen(result.lastScreen, result.role);
   const response = redirectTo(target);
   response.cookies.set(
     SESSION_COOKIE,

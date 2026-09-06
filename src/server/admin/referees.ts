@@ -7,7 +7,15 @@ import { START_PASSWORD_VALID_DAYS, hasUsableStartPassword } from '@/domain/pass
 import { slotKind } from '@/domain/slots';
 import type { License, SlotIndex } from '@/domain/types';
 import { applyStartPassword } from '../auth/password-login';
-import { normalisePhone } from '../auth/phone';
+import { normalisePhone } from '@/domain/phone';
+import {
+  dedupeReferees,
+  parseRefereeCsv,
+  type ExistingReferees,
+  type RefereeCsvParseResult,
+  type RefereeCsvRow,
+  type RefereeDedupeResult,
+} from '@/domain/referee-csv';
 import { isUniqueViolation } from '../assignments';
 import type { AdminResult } from './games';
 
@@ -21,7 +29,7 @@ const fail = (message: string): AdminResult => ({ ok: false, message });
 const audit = async (
   actorId: string,
   action: string,
-  subjectId: string,
+  subjectId: string | null,
   detail: Record<string, unknown>,
 ): Promise<void> => {
   await db.insert(schema.auditLog).values({ id: randomUUID(), actorId, action, subjectId, detail });
@@ -36,6 +44,16 @@ export interface NewRefereeInput {
   role: 'referee' | 'admin';
   /** Lizenz, `null` wenn noch keine vorliegt. Ohne sie kein Eintragen. */
   license: License | null;
+  /**
+   * Ligen, fuer die die Person von Anfang an qualifiziert ist.
+   *
+   * Sie gehoeren ins Anlegen und nicht in einen zweiten Arbeitsgang: ohne
+   * Qualifikation kann sich niemand eintragen (Regel 4), ein frisches Konto
+   * ohne sie ist also zu nichts zu gebrauchen. Leer bleiben darf die Liste
+   * trotzdem — wer die Ligen noch nicht kennt, traegt sie spaeter in der
+   * Matrix nach.
+   */
+  leagueIds?: readonly string[];
 }
 
 /**
@@ -88,6 +106,25 @@ export const createReferee = async (
       return fail('Kürzel oder Telefonnummer sind schon vergeben.');
     }
     throw error;
+  }
+
+  /*
+   * Die Qualifikationen gleich mit. `onConflictDoNothing`, weil dieselbe Liga
+   * im Formular nur einmal angehakt sein kann — doppelt kaeme sie nur ueber
+   * eine verbogene Anfrage, und die soll nicht mit einem Fehler enden.
+   * Unbekannte Ligen wuerden am Fremdschluessel scheitern; deshalb werden sie
+   * vorher gegen die vorhandenen abgeglichen.
+   */
+  const wanted = [...new Set(input.leagueIds ?? [])];
+  if (wanted.length > 0) {
+    const known = await db.select({ id: schema.leagues.id }).from(schema.leagues);
+    const valid = wanted.filter((league) => known.some((entry) => entry.id === league));
+    if (valid.length > 0) {
+      await db
+        .insert(schema.qualifications)
+        .values(valid.map((leagueId) => ({ refereeId: id, leagueId })))
+        .onConflictDoNothing();
+    }
   }
 
   await applyStartPassword(id, name);
@@ -178,10 +215,7 @@ export const setQualification = async (
   qualified: boolean,
 ): Promise<AdminResult> => {
   if (qualified) {
-    await db
-      .insert(schema.qualifications)
-      .values({ refereeId, leagueId })
-      .onConflictDoNothing();
+    await db.insert(schema.qualifications).values({ refereeId, leagueId }).onConflictDoNothing();
   } else {
     await db
       .delete(schema.qualifications)
@@ -193,7 +227,10 @@ export const setQualification = async (
       );
   }
 
-  await audit(actorId, 'referee.qualification', refereeId, { leagueId, qualified });
+  await audit(actorId, 'referee.qualification', refereeId, {
+    leagueId,
+    qualified,
+  });
   return {
     ok: true,
     message: qualified
@@ -220,16 +257,17 @@ export const setQualification = async (
  * Deshalb zaehlt diese Aktion die Luecke hoch (Regeln 15 und 32) — der naechste
  * Nachrichtenlauf schreibt den Platz aus, so wie beim Austragen auch.
  */
-export const deleteReferee = async (
-  actorId: string,
-  refereeId: string,
-): Promise<AdminResult> => {
+export const deleteReferee = async (actorId: string, refereeId: string): Promise<AdminResult> => {
   if (actorId === refereeId) {
     return fail('Das eigene Konto lässt sich hier nicht löschen — bitte von einem anderen Admin.');
   }
 
   const rows = await db
-    .select({ name: schema.referees.name, role: schema.referees.role, active: schema.referees.active })
+    .select({
+      name: schema.referees.name,
+      role: schema.referees.role,
+      active: schema.referees.active,
+    })
     .from(schema.referees)
     .where(eq(schema.referees.id, refereeId))
     .limit(1);
@@ -248,7 +286,10 @@ export const deleteReferee = async (
 
   const now = new Date();
   const affected = await db
-    .select({ gameId: schema.assignments.gameId, slotIndex: schema.assignments.slotIndex })
+    .select({
+      gameId: schema.assignments.gameId,
+      slotIndex: schema.assignments.slotIndex,
+    })
     .from(schema.assignments)
     .innerJoin(schema.games, eq(schema.assignments.gameId, schema.games.id))
     .where(and(eq(schema.assignments.refereeId, refereeId), gte(schema.games.kickoff, now)));
@@ -279,5 +320,114 @@ export const deleteReferee = async (
     openedSlots.length === 0
       ? ''
       : ` ${openedSlots.length} Schiedsrichter-Platz/Plätze sind dadurch offen und werden ausgeschrieben.`;
-  return { ok: true, message: `Konto gelöscht — alle Daten dieser Person sind entfernt.${suffix}` };
+  return {
+    ok: true,
+    message: `Konto gelöscht — alle Daten dieser Person sind entfernt.${suffix}`,
+  };
+};
+
+/**
+ * Nummern und Kuerzel des Bestands.
+ *
+ * Fuer die Vorschau im Browser: sie muss sagen koennen, wen es schon gibt.
+ * Beides steht auf derselben Seite ohnehin in der Tabelle, es verlaesst also
+ * nichts den Adminbereich, was dort nicht schon stuende.
+ */
+export const existingRefereeKeys = async (): Promise<ExistingReferees> => {
+  const rows = await db
+    .select({
+      phone: schema.referees.phone,
+      initials: schema.referees.initials,
+    })
+    .from(schema.referees);
+  return {
+    phones: rows.map((row) => row.phone),
+    initials: rows.map((row) => row.initials),
+  };
+};
+
+export interface RefereeCsvPreview extends RefereeCsvParseResult, RefereeDedupeResult {}
+
+/** Liest eine CSV ein und sagt, welche Konten daraus entstuenden. */
+export const previewRefereeCsv = async (text: string): Promise<RefereeCsvPreview> => {
+  const [leagues, existing] = await Promise.all([
+    db.select({ id: schema.leagues.id }).from(schema.leagues),
+    existingRefereeKeys(),
+  ]);
+  const parsed = parseRefereeCsv(
+    text,
+    leagues.map((league) => league.id),
+  );
+  return { ...parsed, ...dedupeReferees(parsed.valid, existing) };
+};
+
+/**
+ * Importiert Schiedsrichter. Wiederholbar: wessen Nummer schon dasteht, wird
+ * uebersprungen und nicht ueberschrieben.
+ *
+ * Angelegt wird ueber `createReferee` und nicht mit einem eigenen `insert`.
+ * Das kostet eine Abfrage je Zeile, sorgt aber dafuer, dass ein importiertes
+ * Konto genau so entsteht wie ein von Hand angelegtes: mit Start-Passwort
+ * (Regel 35), mit Qualifikationen und mit eigenem Eintrag im Pruefprotokoll.
+ * Ein zweiter Weg ins selbe Ziel waere der Weg, auf dem eines davon vergessen
+ * wird.
+ *
+ * Deshalb auch keine Transaktion: schlaegt die zwanzigste Zeile fehl, sollen
+ * die neunzehn davor stehen bleiben. Der Lauf laesst sich wiederholen, und
+ * beim zweiten Mal bleiben genau die uebrig, die noch fehlen.
+ */
+export const importRefereeCsv = async (actorId: string, text: string): Promise<AdminResult> => {
+  const preview = await previewRefereeCsv(text);
+  if (preview.fileProblem) return fail(preview.fileProblem);
+
+  if (preview.fresh.length === 0) {
+    const known = preview.duplicates.length;
+    return {
+      ok: true,
+      message:
+        known > 0
+          ? `Nichts zu tun — alle ${known} Personen gibt es schon.`
+          : 'Keine importierbaren Zeilen gefunden.',
+    };
+  }
+
+  let created = 0;
+  const failed: RefereeCsvRow[] = [];
+  for (const row of preview.fresh) {
+    const result = await createReferee(actorId, {
+      name: row.name,
+      firstName: row.firstName,
+      initials: row.initials,
+      phone: row.phone ?? row.rawPhone,
+      role: row.role,
+      license: row.license,
+      leagueIds: row.leagueIds,
+    });
+    if (result.ok) created += 1;
+    else failed.push(row);
+  }
+
+  await audit(actorId, 'referee.import', null, {
+    angelegt: created,
+    uebersprungen: preview.duplicates.length,
+    kuerzelVergeben: preview.conflicts.length,
+    unbrauchbar: preview.invalid.length,
+    fehlgeschlagen: failed.map((row) => row.line),
+  });
+
+  const parts = [`${created} Schiedsrichter angelegt`];
+  if (preview.duplicates.length > 0) {
+    parts.push(`${preview.duplicates.length} übersprungen (Nummer schon vorhanden)`);
+  }
+  if (preview.conflicts.length > 0) {
+    parts.push(`${preview.conflicts.length} mit vergebenem Kürzel`);
+  }
+  if (preview.invalid.length > 0) parts.push(`${preview.invalid.length} unbrauchbar`);
+  if (failed.length > 0) parts.push(`${failed.length} beim Anlegen gescheitert`);
+  return {
+    ok: true,
+    message:
+      `${parts.join(' · ')}. Die Start-Passwörter stehen in der Tabelle und gelten ` +
+      `${START_PASSWORD_VALID_DAYS} Tage.`,
+  };
 };

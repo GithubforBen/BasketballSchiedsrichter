@@ -19,7 +19,7 @@ import {
   type RateLimitRule,
 } from '../rate-limit';
 import { burnTime, hashPassword, verifyPassword } from './hash';
-import { normalisePhone } from './phone';
+import { normalisePhone } from '@/domain/phone';
 
 /**
  * Anmeldung mit Telefonnummer und Passwort. Regeln 34-40.
@@ -153,7 +153,7 @@ export const applyStartPassword = async (
   now: Date = new Date(),
 ): Promise<string> => {
   if (!hasUsableStartPassword(name)) {
-    throw new Error('Aus diesem Namen laesst sich kein Start-Passwort bilden');
+    throw new Error('Aus diesem Namen lässt sich kein Start-Passwort bilden');
   }
   const plain = startPassword(name);
   await db

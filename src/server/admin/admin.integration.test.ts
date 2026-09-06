@@ -5,8 +5,21 @@ import { ensureLeagues } from '../../../test/ligen';
 import { CSV_COLUMNS } from '@/domain/csv';
 import { claimNextSlot } from '../assignments';
 import { setPlayedAsReferee } from './appearances';
-import { createGame, editGame, importCsv, previewCsv, removeFromGame } from './games';
-import { createReferee, setQualification, updateReferee } from './referees';
+import {
+  assignReferee,
+  createGame,
+  editGame,
+  importCsv,
+  previewCsv,
+  removeFromGame,
+} from './games';
+import {
+  createReferee,
+  importRefereeCsv,
+  previewRefereeCsv,
+  setQualification,
+  updateReferee,
+} from './referees';
 import { saveSettings, setLeague } from './settings';
 
 /**
@@ -114,7 +127,7 @@ suite('Adminbereich', () => {
         day: '2-digit',
       }).format(inDays(daysAhead)),
       localTime: '10:30',
-      leagueId: 'U14',
+      league: 'U14',
       home: `${prefix}-heim`,
       away: `${prefix}-gast`,
       venue: 'Testhalle',
@@ -130,7 +143,12 @@ suite('Adminbereich', () => {
       expect(await auditActions(gameId)).toEqual(['game.create']);
     });
 
-    it('lehnt dasselbe Spiel ein zweites Mal ab, mit Begründung', async () => {
+    it('legt dieselbe Paarung auch ein zweites Mal an — es gibt sie wirklich zweimal', async () => {
+      /*
+       * Zwei Begegnungen parallel in derselben Halle, jede mit eigenen
+       * Schiedsrichtern. Frueher wies die Eindeutigkeitsbedingung der
+       * Datenbank das ab und der CSV-Import verlor dabei jede zweite Zeile.
+       */
       await newGame();
       const again = await createGame(admin, {
         localDate: new Intl.DateTimeFormat('en-CA', {
@@ -140,21 +158,20 @@ suite('Adminbereich', () => {
           day: '2-digit',
         }).format(inDays(30)),
         localTime: '10:30',
-        leagueId: 'U14',
+        league: 'U14',
         home: `${prefix}-heim`,
         away: `${prefix}-gast`,
         venue: 'Andere Halle',
         requiredLicense: 'E',
       });
-      expect(again.ok).toBe(false);
-      expect(again.message).toContain('gibt es schon');
+      expect(again.ok).toBe(true);
     });
 
     it('verlangt vollständige Angaben', async () => {
       const result = await createGame(admin, {
         localDate: '2026-09-12',
         localTime: '10:30',
-        leagueId: 'U14',
+        league: 'U14',
         home: '',
         away: `${prefix}-gast`,
         venue: 'Halle',
@@ -212,6 +229,125 @@ suite('Adminbereich', () => {
       const result = await importCsv(admin, mixed);
       expect(result.message).toContain('1 Spiele importiert');
       expect(result.message).toContain('1 unbrauchbar');
+    });
+  });
+
+  describe('Schiedsrichter-Import', () => {
+    /*
+     * Ein eigener Nummernblock je Testlauf. Telefonnummern sind in der
+     * Datenbank eindeutig; zwei gleichzeitige Laeufe duerfen sich nicht in die
+     * Quere kommen, und aufgeraeumt wird hinterher genau ueber diesen Block.
+     */
+    const block = `+49170${Math.floor(Math.random() * 900 + 100)}`;
+    const written = (n: number) => `0170 ${block.slice(6)}${String(n).padStart(4, '0')}`;
+    const stored = (n: number) => `${block}${String(n).padStart(4, '0')}`;
+
+    const refereeCsv = (...lines: string[]) =>
+      ['Name;Vorname;Kürzel;Telefon;Rolle;Lizenz;Ligen', ...lines].join('\n');
+
+    const imported = () =>
+      sql<
+        {
+          name: string;
+          initials: string;
+          phone: string;
+          license: string | null;
+          role: string;
+          password_hash: string | null;
+        }[]
+      >`
+        SELECT name, initials, phone, license, role, password_hash
+        FROM referees WHERE phone LIKE ${`${block}%`} ORDER BY phone`;
+
+    afterEach(async () => {
+      await sql`DELETE FROM referees WHERE phone LIKE ${`${block}%`}`;
+    });
+
+    it('legt Konten samt Qualifikation und Start-Passwort an', async () => {
+      const result = await importRefereeCsv(
+        admin,
+        refereeCsv(
+          `Nina Falk;;${initials()}X;${written(1)};Schiri;D;U14,U16`,
+          `Timo Reh;;${initials()}Y;${written(2)};Admin;E;U14`,
+        ),
+      );
+      expect(result.ok, result.message).toBe(true);
+      expect(result.message).toContain('2 Schiedsrichter angelegt');
+
+      const rows = await imported();
+      expect(rows).toHaveLength(2);
+      expect(rows[0]?.phone).toBe(stored(1));
+      expect(rows[0]?.license).toBe('D');
+      expect(rows[1]?.role).toBe('admin');
+      // Ohne Start-Passwort (Regel 35) koennte sich niemand anmelden.
+      expect(rows[0]?.password_hash).not.toBeNull();
+
+      const quals = await sql<{ league_id: string }[]>`
+        SELECT q.league_id FROM qualifications q
+        JOIN referees r ON r.id = q.referee_id
+        WHERE r.phone = ${stored(1)} ORDER BY q.league_id`;
+      expect(quals.map((row) => row.league_id)).toEqual(['U14', 'U16']);
+
+      expect(await auditActions()).toContain('referee.import');
+    });
+
+    it('ist wiederholbar: derselbe Lauf legt niemanden doppelt an', async () => {
+      const csv = refereeCsv(`Nina Falk;;${initials()}Z;${written(3)};Schiri;D;U14`);
+      await importRefereeCsv(admin, csv);
+      const second = await importRefereeCsv(admin, csv);
+      expect(second.ok).toBe(true);
+      expect(second.message).toContain('gibt es schon');
+      expect(await imported()).toHaveLength(1);
+    });
+
+    it('erkennt dieselbe Nummer in anderer Schreibweise', async () => {
+      await importRefereeCsv(admin, refereeCsv(`Nina Falk;;${initials()}Q;${written(4)};;D;U14`));
+      const preview = await previewRefereeCsv(
+        refereeCsv(`Nina Falk;;${initials()}R;${stored(4)};;D;U14`),
+      );
+      expect(preview.fresh).toHaveLength(0);
+      expect(preview.duplicates).toHaveLength(1);
+    });
+
+    it('weist ein vergebenes Kürzel aus, statt es still zu übergehen', async () => {
+      const code = usedInitials.get(a) ?? '';
+      const preview = await previewRefereeCsv(
+        refereeCsv(`Nina Falk;;${code};${written(5)};;D;U14`),
+      );
+      expect(preview.fresh).toHaveLength(0);
+      expect(preview.conflicts).toHaveLength(1);
+    });
+
+    it('meldet eine fehlende Pflichtspalte, statt jemanden anzulegen', async () => {
+      // Die Reihenfolge ist frei, die Nummer aber unverzichtbar.
+      const result = await importRefereeCsv(admin, `Kürzel;Name\nZZ;Nina Falk`);
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('Telefon');
+      expect(await imported()).toHaveLength(0);
+    });
+
+    it('nimmt die Spalten in beliebiger Reihenfolge', async () => {
+      const result = await importRefereeCsv(
+        admin,
+        `Telefon;Ligen;Name\n${written(8)};U14;Nina Falk`,
+      );
+      expect(result.ok, result.message).toBe(true);
+      const rows = await imported();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.phone).toBe(stored(8));
+    });
+
+    it('legt die brauchbaren Zeilen an und lässt die anderen liegen', async () => {
+      const result = await importRefereeCsv(
+        admin,
+        refereeCsv(
+          `Nina Falk;;${initials()}M;${written(6)};Schiri;D;U14`,
+          `Timo Reh;;${initials()}N;${written(7)};Schiri;D;U99`,
+        ),
+      );
+      expect(result.message).toContain('1 Schiedsrichter angelegt');
+      expect(result.message).toContain('1 unbrauchbar');
+      expect(await imported()).toHaveLength(1);
     });
   });
 
@@ -294,6 +430,56 @@ suite('Adminbereich', () => {
     });
   });
 
+  describe('Schiedsrichter einteilen', () => {
+    it('setzt eine qualifizierte Person auf einen freien Platz und meldet es ihr', async () => {
+      const game = await newGame();
+      const result = await assignReferee(admin, game, 1, a);
+      expect(result.ok, result.message).toBe(true);
+
+      const rows = await sql<{ referee_id: string }[]>`
+        SELECT referee_id FROM assignments WHERE game_id = ${game} AND slot_index = 1`;
+      expect(rows[0]?.referee_id).toBe(a);
+      expect(await auditActions(game)).toContain('assignment.byAdmin');
+
+      // Ohne Nachricht wuesste die Person nichts von ihrem Einsatz.
+      const messages = await outbox(game);
+      expect(messages.some((m) => m.kind === 'assignment' && m.recipient_id === a)).toBe(true);
+    });
+
+    it('darf die Reihenfolge der Plätze überspringen', async () => {
+      // Regel 2 gilt der Selbstbedienung. Wer einteilt, sieht die Besetzung.
+      const game = await newGame();
+      expect((await assignReferee(admin, game, 3, a)).ok).toBe(true);
+    });
+
+    it('lehnt ab, wem die Qualifikation fehlt', async () => {
+      const game = await newGame();
+      const outsider = `${prefix}-fremd`;
+      await makeReferee(outsider, 'QQ', []);
+      const result = await assignReferee(admin, game, 0, outsider);
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('Qualifikation');
+      await sql`DELETE FROM referees WHERE id = ${outsider}`;
+    });
+
+    it('lehnt einen belegten Platz ab', async () => {
+      const game = await newGame();
+      await assignReferee(admin, game, 0, a);
+      const result = await assignReferee(admin, game, 0, b);
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('belegt');
+    });
+
+    it('lehnt einen zweiten Platz für dieselbe Person ab', async () => {
+      // Regel 5: niemand belegt zwei Plaetze im selben Spiel.
+      const game = await newGame();
+      await assignReferee(admin, game, 0, a);
+      const result = await assignReferee(admin, game, 1, a);
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('schon auf einem anderen Platz');
+    });
+  });
+
   describe('Besetzung entfernen', () => {
     it('Regel 13: auf einem Schiedsrichter-Platz wird zuerst der Ersatz gefragt', async () => {
       const gameId = await newGame();
@@ -337,6 +523,36 @@ suite('Adminbereich', () => {
       });
       expect(result.ok, result.message).toBe(true);
       expect(await auditActions()).toContain('referee.create');
+
+      await sql`DELETE FROM referees WHERE initials = ${code}`;
+    });
+
+    it('vergibt die Qualifikationen gleich beim Anlegen', async () => {
+      /*
+       * Die neue Zeile in der Tabelle traegt die Liga-Haekchen. Ohne
+       * Qualifikation kann sich niemand eintragen (Regel 4) — sie erst in
+       * einem zweiten Arbeitsgang zu vergeben, hiesse: manchmal vergessen.
+       */
+      let code = initials();
+      while ([...usedInitials.values()].includes(code)) code = initials();
+
+      const result = await createReferee(admin, {
+        name: `${prefix} Qualifiziert`,
+        initials: code,
+        phone: '0151 55500013',
+        firstName: 'Test',
+        license: 'D',
+        role: 'referee',
+        leagueIds: ['U14', 'U16', 'gibtesnicht'],
+      });
+      expect(result.ok, result.message).toBe(true);
+
+      const rows = await sql<{ league_id: string }[]>`
+        SELECT q.league_id FROM qualifications q
+        JOIN referees r ON r.id = q.referee_id
+        WHERE r.initials = ${code} ORDER BY q.league_id`;
+      // Die unbekannte Liga faellt weg, statt das Anlegen scheitern zu lassen.
+      expect(rows.map((row) => row.league_id)).toEqual(['U14', 'U16']);
 
       await sql`DELETE FROM referees WHERE initials = ${code}`;
     });
@@ -491,7 +707,9 @@ suite('Adminbereich', () => {
       const league = `${prefix}-liga`;
       expect((await setLeague(admin, league, true)).ok).toBe(true);
       expect((await setLeague(admin, league, false)).ok).toBe(true);
-      const rows = await sql<{ active: boolean }[]>`SELECT active FROM leagues WHERE id = ${league}`;
+      const rows = await sql<
+        { active: boolean }[]
+      >`SELECT active FROM leagues WHERE id = ${league}`;
       expect(rows[0]?.active).toBe(false);
     });
   });

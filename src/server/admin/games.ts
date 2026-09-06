@@ -3,14 +3,17 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, gte, sql as sqlRaw } from 'drizzle-orm';
 import { CLUB } from '@/config/club';
 import { db, schema } from '@/db';
-import { dedupe, gameKey, parseCsv, type CsvParseResult, type CsvRow } from '@/domain/csv';
+import { countByKey, dedupe, parseCsv, type CsvParseResult, type CsvRow } from '@/domain/csv';
 import { nextPromotionStep } from '@/domain/escalation';
-import { relocationIntent } from '@/domain/notifications';
+import { leagueFromLabel } from '@/domain/league';
+import { qualifiedReferees } from '@/domain/rules';
+import { assignmentIntent, relocationIntent } from '@/domain/notifications';
 import { buildSlots, slotKind, SLOT_LABELS } from '@/domain/slots';
 import { localToUtc } from '@/domain/time';
 import type { License, SlotIndex } from '@/domain/types';
 import { isUniqueViolation } from '../assignments';
 import { toAssignment, toGame } from '../queries/games';
+import { loadAllReferees } from '../queries/referees';
 import { loadSettings } from '../queries/settings';
 import { enqueue } from '../outbox';
 
@@ -47,11 +50,17 @@ const writeAudit = async (
 export interface NewGameInput {
   localDate: string;
   localTime: string;
-  leagueId: string;
+  /**
+   * Die Liga, wie der Admin sie eingetippt hat — eine Altersklasse wie `U14`
+   * oder das Kuerzel des Verbands wie `XU14Bz`. Die Altersklasse wird daraus
+   * gedeutet, genau wie beim CSV-Import; das Getippte bleibt als Beschriftung
+   * am Spiel stehen.
+   */
+  league: string;
   home: string;
   away: string;
   venue: string;
-  /** Lizenz, die zum Pfeifen noetig ist. E ist die niedrigere. */
+  /** Lizenz, die zum Pfeifen noetig ist. E ist die niedrigste. */
   requiredLicense: License;
 }
 
@@ -60,7 +69,7 @@ export const createGame = async (
   actorId: string,
   input: NewGameInput,
 ): Promise<AdminResult> => {
-  const missing = (['localDate', 'localTime', 'leagueId', 'home', 'away', 'venue'] as const).find(
+  const missing = (['localDate', 'localTime', 'league', 'home', 'away', 'venue'] as const).find(
     (field) => input[field].trim() === '',
   );
   if (missing) return fail('Bitte alle Felder ausfüllen.');
@@ -68,41 +77,65 @@ export const createGame = async (
   const kickoff = localToUtc(`${input.localDate}T${input.localTime}`, CLUB.timeZone);
   if (Number.isNaN(kickoff.getTime())) return fail('Datum oder Uhrzeit sind nicht lesbar.');
 
-  const id = randomUUID();
-  try {
-    await db.transaction(async (tx) => {
-      await tx.insert(schema.games).values({
-        id,
-        kickoff,
-        leagueId: input.leagueId,
-        home: input.home.trim(),
-        away: input.away.trim(),
-        venue: input.venue.trim(),
-        requiredLicense: input.requiredLicense,
-      });
-      await writeAudit(tx, {
-        actorId,
-        action: 'game.create',
-        gameId: id,
-        detail: {
-          league: input.leagueId,
-          kickoff: kickoff.toISOString(),
-          lizenz: input.requiredLicense,
-        },
-      });
-    });
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      return fail('Dieses Spiel gibt es schon — gleiche Zeit, gleiche Mannschaften.');
-    }
-    throw error;
+  /*
+   * Freitext statt Auswahlliste: der Verband schreibt `XU14Bz`, und genau das
+   * soll am Spiel stehen. Die Altersklasse wird daraus gedeutet — sie muss es
+   * im Verein geben, sonst zeigte der Fremdschluessel spaeter einen Fehler,
+   * den niemand lesen kann.
+   */
+  const leagueLabel = input.league.trim();
+  const leagueId = leagueFromLabel(leagueLabel);
+  const known = await db
+    .select({ id: schema.leagues.id })
+    .from(schema.leagues)
+    .where(eq(schema.leagues.id, leagueId))
+    .limit(1);
+  if (known.length === 0) {
+    return fail(
+      `Die Liga „${leagueId}“ (aus „${leagueLabel}“) ist im Verein nicht angelegt — ` +
+        'lege sie zuerst in den Einstellungen an.',
+    );
   }
+
+  const id = randomUUID();
+  await db.transaction(async (tx) => {
+    await tx.insert(schema.games).values({
+      id,
+      kickoff,
+      leagueId,
+      leagueLabel,
+      home: input.home.trim(),
+      away: input.away.trim(),
+      venue: input.venue.trim(),
+      requiredLicense: input.requiredLicense,
+    });
+    await writeAudit(tx, {
+      actorId,
+      action: 'game.create',
+      gameId: id,
+      detail: {
+        league: leagueId,
+        kuerzel: leagueLabel,
+        kickoff: kickoff.toISOString(),
+        lizenz: input.requiredLicense,
+      },
+    });
+  });
+
+  /*
+   * Dieselbe Paarung zur selben Zeit ein zweites Mal anzulegen ist erlaubt.
+   * Frueher wies die Eindeutigkeitsbedingung der Datenbank das ab; sie ist
+   * gefallen, weil es diese Spiele wirklich gibt — zwei Begegnungen parallel
+   * in derselben Halle, jede mit eigenen Schiedsrichtern. Was doppelt
+   * entsteht, steht in der Spieluebersicht nebeneinander und laesst sich dort
+   * loeschen; ein Verbot haette den zweiten Ansatz unmoeglich gemacht.
+   */
 
   return {
     ok: true,
     gameId: id,
     message:
-      `Spiel angelegt. Alle mit Qualifikation ${input.leagueId} und mindestens ` +
+      `Spiel angelegt. Alle mit Qualifikation ${leagueId} und mindestens ` +
       `Lizenz ${input.requiredLicense} können sich eintragen.`,
   };
 };
@@ -110,10 +143,22 @@ export const createGame = async (
 export interface CsvPreview extends CsvParseResult {
   fresh: readonly CsvRow[];
   duplicates: readonly CsvRow[];
-  repeated: readonly CsvRow[];
 }
 
 const toKickoff = (local: string) => localToUtc(local, CLUB.timeZone);
+
+/**
+ * Die vorhandenen Spiele als abgezaehlte Schluessel.
+ *
+ * Fuer die Vorschau im Browser: sie muss sagen koennen, was es schon gibt,
+ * und bekommt dafuer nur diese Liste statt der ganzen Spieltabelle.
+ */
+export const existingGameCounts = async (): Promise<readonly (readonly [string, number])[]> => {
+  const existing = await db
+    .select({ kickoff: schema.games.kickoff, home: schema.games.home, away: schema.games.away })
+    .from(schema.games);
+  return [...countByKey(existing)];
+};
 
 /** Liest eine CSV ein und sagt, was daraus entstehen wuerde. */
 export const previewCsv = async (text: string): Promise<CsvPreview> => {
@@ -126,9 +171,8 @@ export const previewCsv = async (text: string): Promise<CsvPreview> => {
   const existing = await db
     .select({ kickoff: schema.games.kickoff, home: schema.games.home, away: schema.games.away })
     .from(schema.games);
-  const keys = new Set(existing.map((row) => gameKey(row.kickoff, row.home, row.away)));
 
-  return { ...parsed, ...dedupe(parsed.valid, toKickoff, keys) };
+  return { ...parsed, ...dedupe(parsed.valid, toKickoff, countByKey(existing)) };
 };
 
 /**
@@ -157,6 +201,7 @@ export const importCsv = async (actorId: string, text: string): Promise<AdminRes
           id: randomUUID(),
           kickoff: toKickoff(row.localKickoff),
           leagueId: row.league,
+          leagueLabel: row.leagueLabel,
           home: row.home,
           away: row.away,
           venue: row.venue,
@@ -169,13 +214,13 @@ export const importCsv = async (actorId: string, text: string): Promise<AdminRes
       action: 'game.import',
       detail: {
         imported: preview.fresh.length,
-        skipped: preview.duplicates.length + preview.repeated.length,
+        skipped: preview.duplicates.length,
         rejected: preview.invalid.length,
       },
     });
   });
 
-  const skipped = preview.duplicates.length + preview.repeated.length;
+  const skipped = preview.duplicates.length;
   const parts = [`${preview.fresh.length} Spiele importiert`];
   if (skipped > 0) parts.push(`${skipped} übersprungen (schon vorhanden)`);
   if (preview.invalid.length > 0) parts.push(`${preview.invalid.length} unbrauchbar`);
@@ -276,6 +321,84 @@ export const editGame = async (
     };
   }
   return { ok: true, message: 'Gespeichert.' };
+};
+
+/**
+ * Traegt eine Person auf einen bestimmten Platz ein — vom Admin aus.
+ *
+ * Der Weg daneben ist "wer zuerst eintraegt, hat den Platz". Der reicht nicht:
+ * bleibt ein Spiel liegen, muss jemand es besetzen koennen, und wer im Verein
+ * anruft und zusagt, soll nicht erst selbst die App bedienen muessen.
+ *
+ * Was der Admin darf und was nicht:
+ *
+ * - **Reihenfolge (Regel 2) und ein Spiel pro Tag (Regel 6) gelten hier
+ *   nicht.** Beides sind Regeln fuer die Selbstbedienung; wer einteilt,
+ *   entscheidet bewusst und sieht die Besetzung vor sich.
+ * - **Qualifikation und Lizenz (Regel 4) gelten sehr wohl.** Sie sagen, wer
+ *   ein Spiel pfeifen *kann*. Daran darf auch ein Admin nicht vorbei — er
+ *   erteilt zuerst die Qualifikation und traegt dann ein.
+ *
+ * Die Person bekommt eine Nachricht, und zwar unabhaengig davon, ob die
+ * Quittung nach dem Eintragen (Regel 31) abgeschaltet ist: die quittiert eine
+ * eigene Handlung. Hier hat jemand anderes gehandelt, und davon muss sie
+ * erfahren.
+ */
+export const assignReferee = async (
+  actorId: string,
+  gameId: string,
+  slotIndex: SlotIndex,
+  refereeId: string,
+): Promise<AdminResult> => {
+  if (refereeId.trim() === '') return fail('Bitte eine Person auswählen.');
+
+  const [gameRows, refereeRows, assignmentRows] = await Promise.all([
+    db.select().from(schema.games).where(eq(schema.games.id, gameId)).limit(1),
+    loadAllReferees(),
+    db.select().from(schema.assignments).where(eq(schema.assignments.gameId, gameId)),
+  ]);
+  const gameRow = gameRows[0];
+  if (!gameRow) return fail('Dieses Spiel gibt es nicht mehr.');
+  const game = toGame(gameRow);
+
+  const referee = refereeRows.find((entry) => entry.id === refereeId);
+  if (!referee) return fail('Dieses Konto gibt es nicht mehr.');
+
+  const slots = buildSlots(assignmentRows.map(toAssignment));
+  if (slots[slotIndex]?.assignment) return fail('Dieser Platz ist schon belegt.');
+  if (assignmentRows.some((row) => row.refereeId === refereeId)) {
+    return fail(`${referee.name} steht bei diesem Spiel schon auf einem anderen Platz.`);
+  }
+  if (qualifiedReferees([referee], game.leagueId, game.requiredLicense).length === 0) {
+    return fail(
+      `${referee.name} hat nicht die Qualifikation ${game.leagueId} mit mindestens ` +
+        `Lizenz ${game.requiredLicense}. Erteile sie zuerst im Schiedsrichter-Bereich.`,
+    );
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.assignments).values({ gameId, slotIndex, refereeId });
+      await writeAudit(tx, {
+        actorId,
+        action: 'assignment.byAdmin',
+        gameId,
+        subjectId: refereeId,
+        detail: { slotIndex },
+      });
+      await enqueue(tx, assignmentIntent(gameId, refereeId, slotIndex));
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return fail('Dieser Platz wurde im selben Moment belegt. Lade die Seite neu.');
+    }
+    throw error;
+  }
+
+  return {
+    ok: true,
+    message: `${referee.name} steht jetzt auf ${SLOT_LABELS[slotIndex]} und bekommt eine Nachricht.`,
+  };
 };
 
 /**

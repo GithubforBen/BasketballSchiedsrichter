@@ -6,7 +6,7 @@ import { loginRoute } from '@/routes';
 import { landingScreen } from '@/server/auth/landing';
 import { requestLogin, redeemCode } from '@/server/auth/login';
 import { loginWithPassword } from '@/server/auth/password-login';
-import { formatPhone, normalisePhone } from '@/server/auth/phone';
+import { formatPhone, normalisePhone } from '@/domain/phone';
 import { clientIp } from '@/server/client-ip';
 import { env } from '@/server/env';
 import { createSession, SESSION_COOKIE, sessionCookieOptions } from '@/server/session';
@@ -58,7 +58,9 @@ export const passwordLoginAction = async (formData: FormData): Promise<void> => 
    * Weiterleitung — `requireUser` laesst ohnehin niemanden weiter —, aber der
    * Umweg ueber eine Seite, die sofort weiterleitet, waere unschoen.
    */
-  redirect(result.mustChangePassword ? '/passwort' : landingScreen(result.lastScreen));
+  redirect(
+    result.mustChangePassword ? '/passwort' : landingScreen(result.lastScreen, result.role),
+  );
 };
 
 export const requestLoginAction = async (formData: FormData): Promise<void> => {
@@ -91,7 +93,9 @@ export const submitCodeAction = async (formData: FormData): Promise<void> => {
   }
 
   await startSession(result.refereeId, result.role);
-  redirect(result.mustChangePassword ? '/passwort' : landingScreen(result.lastScreen));
+  redirect(
+    result.mustChangePassword ? '/passwort' : landingScreen(result.lastScreen, result.role),
+  );
 };
 
 const MAGIC_LINK_OFF = 'Die Anmeldung per Link ist ausgeschaltet. Bitte mit Passwort anmelden.';

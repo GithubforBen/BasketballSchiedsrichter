@@ -4,7 +4,7 @@ import { Button, Note } from '@/components/primitives';
 import { DayNavigator } from '@/components/games/DayNavigator';
 import { GameEntry } from '@/components/games/GameEntry';
 import { RelocationBanner } from '@/components/games/RelocationBanner';
-import { FOOTER_NAV, REFEREE_NAV, REFEREE_TABS } from '@/components/shell/navigation';
+import { FOOTER_NAV, navFor } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
 import { confirmationDueAt, confirmationState } from '@/domain/confirmation';
@@ -12,7 +12,7 @@ import { dateLabel, groupByMatchday, matchTitle, statusOf, timeLabel } from '@/d
 import { isLicensedFor, isQualified } from '@/domain/rules';
 import { slotOf } from '@/domain/slots';
 import { slotViews, substituteRequestView } from '@/domain/slot-actions';
-import { describeHoursDative, describeLeadTime } from '@/domain/time';
+import { describeHours, describeHoursDative, describeLeadTime } from '@/domain/time';
 import type { Game } from '@/domain/types';
 import { initialsById } from '@/server/queries/games';
 import { loadReferee } from '@/server/queries/referees';
@@ -61,10 +61,12 @@ const OpenGames = async ({ searchParams }: PageProps) => {
   );
   const day = matchdays[index];
 
+  const { nav, tabs } = navFor(user.role);
+
   const shell = (children: React.ReactNode) => (
     <Shell
-      nav={REFEREE_NAV}
-      tabs={REFEREE_TABS}
+      nav={nav}
+      tabs={tabs}
       footerNav={FOOTER_NAV}
       current="/spiele"
       user={{ name: user.name, initials: user.initials }}
@@ -103,7 +105,7 @@ const OpenGames = async ({ searchParams }: PageProps) => {
         <div className="page-head-text">
           <div className="kicker kicker-accent">Wer zuerst einträgt, hat den Platz</div>
           <h1>Offene Spiele</h1>
-          <p className="text-muted">
+          <p className="lead text-muted">
             Nach Spieltagen getrennt. Wischen, Pfeiltasten oder die Knöpfe wechseln den Tag.
           </p>
         </div>
@@ -222,8 +224,8 @@ const confirmationHint = (
 ): string => {
   const due = confirmationDueAt(game, settings);
   return due > now
-    ? `Die Nachfrage kommt ${describeHoursDative(settings.confirmationLeadHours)} vor Anpfiff.`
-    : `Angefordert ${describeHoursDative(settings.confirmationLeadHours)} vor Anpfiff. Ohne Antwort innerhalb von ${describeHoursDative(settings.confirmationFollowUpHours)} geht eine erneute Erinnerung an dich und eine Meldung an die Admins.`;
+    ? `Die Nachfrage kommt ${describeHours(settings.confirmationLeadHours)} vor Anpfiff.`
+    : `Angefordert ${describeHours(settings.confirmationLeadHours)} vor Anpfiff. Ohne Antwort innerhalb von ${describeHoursDative(settings.confirmationFollowUpHours)} geht eine erneute Erinnerung an dich und eine Meldung an die Admins.`;
 };
 
 export default OpenGames;

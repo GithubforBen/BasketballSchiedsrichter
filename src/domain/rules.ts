@@ -73,7 +73,7 @@ export const canClaimSlot = (ctx: ClaimContext): Decision => {
   if (!isQualified(ctx.referee, ctx.game.leagueId)) {
     return deny(
       'not-qualified',
-      'Fuer diese Liga fehlt dir die Qualifikation. Der Admin vergibt sie im Schiedsrichter-Bereich.',
+      'Für diese Liga fehlt dir die Qualifikation. Der Admin vergibt sie im Schiedsrichter-Bereich.',
     );
   }
 
@@ -85,7 +85,7 @@ export const canClaimSlot = (ctx: ClaimContext): Decision => {
   if (ctx.referee.license === null) {
     return deny(
       'license-missing',
-      'Fuer dich ist keine Lizenz hinterlegt — ohne sie ist keine Eintragung moeglich. Der Admin traegt sie im Schiedsrichter-Bereich ein.',
+      'Für dich ist keine Lizenz hinterlegt — ohne sie ist keine Eintragung möglich. Der Admin trägt sie im Schiedsrichter-Bereich ein.',
     );
   }
   if (!isLicensedFor(ctx.referee, ctx.game)) {
@@ -108,12 +108,12 @@ export const canClaimSlot = (ctx: ClaimContext): Decision => {
 
   const next = nextFreeSlot(ctx.slots);
   if (!next) {
-    return deny('slot-taken', 'Alle vier Plaetze sind besetzt.');
+    return deny('slot-taken', 'Alle vier Plätze sind besetzt.');
   }
   if (next.index !== ctx.slotIndex) {
     return deny(
       'slot-out-of-order',
-      `Plaetze werden der Reihe nach vergeben. Als naechstes ist ${SLOT_LABELS[next.index]} frei.`,
+      `Plätze werden der Reihe nach vergeben. Als nächstes ist ${SLOT_LABELS[next.index]} frei.`,
     );
   }
 
@@ -142,7 +142,7 @@ const oneGamePerDayConflict = (ctx: ClaimContext): Decision | null => {
 
   return deny(
     'one-game-per-day',
-    `Du bist an diesem Tag schon fuer ${clash.home} — ${clash.away} eingetragen. Pro Tag ist ein Spiel vorgesehen; der Admin kann das fuer dieses Spiel freigeben.`,
+    `Du bist an diesem Tag schon für ${clash.home} — ${clash.away} eingetragen. Pro Tag ist ein Spiel vorgesehen; der Admin kann das für dieses Spiel freigeben.`,
   );
 };
 
@@ -171,7 +171,7 @@ export const canWithdraw = (ctx: WithdrawContext): Decision => {
   if (!guard.allowed) return guard;
 
   if (!isAssigned(ctx.slots, ctx.referee.id)) {
-    return deny('not-assigned', 'Du bist fuer dieses Spiel nicht eingetragen.');
+    return deny('not-assigned', 'Du bist für dieses Spiel nicht eingetragen.');
   }
 
   if (ctx.game.overrides.withdraw) return allow();
@@ -180,7 +180,7 @@ export const canWithdraw = (ctx: WithdrawContext): Decision => {
   if (!withinLeadTime(ctx.game.kickoff, ctx.now, limit)) {
     return deny(
       'withdraw-deadline-passed',
-      `Austragen ist nur bis ${ctx.settings.withdrawDeadlineDays} Tage vor Anpfiff moeglich. Melde dich beim Admin — er kann den Platz fuer dich freigeben.`,
+      `Austragen ist nur bis ${ctx.settings.withdrawDeadlineDays} Tage vor Anpfiff möglich. Melde dich beim Admin — er kann den Platz für dich freigeben.`,
     );
   }
   return allow();
@@ -208,13 +208,13 @@ export const canRequestSubstitute = (ctx: SubstituteRequestContext): Decision =>
   if (!isAssigned(ctx.slots, ctx.referee.id)) {
     return deny(
       'not-assigned',
-      'Ersatz kannst du nur anfordern, wenn du selbst fuer dieses Spiel eingetragen bist.',
+      'Ersatz kannst du nur anfordern, wenn du selbst für dieses Spiel eingetragen bist.',
     );
   }
 
   const free = substituteSlots(ctx.slots).some((s) => s.assignment === null);
   if (!free) {
-    return deny('no-open-substitute-slot', 'Beide Ersatzplaetze sind schon besetzt.');
+    return deny('no-open-substitute-slot', 'Beide Ersatzplätze sind schon besetzt.');
   }
 
   if (ctx.game.overrides.substituteRequest) return allow();

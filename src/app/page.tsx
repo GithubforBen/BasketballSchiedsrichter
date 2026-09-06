@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Note } from '@/components/primitives';
 import { PublicMatchday } from '@/components/schedule/PublicMatchday';
-import { FOOTER_NAV, PUBLIC_NAV, PUBLIC_TABS } from '@/components/shell/navigation';
+import { FOOTER_NAV, navForViewer } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
 import { initialsById, upcomingMatchdays } from '@/server/queries/games';
@@ -30,10 +30,12 @@ const PublicSchedule = async () => {
     currentUser(now),
   ]);
 
+  const { nav, tabs } = navForViewer(user);
+
   return (
     <Shell
-      nav={PUBLIC_NAV}
-      tabs={PUBLIC_TABS}
+      nav={nav}
+      tabs={tabs}
       footerNav={FOOTER_NAV}
       current="/"
       user={user ? { name: user.name, initials: user.initials } : undefined}
@@ -42,9 +44,9 @@ const PublicSchedule = async () => {
         <div className="page-head-text">
           <div className="kicker kicker-accent">Öffentlich</div>
           <h1>Spielplan</h1>
-          <p className="text-muted">
+          <p className="lead text-muted">
             Zwei gleichwertige Schiedsrichter pro Spiel, zwei Ersatzplätze. Ohne Anmeldung
-            erscheinen Schiedsrichter nur als Kürzel — kein Name, kein Profilbild.
+            erscheinen Schiedsrichter nur als Kürzel — kein Name, keine Telefonnummer.
           </p>
         </div>
         <ul className="legend">

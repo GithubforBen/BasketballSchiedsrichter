@@ -4,6 +4,7 @@ import { Button, Tag } from '@/components/primitives';
 import { AdminShell, single } from '@/components/admin/AdminShell';
 import { CLUB } from '@/config/club';
 import { matchTitle, timeLabel, dateLabel } from '@/domain/schedule';
+import { leagueDisplay } from '@/domain/league';
 import { editGameRoute } from '@/routes';
 import { requireAdmin } from '@/server/guard';
 import { adminOverview } from '@/server/queries/admin-view';
@@ -62,7 +63,7 @@ const Alerts = async ({ searchParams }: PageProps) => {
       error={single(params.fehler)}
     >
       {alerts.length === 0 ? (
-        <p className="text-muted">
+        <p className="lead text-muted">
           Nichts zu tun: alle kommenden Spiele sind besetzt und bestätigt.
         </p>
       ) : (
@@ -88,7 +89,7 @@ const Alerts = async ({ searchParams }: PageProps) => {
                     {game ? (
                       <span className="text-muted" style={{ fontSize: '12px' }}>
                         {dateLabel(game.kickoff, CLUB.timeZone)} ·{' '}
-                        {timeLabel(game.kickoff, CLUB.timeZone)} · {game.leagueId} · {game.venue}
+                        {timeLabel(game.kickoff, CLUB.timeZone)} · {leagueDisplay(game)} · {game.venue}
                       </span>
                     ) : null}
                   </div>

@@ -56,7 +56,7 @@ export const issueRecoveryToken = async (
   const referee = rows[0];
   if (!referee) throw new Error('Dieses Konto gibt es nicht.');
   if (referee.role !== 'admin' || !referee.active) {
-    throw new Error('Ein Notzugang gilt nur fuer einen aktiven Admin.');
+    throw new Error('Ein Notzugang gilt nur für einen aktiven Admin.');
   }
 
   const token = generateRecoveryToken();

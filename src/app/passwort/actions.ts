@@ -37,6 +37,6 @@ export const changePasswordAction = async (formData: FormData): Promise<void> =>
    * ein „gespeichert" auf einer Seite, die man nur musste, waere eine Sackgasse.
    * Wer freiwillig geaendert hat, bleibt mit der Bestaetigung hier stehen.
    */
-  if (user.mustChangePassword) redirect(landingScreen(user.lastScreen));
+  if (user.mustChangePassword) redirect(landingScreen(user.lastScreen, user.role));
   redirect(passwordRoute({ hinweis: result.message }));
 };

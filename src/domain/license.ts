@@ -1,12 +1,13 @@
 import type { License, Referee } from './types';
 
 /**
- * Lizenzen. E ist die Einstiegslizenz, D die hoehere.
+ * Lizenzen. E ist die Einstiegslizenz, darueber D, darueber C.
  *
  * Zwei Saetze, und beide sind Absicht:
  *
- * 1. **D deckt E mit ab.** Wer die hoehere Lizenz hat, darf auch die Spiele
- *    pfeifen, fuer die die niedrigere genuegt. Umgekehrt nicht.
+ * 1. **Die hoehere deckt die niedrigeren mit ab.** C darf C, D und E pfeifen,
+ *    D darf D und E, E nur E. Umgekehrt nie: mit D oder E bleibt ein
+ *    C-Spiel gesperrt.
  * 2. **Ohne Lizenz geht gar nichts.** Ein Konto ohne Lizenz kann sich in kein
  *    Spiel eintragen, auch nicht in eine Liga, fuer die die Qualifikation
  *    vorliegt. Sehen darf es weiterhin jedes Spiel — die Lizenz beschraenkt
@@ -15,12 +16,16 @@ import type { License, Referee } from './types';
  * Die Qualifikation je Liga (Regel 4) bleibt davon unberuehrt: sie sagt, fuer
  * welche Altersklasse jemand eingeteilt werden darf, die Lizenz sagt, welche
  * Spiele er ueberhaupt pfeifen darf. Beides muss zusammenkommen.
+ *
+ * Verglichen wird ueber den Rang und nicht ueber die Buchstaben: alphabetisch
+ * stuende C vor D und E, der Rangfolge nach steht es darueber.
  */
 
-export const LICENSES: readonly License[] = ['E', 'D'];
+/** Aufsteigend: die niedrigste zuerst. In dieser Reihenfolge wird sie angezeigt. */
+export const LICENSES: readonly License[] = ['E', 'D', 'C'];
 
 /** Rangfolge. Groesser heisst: deckt mehr ab. */
-const RANK: Readonly<Record<License, number>> = { E: 0, D: 1 };
+const RANK: Readonly<Record<License, number>> = { E: 0, D: 1, C: 2 };
 
 export const isLicense = (value: unknown): value is License =>
   typeof value === 'string' && (LICENSES as readonly string[]).includes(value);
@@ -28,6 +33,19 @@ export const isLicense = (value: unknown): value is License =>
 /** Reicht `held` fuer ein Spiel, das `required` verlangt? */
 export const licenseCovers = (held: License | null, required: License): boolean =>
   held !== null && RANK[held] >= RANK[required];
+
+/**
+ * Die Stufe eines Spiels, wie sie im Formular danebensteht.
+ *
+ * "mindestens" und nicht "nur mit": ein D-Spiel darf auch pfeifen, wer C hat.
+ * Solange D die hoechste Lizenz war, sagten beide Formulierungen dasselbe;
+ * seit es C gibt, waere "nur mit D-Lizenz" schlicht falsch. Fuer die
+ * niedrigste Stufe steht gar keine Zahl da — dort reicht jede Lizenz.
+ */
+export const licenseRequirementLabel = (license: License): string =>
+  license === LICENSES[0]
+    ? `${license} — jede Lizenz reicht`
+    : `${license} — mindestens ${license}-Lizenz`;
 
 /** Lizenz zum Anzeigen. Ohne Lizenz steht das ausdruecklich da. */
 export const licenseLabel = (license: License | null): string =>
