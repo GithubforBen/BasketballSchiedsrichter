@@ -1,0 +1,41 @@
+# Was nicht in den Build-Kontext gehoert.
+#
+# Ohne diese Datei nimmt `COPY . .` alles mit: 698 MB node_modules, 188 MB
+# alter .next-Stand, die .git-Historie — und die .env. Das hatte drei Folgen,
+# von denen die erste die schlimmste ist:
+#
+# 1. Die Geheimnisse landeten in der Build-Schicht. Das fertige Abbild nimmt
+#    zwar nur .next/standalone mit, die Zwischenschicht liegt aber im lokalen
+#    Cache und ginge beim Hochladen in eine Registry mit.
+# 2. `next build` las die .env ("Environments: .env") und haengte damit vom
+#    Inhalt einer Datei ab, die mit dem Bauen nichts zu tun hat. Eine
+#    unbrauchbare DATABASE_URL brach deshalb den Build ab.
+# 3. 675 MB Kontext bei jedem Lauf, auf einer langsamen Maschine spuerbar.
+
+# Geheimnisse. Das Beispiel bleibt draussen — gebraucht wird es beim Bauen nicht.
+.env
+.env.*
+
+# Wird im deps-Abschnitt frisch und fuer die Zielplattform installiert.
+node_modules
+
+# Alter Baustand. Ein mitkopierter verwirrt den neuen nur.
+.next
+out
+dist
+build
+*.tsbuildinfo
+
+.git
+.github
+
+# Datenbanksicherungen. Sie enthalten Namen und Telefonnummern.
+sicherungen
+
+coverage
+test-results
+playwright-report
+playwright/.cache
+
+.DS_Store
+*.log

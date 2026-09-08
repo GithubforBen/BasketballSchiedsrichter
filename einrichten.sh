@@ -230,7 +230,12 @@ LABEL[ADMIN_TELEFON]='Erster Admin: Telefonnummer'
 HILFE[ADMIN_TELEFON]='Damit meldet er sich an, z. B. 0157 22067123'
 
 setze_vorgabe PUBLIC_BASE_URL 'https://'
-setze_vorgabe POSTGRES_PASSWORD "$(openssl rand -base64 24)"
+# Hexadezimal und nicht base64: das Passwort landet im Abfrageteil einer
+# postgres://-Adresse — in der .env und noch einmal in docker-compose.yml.
+# `openssl rand -base64` liefert auch "/" und "+", und ein "/" beendet dort den
+# Benutzerteil. Die Adresse ist dann keine gueltige URL mehr, und `next build`
+# bricht beim Einlesen von @/db ab. 24 Byte sind 48 Zeichen aus [0-9a-f].
+setze_vorgabe POSTGRES_PASSWORD "$(openssl rand -hex 24)"
 setze_vorgabe SESSION_SECRET "$(openssl rand -base64 48)"
 setze_vorgabe CRON_SECRET "$(openssl rand -base64 32)"
 setze_vorgabe NOTIFICATION_CHANNEL 'dev'
@@ -268,7 +273,14 @@ pruefe() {
       [[ $wert =~ ^https?://[^[:space:]/]+ ]] || { echo "Muss mit http:// oder https:// beginnen und einen Host nennen."; return 1; } ;;
     SESSION_SECRET)
       (( ${#wert} >= 32 )) || { echo "Mindestens 32 Zeichen — die Anwendung weist kuerzere im Echtbetrieb ab."; return 1; } ;;
-    POSTGRES_PASSWORD|CRON_SECRET|CLOUDFLARE_TUNNEL_TOKEN|ADMIN_NAME|ADMIN_TELEFON)
+    POSTGRES_PASSWORD)
+      [[ -n $wert ]] || { echo "Darf nicht leer bleiben."; return 1; }
+      # Es steht in zwei postgres://-Adressen, und docker-compose.yml setzt es
+      # dort ebenso ungeschuetzt ein. Erlaubt sind deshalb nur Zeichen, die in
+      # einer URL nichts bedeuten — "/", "@", ":" und "%" zerlegten sie.
+      [[ $wert =~ ^[A-Za-z0-9._~-]+$ ]] ||
+        { echo "Nur Buchstaben, Ziffern und . _ ~ - — andere Zeichen zerlegen die Datenbankadresse."; return 1; } ;;
+    CRON_SECRET|CLOUDFLARE_TUNNEL_TOKEN|ADMIN_NAME|ADMIN_TELEFON)
       [[ -n $wert ]] || { echo "Darf nicht leer bleiben."; return 1; } ;;
     NOTIFICATION_CHANNEL)
       [[ $wert == dev || $wert == email || $wert == whatsapp ]] || { echo "Nur dev, email oder whatsapp."; return 1; } ;;
