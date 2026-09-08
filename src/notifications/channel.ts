@@ -189,6 +189,23 @@ export const whatsappPayload = (message: OutgoingMessage, to: string): unknown =
 };
 
 /**
+ * Wie lange auf die Cloud API gewartet wird.
+ *
+ * `fetch` wartet von sich aus unbegrenzt. Eine Verbindung, die steht, aber
+ * nicht antwortet, haelt damit nicht nur diese eine Nachricht auf: die Outbox
+ * arbeitet ihre Zeilen nacheinander ab, der ganze Lauf bliebe also haengen —
+ * und beim Anmelden wartet ein Mensch davor, denn `requestLogin` stellt genau
+ * seine Nachricht sofort zu, statt auf den naechsten Cron-Lauf zu warten.
+ *
+ * Zehn Sekunden sind reichlich fuer einen Aufruf, der ueblicherweise unter
+ * einer Sekunde braucht. Laeuft die Zeit ab, gilt der Versuch als
+ * voruebergehend gescheitert — die Zeile bleibt liegen und der naechste Lauf
+ * nimmt sie erneut. Genau richtig: eine Zeitueberschreitung sagt nichts
+ * darueber, ob die Nachricht schlecht war.
+ */
+const WHATSAPP_TIMEOUT_MS = 10_000;
+
+/**
  * Meta WhatsApp Cloud API.
  *
  * Die Texte stehen geschlossen in `templates.ts` — dort steht jede Nachricht
@@ -218,6 +235,7 @@ const whatsappChannel: Channel = {
         body: JSON.stringify(
           whatsappPayload(message, toWhatsAppNumber(message.recipient.phone)),
         ),
+        signal: AbortSignal.timeout(WHATSAPP_TIMEOUT_MS),
       },
     );
 

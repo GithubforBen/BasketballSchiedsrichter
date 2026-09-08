@@ -14,5 +14,15 @@ export default defineConfig({
     include: ['src/**/*.test.ts'],
     // Integrationstests laufen nacheinander, weil sie sich eine Datenbank teilen.
     fileParallelism: false,
+    /*
+     * Die Voreinstellung sind fuenf Sekunden. Das reicht fuer die reinen
+     * Fachtests reichlich, aber nicht fuer die Integrationstests: der
+     * Nachrichtenlauf legt je Fall ein Dutzend Zeilen an, und auf einer
+     * langsamen Maschine dauert ein einzelner Fall laenger als das. Sie
+     * scheiterten dann als Zeitueberschreitung — was wie ein echter Fehler
+     * aussieht und keiner ist. Dreissig Sekunden trennen das eine vom anderen:
+     * was so lange braucht, haengt wirklich.
+     */
+    testTimeout: 30_000,
   },
 });

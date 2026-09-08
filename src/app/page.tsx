@@ -33,6 +33,20 @@ export const dynamic = 'force-dynamic';
  */
 const PAGE_SIZE = 4;
 
+/**
+ * Obergrenze fuer `?spieltage=`.
+ *
+ * Die Zahl steht in der Adresse und kommt damit von aussen. `Math.max` allein
+ * begrenzte sie nur nach unten: `?spieltage=999999999` war erlaubt und
+ * uebersprang das schrittweise Nachladen, um dessentwillen die Seite ueberhaupt
+ * gestueckelt ist. Wirklich gefaehrlich ist das nicht — mehr als alle
+ * vorhandenen Spieltage kann auch diese Zahl nicht herbeischaffen —, aber eine
+ * Zahl aus dem Netz, die ungeprueft in eine Abfragegrenze wandert, soll hier
+ * nicht stehen. Sechzig Spieltage sind mehr als eine ganze Saison; wer sich
+ * ueber "Weitere Spieltage" durchklickt, stoesst nie daran.
+ */
+const MAX_MATCHDAYS = 60;
+
 const single = (value: string | string[] | undefined): string | undefined =>
   Array.isArray(value) ? value[0] : value;
 
@@ -50,7 +64,9 @@ const PublicSchedule = async ({ searchParams }: PageProps) => {
    * tut, was er soll.
    */
   const requested = Number.parseInt(single(params.spieltage) ?? '', 10);
-  const shown = Number.isFinite(requested) ? Math.max(PAGE_SIZE, requested) : PAGE_SIZE;
+  const shown = Number.isFinite(requested)
+    ? Math.min(MAX_MATCHDAYS, Math.max(PAGE_SIZE, requested))
+    : PAGE_SIZE;
 
   const [{ matchdays, total }, initials, user] = await Promise.all([
     upcomingMatchdays(now, shown),

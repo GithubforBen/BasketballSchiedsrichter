@@ -1,4 +1,4 @@
-import { and, asc, gte, inArray, ne } from 'drizzle-orm';
+import { and, asc, gte, inArray, lte, ne } from 'drizzle-orm';
 import { CLUB } from '@/config/club';
 import { db, schema } from '@/db';
 import { groupByMatchday, withSlots, type Matchday } from '@/domain/schedule';
@@ -62,21 +62,56 @@ export interface UpcomingPage {
  * paar zu verwenden, die auf die Seite kamen.
  */
 export const upcomingMatchdays = async (now: Date, limit?: number): Promise<UpcomingPage> => {
-  const rows = await db
-    .select()
+  /*
+   * Erst nur die Anpfiffe, eine einzige Spalte.
+   *
+   * Daraus ergeben sich zwei Dinge, die vor dem eigentlichen Laden feststehen
+   * muessen: welche Tage es gibt und wie viele es insgesamt sind ("noch N
+   * weitere"). Beides braucht jede kuenftige Zeile, aber von keiner mehr als
+   * den Zeitstempel — vorher holte diese Funktion dafuer jede Spalte jedes
+   * Spiels, um am Ende die Haelfte wegzuwerfen.
+   */
+  const kickoffs = await db
+    .select({ kickoff: schema.games.kickoff })
     .from(schema.games)
     .where(and(gte(schema.games.kickoff, now), ne(schema.games.state, 'cancelled')))
     .orderBy(asc(schema.games.kickoff));
 
-  if (rows.length === 0) return { matchdays: [], total: 0 };
+  if (kickoffs.length === 0) return { matchdays: [], total: 0 };
 
   /*
-   * Die Tage in der Reihenfolge des Anpfiffs. `rows` ist bereits sortiert, ein
-   * Set haelt die Einfuegereihenfolge — damit steht der naechste Spieltag vorn.
+   * Die Tage in der Reihenfolge des Anpfiffs. Die Liste ist bereits sortiert,
+   * ein Set haelt die Einfuegereihenfolge — damit steht der naechste Spieltag
+   * vorn.
    */
-  const days = [...new Set(rows.map((row) => calendarDay(row.kickoff, CLUB.timeZone)))];
+  const days = [...new Set(kickoffs.map((row) => calendarDay(row.kickoff, CLUB.timeZone)))];
   const shown = limit === undefined ? days : days.slice(0, Math.max(1, limit));
   const wanted = new Set(shown);
+
+  /*
+   * Jetzt die vollstaendigen Zeilen — und nur bis zum letzten Anpfiff, der noch
+   * auf die Seite kommt. Weil `shown` ein Anfangsstueck der nach Anpfiff
+   * sortierten Tage ist, liegt alles Spaetere zwangslaeufig auf einem Tag, den
+   * niemand angefordert hat. Die Grenze steht damit in der Abfrage und nicht
+   * erst im Speicher.
+   */
+  const lastKickoff = kickoffs
+    .filter((row) => wanted.has(calendarDay(row.kickoff, CLUB.timeZone)))
+    .at(-1)?.kickoff;
+  if (!lastKickoff) return { matchdays: [], total: days.length };
+
+  const rows = await db
+    .select()
+    .from(schema.games)
+    .where(
+      and(
+        gte(schema.games.kickoff, now),
+        lte(schema.games.kickoff, lastKickoff),
+        ne(schema.games.state, 'cancelled'),
+      ),
+    )
+    .orderBy(asc(schema.games.kickoff));
+
   const games = rows.filter((row) => wanted.has(calendarDay(row.kickoff, CLUB.timeZone)));
 
   const assignmentRows = await db
