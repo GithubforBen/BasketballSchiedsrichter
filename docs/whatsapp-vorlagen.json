@@ -1,0 +1,410 @@
+[
+  {
+    "name": "schiriplan_tagesuebersicht",
+    "message_send_ttl_seconds": 43200,
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hallo {{1}},\n\n{{2}} Spiele brauchen Aufmerksamkeit:\n{{3}}\n\nDie vollständige Liste steht in der Spielübersicht.",
+        "example": {
+          "body_text": [
+            [
+              "Nele Baumann",
+              "2",
+              "Sa 29.08.2026, 10:30 Uhr (in 3 Tagen) · BG Nordstadt gegen TV Ostheim (U14): Schiedsrichter 1 offen. · So 30.08.2026, 12:00 Uhr (in 4 Tagen) · TSV Süd gegen BG Nordstadt (U16): 1x Bestätigung ausstehend."
+            ]
+          ]
+        }
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "Übersicht",
+            "url": "https://schiri.ben-schnorr.com/uebersicht"
+          }
+        ]
+      }
+    ],
+    "language": "de",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "sub_category": "CUSTOM",
+    "disable_ios_autofill": false,
+    "is_primary_device_delivery_only": false,
+    "id": "1817475312854149"
+  },
+  {
+    "name": "schiriplan_meldung",
+    "message_send_ttl_seconds": 43200,
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hallo {{1}},\n\nes gibt eine Meldung zu einem Spiel:\n{{2}}\n\n{{3}}\n\nBitte in der Spielübersicht nachsehen und das Problem lösen.",
+        "example": {
+          "body_text": [
+            [
+              "Nele Baumann",
+              "Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim",
+              "Jonas Keller hat die Pflichtbestätigung seit 24 Stunden nicht beantwortet. Anpfiff Sa 29.08.2026, 10:30 Uhr (in 3 Tagen)."
+            ]
+          ]
+        }
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "Meldungen",
+            "url": "https://schiri.ben-schnorr.com/meldungen"
+          }
+        ]
+      }
+    ],
+    "language": "de",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "sub_category": "CUSTOM",
+    "disable_ios_autofill": false,
+    "is_primary_device_delivery_only": false,
+    "id": "1750057239481936"
+  },
+  {
+    "name": "schiriplan_spiel_abgesagt",
+    "message_send_ttl_seconds": 43200,
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hallo {{1}},\n\ndieses Spiel fällt aus:\n{{2}}\nOrt: {{3}}\n\nDu musst nichts weiter tun.",
+        "example": {
+          "body_text": [
+            [
+              "Jonas Keller",
+              "Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim",
+              "Sporthalle Nordstadt, Feld 2"
+            ]
+          ]
+        }
+      }
+    ],
+    "language": "de",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "sub_category": "CUSTOM",
+    "disable_ios_autofill": false,
+    "is_primary_device_delivery_only": false,
+    "id": "1075988704789724"
+  },
+  {
+    "name": "schiriplan_termin_geaendert",
+    "message_send_ttl_seconds": 43200,
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hallo {{1}},\n\ndu bist als Schiedsrichter für dieses Spiel eingetragen:\n{{2}}\nOrt: {{3}}\n\nDas Spiel wurde verlegt:\n\nNeue Zeit: {{4}}\n\nNeuer Ort: {{5}}.\nAnpfiff {{6}}.\n\nPasst der neue Termin?\nBitte sag zu oder ab.",
+        "example": {
+          "body_text": [
+            [
+              "Jonas Keller",
+              "Sa 05.09.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim",
+              "Sporthalle Nordstadt, Feld 2",
+              "Sa 12.09.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim",
+              "Sporthalle Nordstadt, Feld 3",
+              "in 14 Tagen"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "Zu oder Absagen",
+            "url": "https://schiri.ben-schnorr.com/antwort/%7B%7B1%7D%7D{{1}}",
+            "example": [
+              "https://schiri.ben-schnorr.com/antwort/eyJrIjoiY29uZmlybSIsImciOiJnLTIwMjYtMDgtMjkiLCJyIjoici1qayJ9.Qm9YV3pKc0RmMkg0ZQ"
+            ]
+          }
+        ]
+      }
+    ],
+    "language": "en",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "sub_category": "CUSTOM",
+    "disable_ios_autofill": false,
+    "is_primary_device_delivery_only": false,
+    "id": "2148264649053928"
+  },
+  {
+    "name": "schiriplan_platz_frei_admin",
+    "message_send_ttl_seconds": 43200,
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hallo {{1}},\n\nDiese Saison fehlenden noch für {{2}} Spiele Schiedsrichter.\n\n{{3}} Spiele haben noch gar keinen Schiedsrichter.\n\nDas nächste Spiel mit Lücke startet in {{4}}.\n\nBitte schau, dass die Spiele rechtzeitig besetzt werden.",
+        "example": {
+          "body_text": [
+            [
+              "Nele Baumann",
+              "23",
+              "7",
+              "13 Tagen"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "Übersicht",
+            "url": "https://schiri.ben-schnorr.com/uebersicht"
+          }
+        ]
+      }
+    ],
+    "language": "de",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "sub_category": "CUSTOM",
+    "disable_ios_autofill": false,
+    "is_primary_device_delivery_only": false,
+    "id": "1415826567145470"
+  },
+  {
+    "name": "schiriplan_platz_frei",
+    "message_send_ttl_seconds": 43200,
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hallo {{1}},\n\nfür dieses Spiel fehlt und noch ein Schiedsrichter:\n{{2}}\nOrt: {{3}}\nAnpfiff {{4}}.\n\nBitte, schau nochmal, ob du das Spiel vielleicht übernehmen kannst.",
+        "example": {
+          "body_text": [
+            [
+              "Jonas Keller",
+              "Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim",
+              "Sporthalle Nordstadt, Feld 2",
+              "in 5 Tagen"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "Offene Spiele",
+            "url": "https://schiri.ben-schnorr.com/spiele"
+          }
+        ]
+      }
+    ],
+    "language": "de",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "sub_category": "CUSTOM",
+    "disable_ios_autofill": false,
+    "is_primary_device_delivery_only": false,
+    "id": "2537508266732938"
+  },
+  {
+    "name": "schiriplan_nachruecken",
+    "message_send_ttl_seconds": 43200,
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hallo {{1}},\n\ndu bist als Ersatz eingetragen, und {{2}} ist frei geworden:\n{{3}}\nOrt: {{4}}\nAnpfiff {{5}}.\n\nBitte sage bis {{6}} zu oder ab.",
+        "example": {
+          "body_text": [
+            [
+              "Tim Faber",
+              "Schiedsrichter 1",
+              "Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim",
+              "Sporthalle Nordstadt, Feld 2",
+              "in 2 Tagen",
+              "Do 27.08.2026, 18:00 Uhr"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "Zu oder Absagen",
+            "url": "https://schiri.ben-schnorr.com/antwort/%7B%7B1%7D%7D{{1}}",
+            "example": [
+              "https://schiri.ben-schnorr.com/antwort/eyJrIjoiY29uZmlybSIsImciOiJnLTIwMjYtMDgtMjkiLCJyIjoici1qayJ9.Qm9YV3pKc0RmMkg0ZQ"
+            ]
+          }
+        ]
+      }
+    ],
+    "language": "de",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "sub_category": "CUSTOM",
+    "disable_ios_autofill": false,
+    "is_primary_device_delivery_only": false,
+    "id": "1706070730474117"
+  },
+  {
+    "name": "schiriplan_bestaetigung_offen",
+    "message_send_ttl_seconds": 43200,
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hallo {{1}},\n\nwir haben noch keine Rückmeldung von dir zu:\n{{2}}\nOrt: {{3}}\nAnpfiff {{4}}.\n\nBitte gib uns kurz Bescheid, dass du an Deinen Einsatz denkst — ein Tippen genügt.",
+        "example": {
+          "body_text": [
+            [
+              "Jonas Keller",
+              "Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim",
+              "Sporthalle Nordstadt, Feld 2",
+              "in 2 Tagen"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "Jetzt bestätigen",
+            "url": "https://schiri.ben-schnorr.com/antwort/%7B%7B1%7D%7D{{1}}",
+            "example": [
+              "https://eyJrIjoiY29uZmlybSIsImciOiJnLTIwMjYtMDgtMjkiLCJyIjoici1qayJ9.Qm9YV3pKc0RmMkg0ZQ/"
+            ]
+          }
+        ]
+      }
+    ],
+    "language": "de",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "sub_category": "CUSTOM",
+    "disable_ios_autofill": false,
+    "is_primary_device_delivery_only": false,
+    "id": "1072226558616439"
+  },
+  {
+    "name": "schiriplan_bestaetigung_erbeten",
+    "message_send_ttl_seconds": 43200,
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hallo {{1}},\n\nbitte bestätige kurz, dass du an Deinen Einsatz denkst:\n{{2}}\nOrt: {{3}}\nAnpfiff {{4}}.\n\nTippe unten, um zu bestätigen.",
+        "example": {
+          "body_text": [
+            [
+              "Jonas Keller",
+              "Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim",
+              "Sporthalle Nordstadt, Feld 2",
+              "in 3 Tagen"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "Jetzt bestätigen",
+            "url": "https://schiri.ben-schnorr.com/antwort/%7B%7B1%7D%7D{{1}}",
+            "example": [
+              "https://schiri.ben-schnorr.com/antwort/eyJrIjoiY29uZmlybSIsImciOiJnLTIwMjYtMDgtMjkiLCJyIjoici1qayJ9.Qm9YV3pKc0RmMkg0ZQ"
+            ]
+          }
+        ]
+      }
+    ],
+    "language": "de",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "sub_category": "CUSTOM",
+    "disable_ios_autofill": false,
+    "is_primary_device_delivery_only": false,
+    "id": "1416395930416896"
+  },
+  {
+    "name": "schiriplan_einsatz_steht",
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Hallo {{1}},\n\ndu stehst als {{2}} für das Spiel:\n{{3}}\nOrt: {{4}}\nAnpfiff {{5}}.\n\nVielen Dank für Deinen Einsatz!",
+        "example": {
+          "body_text": [
+            [
+              "Jonas Keller",
+              "Schiedsrichter 1",
+              "Sa 29.08.2026, 10:30 Uhr · U14 · BG Nordstadt gegen TV Ostheim",
+              "Sporthalle Nordstadt, Feld 2",
+              "in 6 Tagen"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "Zum Kalender",
+            "url": "https://schiri.ben-schnorr.com/kalender"
+          }
+        ]
+      }
+    ],
+    "language": "de",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "sub_category": "CUSTOM",
+    "disable_ios_autofill": false,
+    "is_primary_device_delivery_only": false,
+    "id": "1088199984162519"
+  },
+  {
+    "name": "hello_world",
+    "parameter_format": "POSITIONAL",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "TEXT",
+        "text": "Hello World"
+      },
+      {
+        "type": "BODY",
+        "text": "Welcome and congratulations!! This message demonstrates your ability to send a WhatsApp message notification from the Cloud API, hosted by Meta. Thank you for taking the time to test with us."
+      },
+      {
+        "type": "FOOTER",
+        "text": "WhatsApp Business Platform sample message"
+      }
+    ],
+    "language": "en_US",
+    "status": "APPROVED",
+    "category": "UTILITY",
+    "disable_ios_autofill": false,
+    "is_primary_device_delivery_only": false,
+    "id": "1006710172406084"
+  }
+]
