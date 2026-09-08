@@ -5,6 +5,7 @@ import { passwordRoute } from '@/routes';
 import { landingScreen } from '@/server/auth/landing';
 import { changeOwnPassword } from '@/server/auth/password-login';
 import { currentUser } from '@/server/viewer';
+import { startSession } from '../anmelden/actions';
 
 /**
  * Passwort aendern. Regeln 37 und 38.
@@ -31,6 +32,17 @@ export const changePasswordAction = async (formData: FormData): Promise<void> =>
   );
 
   if (!result.ok) redirect(passwordRoute({ fehler: result.message }));
+
+  /*
+   * Die Aenderung hat den Sitzungszaehler hochgezaehlt und damit **alle**
+   * Sitzungen dieser Person geschlossen — die eigene eingeschlossen. Deshalb
+   * wird sie hier sofort neu ausgestellt, mit dem neuen Stand: wer sein
+   * Passwort aendert, soll angemeldet bleiben, wer mit einem alten Cookie
+   * danebensitzt, fliegt hinaus.
+   */
+  if (result.sessionEpoch !== undefined) {
+    await startSession(user.id, user.role, result.sessionEpoch);
+  }
 
   /*
    * Nach dem erzwungenen Wechsel geht es dorthin, wo die Person hinwollte —

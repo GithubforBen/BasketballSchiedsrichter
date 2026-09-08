@@ -51,7 +51,7 @@ export const passwordLoginAction = async (formData: FormData): Promise<void> => 
     redirect(loginRoute({ tel: echo(phone), fehler: result.message }));
   }
 
-  await startSession(result.refereeId, result.role);
+  await startSession(result.refereeId, result.role, result.sessionEpoch);
   /*
    * Regel 37: Wer mit dem Start-Passwort kommt, landet auf der Passwortseite
    * statt auf seinem letzten Bildschirm. Der Schutz haengt nicht an dieser
@@ -92,7 +92,7 @@ export const submitCodeAction = async (formData: FormData): Promise<void> => {
     redirect(loginRoute({ schritt: 'code', tel: phone, fehler: result.message }));
   }
 
-  await startSession(result.refereeId, result.role);
+  await startSession(result.refereeId, result.role, result.sessionEpoch);
   redirect(
     result.mustChangePassword ? '/passwort' : landingScreen(result.lastScreen, result.role),
   );
@@ -100,15 +100,23 @@ export const submitCodeAction = async (formData: FormData): Promise<void> => {
 
 const MAGIC_LINK_OFF = 'Die Anmeldung per Link ist ausgeschaltet. Bitte mit Passwort anmelden.';
 
-/** Setzt das Sitzungscookie. */
+/**
+ * Setzt das Sitzungscookie.
+ *
+ * `sessionEpoch` ist der Stand des Rueckrufzaehlers aus der Datenbank. Er
+ * wandert mit ins Cookie, damit `currentUser` beide vergleichen kann: zaehlt
+ * eine Passwortaenderung ihn hoch, gilt dieses Cookie ab dem naechsten
+ * Seitenaufruf nicht mehr.
+ */
 export const startSession = async (
   refereeId: string,
   role: 'referee' | 'admin',
+  sessionEpoch: number,
 ): Promise<void> => {
   const store = await cookies();
   store.set(
     SESSION_COOKIE,
-    createSession({ refereeId, role }, env.sessionSecret, new Date()),
+    createSession({ refereeId, role, epoch: sessionEpoch }, env.sessionSecret, new Date()),
     sessionCookieOptions(env.baseUrl.startsWith('https://')),
   );
 };

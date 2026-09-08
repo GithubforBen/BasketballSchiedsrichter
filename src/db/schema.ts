@@ -78,6 +78,23 @@ export const referees = pgTable(
     ownPasswordSetAt: timestamp('own_password_set_at', { withTimezone: true }),
     /** Ende der 14-Tage-Frist des Start-Passworts. Regel 36. */
     startPasswordExpiresAt: timestamp('start_password_expires_at', { withTimezone: true }),
+    /**
+     * Zaehler, der alle offenen Sitzungen dieser Person ungueltig macht.
+     *
+     * Das Sitzungscookie ist signiert und traegt sich selbst — der Server legt
+     * nichts darueber ab. Das ist schnell und ueberlebt einen Neustart, hat
+     * aber eine Kehrseite: ein einmal ausgestelltes Cookie gilt dreissig Tage,
+     * und niemand kann es zuruecknehmen. Wer sein Passwort aendert, weil er
+     * fuerchtet, dass jemand mitgelesen hat, aendert damit nichts an der
+     * Sitzung, die dieser Jemand offen hat.
+     *
+     * Deshalb steht die Zahl hier und noch einmal im Cookie. Beim Aendern des
+     * Passworts wird sie hochgezaehlt; danach passt kein vorher ausgestelltes
+     * Cookie mehr zu ihr und alle alten Sitzungen sind mit einem Schlag zu.
+     * Das kostet keine Abfrage: `currentUser` liest die Zeile ohnehin, um Rolle
+     * und Passwortzustand frisch zu holen — die Spalte kommt einfach mit.
+     */
+    sessionEpoch: integer('session_epoch').notNull().default(0),
     /** Bildschirm, der nach dem Login zuerst geoeffnet wird. */
     lastScreen: text('last_screen'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

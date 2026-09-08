@@ -28,6 +28,6 @@ export const redeemRecoveryAction = async (formData: FormData): Promise<void> =>
     redirect(recoveryRoute({ fehler: result.message }));
   }
 
-  await startSession(result.refereeId, result.role);
+  await startSession(result.refereeId, result.role, result.sessionEpoch);
   redirect('/passwort');
 };

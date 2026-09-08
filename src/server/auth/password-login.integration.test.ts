@@ -200,6 +200,53 @@ suite('Anmeldung mit Passwort', () => {
     });
   });
 
+  /*
+   * Der Rueckruf offener Sitzungen.
+   *
+   * Das Sitzungscookie traegt sich selbst und liegt nirgends auf dem Server —
+   * zuruecknehmen laesst es sich deshalb nur ueber diesen Zaehler. Er steht in
+   * der Zeile und noch einmal im Cookie; `currentUser` haelt beide gegeneinander.
+   */
+  describe('Sitzungen lassen sich zurückrufen', () => {
+    const epoch = async (): Promise<number> => {
+      const rows = await sql`SELECT session_epoch FROM referees WHERE id = ${refereeId}`;
+      return Number(rows[0]?.session_epoch ?? -1);
+    };
+
+    it('zählt beim eigenen Passwortwechsel hoch', async () => {
+      const vorher = await epoch();
+      const result = await changeOwnPassword(refereeId, start, 'eigenes', 'eigenes', NOW);
+
+      expect(result.ok).toBe(true);
+      expect(await epoch()).toBe(vorher + 1);
+      // Der Aufrufer braucht den neuen Stand, um das eigene Cookie zu erneuern.
+      expect(result.ok && result.sessionEpoch).toBe(vorher + 1);
+    });
+
+    it('zählt beim Zurücksetzen durch den Admin hoch', async () => {
+      // Regel 40. Genau darum bittet, wer meldet, dass jemand an seinem
+      // Telefon war — ein neues Passwort allein wuerfe den anderen nicht raus.
+      const vorher = await epoch();
+      await resetPasswordByAdmin(adminId, refereeId, NOW);
+      expect(await epoch()).toBe(vorher + 1);
+    });
+
+    it('bleibt stehen, solange sich am Passwort nichts ändert', async () => {
+      // Eine gewoehnliche Anmeldung darf keine anderen Sitzungen schliessen.
+      const vorher = await epoch();
+      const result = await loginWithPassword({ phone, password: start, ip }, NOW);
+      expect(result.ok && result.sessionEpoch).toBe(vorher);
+      expect(await epoch()).toBe(vorher);
+    });
+
+    it('gibt der Anmeldung den Stand mit, der auch in der Zeile steht', async () => {
+      // Sonst ginge ein Cookie raus, das sofort wieder durchfaellt.
+      await changeOwnPassword(refereeId, start, 'eigenes', 'eigenes', NOW);
+      const result = await loginWithPassword({ phone, password: 'eigenes', ip }, NOW);
+      expect(result.ok && result.sessionEpoch).toBe(await epoch());
+    });
+  });
+
   describe('Ein enges Limit auf Fehlversuche', () => {
     it('sperrt die Nummer nach wenigen falschen Passwörtern', async () => {
       // Regel 35 macht das Start-Passwort erratbar — im Verein kennt jeder

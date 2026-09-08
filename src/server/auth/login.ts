@@ -131,6 +131,8 @@ export type RedeemResult =
       readonly lastScreen: string | null;
       /** Regel 37: Auch wer ueber den Link kommt, muss das Start-Passwort ablegen. */
       readonly mustChangePassword: boolean;
+      /** Stand des Sitzungszaehlers, der in das Cookie geschrieben wird. */
+      readonly sessionEpoch: number;
     }
   | { readonly ok: false; readonly message: string };
 
@@ -170,6 +172,7 @@ const redeem = async (
       lastScreen: schema.referees.lastScreen,
       ownPasswordSetAt: schema.referees.ownPasswordSetAt,
       startPasswordExpiresAt: schema.referees.startPasswordExpiresAt,
+      sessionEpoch: schema.referees.sessionEpoch,
     })
     .from(schema.loginTokens)
     .innerJoin(schema.referees, eq(schema.referees.id, schema.loginTokens.refereeId))
@@ -231,6 +234,7 @@ const redeem = async (
       refereeId: candidate.token.refereeId,
       role: candidate.role,
       lastScreen: candidate.lastScreen,
+      sessionEpoch: candidate.sessionEpoch,
       mustChangePassword: mustChangePassword(
         {
           ownPasswordSetAt: candidate.ownPasswordSetAt,

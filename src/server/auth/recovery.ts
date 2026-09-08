@@ -129,6 +129,8 @@ export type RecoveryOutcome =
       readonly name: string;
       /** Das Start-Passwort, mit dem gleich das eigene gesetzt wird. */
       readonly startPassword: string;
+      /** Stand des Sitzungszaehlers nach dem Zuruecksetzen. */
+      readonly sessionEpoch: number;
     }
   | { readonly ok: false; readonly message: string };
 
@@ -201,7 +203,7 @@ export const redeemRecoveryToken = async (
 
   if (claimed.length === 0) return { ok: false, message: GENERIC_FAILURE };
 
-  const startPassword = await applyStartPassword(entry.refereeId, entry.name, now);
+  const applied = await applyStartPassword(entry.refereeId, entry.name, now);
 
   await db.insert(schema.auditLog).values({
     id: randomUUID(),
@@ -216,7 +218,8 @@ export const redeemRecoveryToken = async (
     refereeId: entry.refereeId,
     role: entry.role,
     name: entry.name,
-    startPassword,
+    startPassword: applied.password,
+    sessionEpoch: applied.sessionEpoch,
   };
 };
 

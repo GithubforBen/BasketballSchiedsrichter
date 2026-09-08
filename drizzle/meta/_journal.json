@@ -78,6 +78,13 @@
       "when": 1788807745561,
       "tag": "0010_nachrichten_protokoll",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788882022918,
+      "tag": "0011_sitzungsrueckruf",
+      "breakpoints": true
     }
   ]
 }

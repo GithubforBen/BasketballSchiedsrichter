@@ -62,7 +62,7 @@ const run = async (): Promise<void> => {
     role: 'admin',
     license: 'D',
   });
-  const start = await applyStartPassword(id, name);
+  const { password: start } = await applyStartPassword(id, name);
   await db
     .insert(schema.qualifications)
     .values(INITIAL_LEAGUES.map((leagueId) => ({ refereeId: id, leagueId })));

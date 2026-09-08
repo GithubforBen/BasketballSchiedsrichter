@@ -46,6 +46,8 @@ export type LoginOutcome =
       readonly lastScreen: string | null;
       /** Regel 37: Wer mit dem Start-Passwort kommt, muss sofort aendern. */
       readonly mustChangePassword: boolean;
+      /** Stand des Sitzungszaehlers, der in das Cookie geschrieben wird. */
+      readonly sessionEpoch: number;
     }
   | { readonly ok: false; readonly message: string };
 
@@ -79,6 +81,7 @@ export const loginWithPassword = async (
       passwordHash: schema.referees.passwordHash,
       ownPasswordSetAt: schema.referees.ownPasswordSetAt,
       startPasswordExpiresAt: schema.referees.startPasswordExpiresAt,
+      sessionEpoch: schema.referees.sessionEpoch,
     })
     .from(schema.referees)
     .where(eq(schema.referees.phone, parsed.phone))
@@ -131,8 +134,16 @@ export const loginWithPassword = async (
     role: referee.role,
     lastScreen: referee.lastScreen,
     mustChangePassword: state === 'start',
+    sessionEpoch: referee.sessionEpoch,
   };
 };
+
+export interface AppliedStartPassword {
+  /** Klartext, damit der Admin ihn weitersagen kann. Gespeichert wird der Hash. */
+  readonly password: string;
+  /** Neuer Stand des Sitzungszaehlers — alle alten Sitzungen sind damit zu. */
+  readonly sessionEpoch: number;
+}
 
 /**
  * Setzt das Start-Passwort aus dem Namen. Regeln 35, 36 und 40.
@@ -151,24 +162,41 @@ export const applyStartPassword = async (
   refereeId: string,
   name: string,
   now: Date = new Date(),
-): Promise<string> => {
+): Promise<AppliedStartPassword> => {
   if (!hasUsableStartPassword(name)) {
     throw new Error('Aus diesem Namen lässt sich kein Start-Passwort bilden');
   }
   const plain = startPassword(name);
-  await db
+  const updated = await db
     .update(schema.referees)
     .set({
       passwordHash: await hashPassword(plain),
       ownPasswordSetAt: null,
       startPasswordExpiresAt: startPasswordExpiry(now),
+      /*
+       * Ein Zuruecksetzen schliesst alle offenen Sitzungen. Genau darum bittet
+       * ja, wer sich meldet, weil jemand an seinem Telefon war — ein neues
+       * Passwort allein wuerfe den anderen nicht hinaus. Der Weg hier deckt
+       * beide Faelle ab: das Zuruecksetzen durch den Admin (Regel 40) und den
+       * Notzugang (Regel 41), die beide hier hindurchgehen.
+       */
+      sessionEpoch: raw`${schema.referees.sessionEpoch} + 1`,
     })
-    .where(eq(schema.referees.id, refereeId));
-  return plain;
+    .where(eq(schema.referees.id, refereeId))
+    .returning({ sessionEpoch: schema.referees.sessionEpoch });
+  return { password: plain, sessionEpoch: updated[0]?.sessionEpoch ?? 0 };
 };
 
 export type ChangeOutcome =
-  | { readonly ok: true; readonly message: string }
+  | {
+      readonly ok: true;
+      readonly message: string;
+      /**
+       * Der neue Stand des Sitzungszaehlers. Der Aufrufer stellt damit das
+       * eigene Cookie neu aus — alle *anderen* Sitzungen sind ab jetzt zu.
+       */
+      readonly sessionEpoch: number | undefined;
+    }
   | { readonly ok: false; readonly message: string };
 
 /**
@@ -202,16 +230,31 @@ export const changeOwnPassword = async (
   const check = checkNewPassword(next, repeated, await verifyPassword(next, stored));
   if (!check.ok) return { ok: false, message: check.message };
 
-  await db
+  const updated = await db
     .update(schema.referees)
     .set({
       passwordHash: await hashPassword(check.password),
       ownPasswordSetAt: now,
       startPasswordExpiresAt: null,
+      /*
+       * Alle anderen Sitzungen fallen weg. Wer sein Passwort aendert, weil er
+       * fuerchtet, dass jemand mitgelesen hat, erreicht damit auch wirklich
+       * etwas — sonst bliebe die fremde Sitzung bis zu dreissig Tage offen.
+       */
+      sessionEpoch: raw`${schema.referees.sessionEpoch} + 1`,
     })
-    .where(eq(schema.referees.id, refereeId));
+    .where(eq(schema.referees.id, refereeId))
+    .returning({ sessionEpoch: schema.referees.sessionEpoch });
 
-  return { ok: true, message: 'Passwort geändert.' };
+  /*
+   * Die eigene Sitzung wird gleich neu ausgestellt — sonst haette sich gerade
+   * ausgesperrt, wer sein Passwort aendert.
+   */
+  return {
+    ok: true,
+    message: 'Passwort geändert.',
+    sessionEpoch: updated[0]?.sessionEpoch,
+  };
 };
 
 /** Regel 40: Ein Admin setzt zurueck. Das Konto faellt auf das Start-Passwort. */
@@ -236,7 +279,7 @@ export const resetPasswordByAdmin = async (
     };
   }
 
-  const plain = await applyStartPassword(refereeId, referee.name, now);
+  const { password: plain } = await applyStartPassword(refereeId, referee.name, now);
 
   await db.insert(schema.auditLog).values({
     id: randomUUID(),
