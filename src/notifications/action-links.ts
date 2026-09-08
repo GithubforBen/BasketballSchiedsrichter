@@ -101,16 +101,39 @@ const reject = (reason: AnswerTokenFailure, message: string): AnswerTokenCheck =
 });
 
 /**
+ * Raeumt weg, was Meta faelschlich vor den Token gesetzt hat.
+ *
+ * Vier freigegebene Vorlagen tragen als Knopfadresse
+ * `https://…/antwort/%7B%7B1%7D%7D{{1}}` — der Platzhalter steht dort einmal
+ * prozentkodiert als *Text* und einmal als echte Variable. Beim Versand
+ * ersetzt Meta nur die echte; der kodierte Text bleibt stehen, und beim
+ * Empfaenger kommt `…/antwort/{{1}}<Token>` an. Der Klick landet dann auf
+ * einer Adresse, deren Token die Signaturpruefung nicht besteht — die
+ * Bestaetigung scheitert, ohne dass jemand sagen koennte, warum.
+ *
+ * Repariert gehoert das bei Meta (siehe `src/cli/vorlagen-reparieren.ts`).
+ * Bis die Neufassung freigegeben ist, liegen die kaputten Links aber schon auf
+ * den Telefonen, und eine neue Vorlage holt sie nicht zurueck. Deshalb wird
+ * der Vorsatz hier abgeschnitten. Sicherheitlich kostet das nichts: was
+ * uebrig bleibt, muss weiterhin vollstaendig signiert sein.
+ */
+const PLACEHOLDER_PREFIX = /^(?:\{\{\d+\}\}|%7[Bb]%7[Bb]\d+%7[Dd]%7[Dd])+/;
+
+export const normaliseAnswerToken = (token: string): string =>
+  token.replace(PLACEHOLDER_PREFIX, '');
+
+/**
  * Prueft einen Token und gibt zurueck, worauf er sich bezieht.
  *
  * Die Signatur wird vor dem Ablauf geprueft: ein gefaelschter Token soll nicht
  * daran erkennbar sein, dass er "abgelaufen" statt "ungueltig" heisst.
  */
 export const readAnswerToken = (
-  token: string,
+  raw: string,
   secret: string,
   now: Date,
 ): AnswerTokenCheck => {
+  const token = normaliseAnswerToken(raw);
   const [payload, signature] = token.split('.');
   if (!payload || !signature) {
     return reject('malformed', 'Dieser Link ist unvollständig.');

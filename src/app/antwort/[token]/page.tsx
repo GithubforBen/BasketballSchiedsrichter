@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { Button, Note } from '@/components/primitives';
 import { FOOTER_NAV, PUBLIC_NAV, PUBLIC_TABS } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
@@ -6,6 +7,8 @@ import { CLUB } from '@/config/club';
 import { matchdayLabel, timeLabel } from '@/domain/schedule';
 import { describeLeadTime } from '@/domain/time';
 import { leagueDisplay } from '@/domain/league';
+import { normaliseAnswerToken } from '@/notifications/action-links';
+import { answerRoute } from '@/routes';
 import { openAnswer, readAnswer, type AnswerQuestion } from '@/server/answers';
 import { answerAction } from './actions';
 
@@ -136,9 +139,43 @@ const GameFacts = ({ question, now }: { question: AnswerQuestion; now: Date }) =
 };
 
 const Answer = async ({ params, searchParams }: PageProps) => {
-  const { token } = await params;
+  const { token: raw } = await params;
   const query = await searchParams;
   const now = new Date();
+
+  /*
+   * Der falsche Vorsatz wird weggeschnitten — und der Besucher auf die saubere
+   * Adresse weitergeleitet.
+   *
+   * Vier freigegebene Vorlagen tragen den Platzhalter zweimal (siehe
+   * `normaliseAnswerToken`), sodass beim Empfaenger `…/antwort/{{1}}<Token>`
+   * ankommt. Den Token still zu bereinigen und die Seite trotzdem
+   * auszuliefern, hat den Knopf schon zum Funktionieren gebracht — aber in der
+   * Adresszeile stand weiterhin der kaputte Link. Wer ihn weitergibt, einen
+   * Screenshot schickt oder ihn als Lesezeichen behaelt, traegt den Fehler
+   * weiter; und ein Link, der sichtbar `{{1}}` enthaelt, sieht fuer den
+   * Empfaenger nach Betrug aus.
+   *
+   * Deshalb die Weiterleitung: sie kostet einen Sprung und raeumt den Fehler
+   * an der einzigen Stelle weg, an der ihn jemand sieht. Der Abfrageteil geht
+   * mit — sonst verloere eine Rueckmeldung ("Dieses Spiel hast du bereits
+   * bestaetigt") genau hier ihren Text.
+   */
+  const token = normaliseAnswerToken(raw);
+  if (token !== raw) {
+    const fehler = single(query.fehler);
+    const hinweis = single(query.hinweis);
+    redirect(
+      answerRoute(
+        token,
+        fehler
+          ? { ok: false, message: fehler }
+          : hinweis
+            ? { ok: true, message: hinweis }
+            : undefined,
+      ),
+    );
+  }
 
   const check = readAnswer(token, now);
   const lookup = check.ok ? await openAnswer(check.claims, now) : null;

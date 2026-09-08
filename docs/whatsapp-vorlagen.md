@@ -86,6 +86,31 @@ setzt der Code den echten Token als Wert dieser einen Variablen ein.
 > **Der Beispielwert muss glaubwürdig sein.** „xxx" oder „test" führt zur Ablehnung — das gilt
 > für den URL-Knopf genauso wie für den Text.
 
+> **Die Falle, in die vier Vorlagen gelaufen sind.** Tragen Sie in das Feld „URL" die Adresse
+> **ohne** den Platzhalter ein und lassen Sie Meta die Variable anhängen — oder tragen Sie sie
+> mit `{{1}}` ein und fügen Sie **keine** weitere Variable hinzu. Beides zusammen ergibt
+>
+> ```
+> https://schiri.ben-schnorr.com/antwort/%7B%7B1%7D%7D{{1}}
+> ```
+>
+> `%7B%7B1%7D%7D` ist ein prozentkodiertes `{{1}}` — der Platzhalter als **Text**, dahinter noch
+> einmal als **Variable**. Beim Versand ersetzt Meta nur die Variable; beim Empfänger kommt
+> `…/antwort/{{1}}<Token>` an. Der Link ist damit unbrauchbar: die Signatur passt nicht, und die
+> Antwortseite kann nicht sagen, wer da getippt hat.
+>
+> Auffallen kann das nirgends. Die Vorlage wird freigegeben, der Versand meldet Erfolg, die
+> Nachricht kommt an — nur der Knopf führt ins Leere. Prüfen lässt es sich mit
+>
+> ```bash
+> npx tsx --tsconfig tsconfig.skripte.json src/cli/vorlagen-reparieren.ts <waba-id>
+> ```
+>
+> Das ist ein Trockenlauf; mit `--reparieren` reicht dasselbe Skript die berichtigten Adressen
+> bei Meta ein. Eine freigegebene Vorlage lässt sich bearbeiten, geht danach aber erneut in die
+> Prüfung. Bis die Neufassung steht, schneidet `normaliseAnswerToken` den falschen Vorsatz
+> serverseitig ab — sonst blieben die Links, die schon auf den Telefonen liegen, kaputt.
+
 ## Warum überhaupt Vorlagen
 
 Meta unterscheidet zwei Fälle:

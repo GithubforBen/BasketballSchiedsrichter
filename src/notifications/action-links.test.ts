@@ -141,3 +141,40 @@ describe('Welche Nachricht einen eindeutigen Link bekommt', () => {
     ).toBeNull();
   });
 });
+
+describe('Der Platzhalter, den Meta vor den Token setzt', () => {
+  /*
+   * Vier freigegebene Vorlagen tragen als Knopfadresse
+   * `…/antwort/%7B%7B1%7D%7D{{1}}`: einmal den Platzhalter als Text, einmal
+   * als Variable. Beim Empfaenger kommt deshalb `…/antwort/{{1}}<Token>` an.
+   */
+  const claims = {
+    kind: 'confirm' as const,
+    gameId: 'g-1',
+    refereeId: 'r-1',
+    reference: 'k-1',
+    expiresAt: new Date('2026-09-20T10:00:00Z'),
+  };
+  const now = new Date('2026-09-10T10:00:00Z');
+  const secret = 'geheim';
+
+  it('nimmt einen Token mit vorangestelltem {{1}} an', () => {
+    const token = issueAnswerToken(claims, secret);
+    const result = readAnswerToken(`{{1}}${token}`, secret, now);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.claims.gameId).toBe('g-1');
+  });
+
+  it('nimmt ihn auch prozentkodiert an', () => {
+    const token = issueAnswerToken(claims, secret);
+    expect(readAnswerToken(`%7B%7B1%7D%7D${token}`, secret, now).ok).toBe(true);
+  });
+
+  it('lässt die Signaturprüfung trotzdem greifen', () => {
+    // Der Vorsatz faellt weg, die Pruefung nicht: ein verbogener Token bleibt
+    // ungueltig, auch wenn er mit einem echt aussehenden {{1}} beginnt.
+    const token = issueAnswerToken(claims, secret);
+    expect(readAnswerToken(`{{1}}${token}x`, secret, now).ok).toBe(false);
+    expect(readAnswerToken(`{{1}}${token}`, 'anderes-geheimnis', now).ok).toBe(false);
+  });
+});

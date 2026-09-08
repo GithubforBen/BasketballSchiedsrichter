@@ -93,6 +93,8 @@ das Konto auf das Start-Passwort zurück und verlangt sofort ein neues.
 | `npm test` | Regel-Engine; mit `TEST_DATABASE_URL` zusätzlich die Datenbank-Zusicherungen |
 | `npm run db:generate` | Migration aus dem Schema erzeugen |
 | `npm run notzugang` | Notzugänge für ausgesperrte Admins ausstellen, auflisten, widerrufen |
+| `npx tsx --tsconfig tsconfig.skripte.json src/cli/namen-zusammenfuehren.ts` | Namen geraderücken, in denen nur der Nachname steht (Trockenlauf; `--anwenden` schreibt) |
+| `npx tsx --tsconfig tsconfig.skripte.json src/cli/vorlagen-reparieren.ts <waba-id>` | WhatsApp-Knopfadressen mit doppeltem `{{1}}` prüfen (Trockenlauf; `--reparieren` reicht ein) |
 | `npm run test:e2e` | E2E-Tests im Browser, Desktop und Handy (braucht eine gefüllte `DATABASE_URL`) |
 | `npm run build` | Produktionsbuild |
 | `npm start` | Produktionsbuild starten (kopiert vorher die statischen Dateien — ohne das läuft der Server ohne Stylesheets, und zwar stumm) |
