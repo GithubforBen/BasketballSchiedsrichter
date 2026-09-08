@@ -39,12 +39,15 @@ export const saveSettingsAction = async (formData: FormData): Promise<void> => {
       ? (openSlot as OpenSlotVisibility)
       : 'all',
     assignmentReceipt: checked(formData, 'quittungEintragung'),
-    alertUnfilled: checked(formData, 'meldungUnbesetzt'),
+    /*
+     * Die vier Spalten ohne eigenen Schalter bleiben stehen, wie sie sind.
+     * Sie steuerten entweder nie eine Nachricht oder in Wahrheit nur die
+     * Meldungsliste auf dem Bildschirm — und die haengt jetzt an nichts mehr.
+     * Sie hier mit `false` zu ueberschreiben, weil im Formular kein Haekchen
+     * mehr steht, waere die stille Variante desselben Fehlers.
+     */
     alertConfirmationOverdue: checked(formData, 'meldungBestaetigung'),
-    alertSubstituteMissing: checked(formData, 'meldungErsatz'),
-    alertCancellation: checked(formData, 'meldungAbsage'),
     alertDailyDigest: checked(formData, 'meldungTaeglich'),
-    alertAfterImport: checked(formData, 'meldungImport'),
   });
 
   revalidatePath('/einstellungen');

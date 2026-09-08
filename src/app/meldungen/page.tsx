@@ -47,7 +47,7 @@ const Alerts = async ({ searchParams }: PageProps) => {
   const params = await searchParams;
 
   const settings = await loadSettings();
-  const { alerts, matchdays } = await adminOverview(settings, now);
+  const { alerts, matchdays, kpis } = await adminOverview(settings, now);
   const gameById = new Map(
     matchdays.flatMap((day) => day.games.map((entry) => [entry.game.id, entry.game] as const)),
   );
@@ -63,8 +63,17 @@ const Alerts = async ({ searchParams }: PageProps) => {
       error={single(params.fehler)}
     >
       {alerts.length === 0 ? (
+        /*
+         * Zwei sehr verschiedene Gruende fuehren zu einer leeren Liste, und
+         * frueher stand fuer beide derselbe Satz da: "alle kommenden Spiele
+         * sind besetzt und bestaetigt". Wer einen leeren Spielplan hatte, las
+         * damit eine Entwarnung, die niemand gegeben hatte. Also sagt die
+         * Seite jetzt, worauf sie sich stuetzt.
+         */
         <p className="lead text-muted">
-          Nichts zu tun: alle kommenden Spiele sind besetzt und bestätigt.
+          {kpis.planned === 0
+            ? 'Es stehen keine kommenden Spiele im Spielplan — deshalb gibt es hier nichts zu melden.'
+            : `Nichts zu tun: alle ${kpis.planned} kommenden Spiele sind besetzt und bestätigt.`}
         </p>
       ) : (
         <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>

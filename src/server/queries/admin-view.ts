@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm';
 import { CLUB } from '@/config/club';
 import { db, schema } from '@/db';
-import { buildAdminAlerts, type AdminAlert } from '@/domain/alerts';
+import { DEFAULT_ALERT_SETTINGS, buildAdminAlerts, type AdminAlert } from '@/domain/alerts';
 import {
   CONFIRMATION_LABELS,
   confirmationState,
@@ -17,7 +17,6 @@ import {
 } from '@/domain/slots';
 import type { ClubSettings, Game, Referee, SlotIndex } from '@/domain/types';
 import { toAssignment, toGame } from './games';
-import { loadAlertSettings } from './settings';
 import { loadAllReferees } from './referees';
 
 /**
@@ -44,10 +43,9 @@ export const adminOverview = async (
   alerts: readonly AdminAlert[];
   referees: readonly Referee[];
 }> => {
-  const [rows, assignmentRows, alertSettings, referees] = await Promise.all([
+  const [rows, assignmentRows, referees] = await Promise.all([
     allGames(),
     db.select().from(schema.assignments),
-    loadAlertSettings(),
     loadAllReferees(),
   ]);
 
@@ -73,7 +71,23 @@ export const adminOverview = async (
   return {
     matchdays: groupByMatchday(upcoming, CLUB.timeZone),
     kpis,
-    alerts: buildAdminAlerts(upcoming, referees, settings, alertSettings, now),
+    /*
+     * Der Bildschirm zeigt **alles**, was Aufmerksamkeit braucht — unabhaengig
+     * davon, welche Nachrichten der Verein bestellt hat.
+     *
+     * Frueher standen hier die gespeicherten Schalter. Das las sich sinnvoll
+     * ("wer die Meldung nicht will, sieht sie nicht") und war der schlimmste
+     * Fehler dieser Seite: wer den Hinweis auf unbesetzte Spiele abschaltete,
+     * um nicht bei jedem Loch eine WhatsApp zu bekommen, schaltete damit auch
+     * die Liste ab, in der diese Loecher stehen. Auf dem Bildschirm stand dann
+     * "Nichts zu tun: alle kommenden Spiele sind besetzt und bestaetigt",
+     * waehrend 38 Spiele ohne einen einzigen Schiedsrichter dastanden.
+     *
+     * Ein Schalter fuer Nachrichten darf nicht heimlich die Buchfuehrung
+     * abschalten. Die Schalter gelten deshalb nur noch dort, wo sie
+     * hingehoeren: im Zeitplan-Lauf, der die Nachrichten verschickt.
+     */
+    alerts: buildAdminAlerts(upcoming, referees, settings, DEFAULT_ALERT_SETTINGS, now),
     referees,
   };
 };

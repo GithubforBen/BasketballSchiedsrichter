@@ -21,12 +21,16 @@ export interface SettingsInput {
   autoNudge: boolean;
   openSlotVisibility: OpenSlotVisibility;
   assignmentReceipt: boolean;
-  alertUnfilled: boolean;
+  /**
+   * Die beiden Schalter, an denen wirklich eine Nachricht haengt.
+   *
+   * Die uebrigen `alert_*`-Spalten der Tabelle stehen weiter da, werden hier
+   * aber nicht mehr geschrieben: sie steuerten entweder gar nichts oder in
+   * Wahrheit die Meldungsliste auf dem Bildschirm. Ein Schalter, der einen
+   * Wert speichert, den niemand liest, ist ein Schalter, der nichts tut.
+   */
   alertConfirmationOverdue: boolean;
-  alertSubstituteMissing: boolean;
-  alertCancellation: boolean;
   alertDailyDigest: boolean;
-  alertAfterImport: boolean;
 }
 
 const CONFIRMATION_CHOICES = [24, 48, 72, 96];

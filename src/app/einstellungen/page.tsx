@@ -248,43 +248,35 @@ const Settings = async ({ searchParams }: PageProps) => {
         </p>
 
         <h2 className="kicker" style={{ marginTop: 'var(--space-6)' }}>
-          Meldungen an Admins
+          Nachrichten an Admins
         </h2>
-        <Switch
-          name="meldungUnbesetzt"
-          label="Sofort, wenn ein Spiel ohne zwei Schiedsrichter ist"
-          description="Die häufigste und dringendste Meldung."
-          checked={alerts.unfilled}
-        />
+        {/*
+          Hier stehen nur noch die beiden Schalter, die wirklich eine Nachricht
+          ein- und ausschalten.
+
+          Vorher waren es sechs. Zwei davon lösten überhaupt keine Nachricht aus,
+          und zwei weitere steuerten in Wahrheit nicht den Versand, sondern die
+          Liste unter „Offene Spiele & Meldungen“ — wer sie abschaltete, um nicht
+          bei jedem unbesetzten Spiel eine WhatsApp zu bekommen, leerte damit
+          seinen eigenen Arbeitsbildschirm. Die Liste hängt jetzt an nichts mehr
+          und zeigt immer alles; was hier steht, kostet Geld und lässt sich
+          deshalb abbestellen.
+        */}
+        <Note>
+          Diese Schalter betreffen nur den <strong>Versand</strong>. Die Liste unter „Offene Spiele
+          &amp; Meldungen“ zeigt unabhängig davon immer alles, was Aufmerksamkeit braucht.
+        </Note>
         <Switch
           name="meldungBestaetigung"
           label="Wenn eine Pflichtbestätigung offen bleibt"
-          description={`Nach ${describeHours(settings.confirmationFollowUpHours)} ohne Antwort.`}
+          description={`Nach ${describeHours(settings.confirmationFollowUpHours)} ohne Antwort. Geht an alle aktiven Admins.`}
           checked={alerts.confirmationOverdue}
-        />
-        <Switch
-          name="meldungErsatz"
-          label="Wenn Ersatzplätze offen sind"
-          description="Obwohl beide Schiedsrichter stehen."
-          checked={alerts.substituteMissing}
-        />
-        <Switch
-          name="meldungAbsage"
-          label="Bei Austragung oder Absage nach Verschiebung"
-          description="Damit ein frei gewordener Platz nicht übersehen wird."
-          checked
         />
         <Switch
           name="meldungTaeglich"
           label="Tägliche Zusammenfassung aller offenen Spiele"
           description="Eine Nachricht am Tag statt vieler einzelner. Der Schalter gilt für alle Admins; wie weit die Zusammenfassung vorausschaut — und ob sie überhaupt kommt — stellt jeder Admin in seinem Profil ein."
-          checked
-        />
-        <Switch
-          name="meldungImport"
-          label="Nach jedem CSV-Import"
-          description="Meist unnötig — der Import passiert ja bewusst."
-          checked={false}
+          checked={alerts.dailyDigest}
         />
 
         <Button type="submit" variant="primary" style={{ marginTop: 'var(--space-6)' }}>

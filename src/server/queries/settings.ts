@@ -34,6 +34,16 @@ export const loadSettings = async (): Promise<ClubSettings> => {
   };
 };
 
+/**
+ * Die Schalter, die ueber **ausgehende** Nachrichten an die Admins entscheiden.
+ *
+ * Sie gelten fuer den Zeitplan-Lauf und **nicht** fuer den Bildschirm. Das ist
+ * die Lehre aus einem Fehler, der teuer haette werden koennen: solange die
+ * Meldungsliste unter „Offene Spiele & Meldungen“ an denselben Schaltern hing,
+ * leerte ein abgeschalteter Hinweis nicht nur die Nachricht, sondern auch die
+ * Seite. Ein Verein mit 38 unbesetzten Spielen las dort „Nichts zu tun“ —
+ * weil jemand die WhatsApp-Nachricht dazu abbestellt hatte.
+ */
 export const loadAlertSettings = async (): Promise<AdminAlertSettings> => {
   const rows = await db.select().from(schema.settings).where(eq(schema.settings.id, 1)).limit(1);
   const row = rows[0];
