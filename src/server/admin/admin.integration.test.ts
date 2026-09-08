@@ -21,6 +21,7 @@ import {
   updateReferee,
 } from './referees';
 import { saveSettings, setLeague } from './settings';
+import { loadPasswordOverview } from '../queries/referees';
 
 /**
  * Die Admin-Aktionen gegen eine echte Datenbank.
@@ -597,6 +598,94 @@ suite('Adminbereich', () => {
       ).toBe(false);
     });
 
+    /*
+     * Der Fall, der die ganze Umstellung ausgeloest hat: eine importierte
+     * Vereinsliste liess in `name` nur den Nachnamen stehen. Das Start-Passwort
+     * folgt nach Regel 35 aus dem Namen — es hiess damit auch nur so, und die
+     * Tabelle zeigte es genauso an. Beides passte zusammen und war trotzdem
+     * falsch.
+     *
+     * Jetzt laesst sich der Name aendern. Dabei muessen zwei Rechnungen
+     * mitgehen, die denselben Namen benutzen: der gespeicherte Hash und die
+     * Anzeige daneben. Gingen sie auseinander, stuende in der Tabelle ein
+     * Passwort, mit dem sich niemand anmelden kann — der schlimmste Ausgang,
+     * weil er wie ein funktionierender Zustand aussieht.
+     */
+    it('setzt beim Umbenennen das Start-Passwort neu', async () => {
+      const code = 'UM';
+      const created = await createReferee(admin, {
+        name: 'Nachnamensky',
+        firstName: 'Vorname',
+        initials: code,
+        phone: '0151 55500021',
+        role: 'referee',
+        license: 'E',
+      });
+      expect(created.ok, created.message).toBe(true);
+
+      const before = await sql<{ id: string; password_hash: string }[]>`
+        SELECT id, password_hash FROM referees WHERE initials = ${code}`;
+      const id = before[0]?.id ?? '';
+
+      const result = await updateReferee(admin, id, {
+        name: 'Vorname Nachnamensky',
+        firstName: 'Vorname',
+        initials: code,
+        phone: '0151 55500021',
+        role: 'referee',
+        license: 'E',
+        active: true,
+      });
+      expect(result.ok, result.message).toBe(true);
+      expect(result.message).toContain('Start-Passwort');
+
+      const after = await sql<{ name: string; password_hash: string }[]>`
+        SELECT name, password_hash FROM referees WHERE initials = ${code}`;
+      expect(after[0]?.name).toBe('Vorname Nachnamensky');
+      // Ein neuer Hash — der alte gehoerte zu "nachnamensky".
+      expect(after[0]?.password_hash).not.toBe(before[0]?.password_hash);
+
+      // Und die Anzeige rechnet aus demselben Namen: beide sagen dasselbe.
+      const overview = await loadPasswordOverview();
+      expect(overview.find((entry) => entry.refereeId === id)?.startPassword).toBe(
+        'vornamenachnamensky',
+      );
+
+      await sql`DELETE FROM referees WHERE initials = ${code}`;
+    });
+
+    it('lässt das Start-Passwort in Ruhe, wenn der Name gleich bleibt', async () => {
+      const code = 'UN';
+      await createReferee(admin, {
+        name: 'Bleibt Gleich',
+        firstName: 'Bleibt',
+        initials: code,
+        phone: '0151 55500022',
+        role: 'referee',
+        license: 'E',
+      });
+      const before = await sql<{ id: string; password_hash: string }[]>`
+        SELECT id, password_hash FROM referees WHERE initials = ${code}`;
+
+      const result = await updateReferee(admin, before[0]?.id ?? '', {
+        name: 'Bleibt Gleich',
+        firstName: 'Bleibt',
+        initials: code,
+        phone: '0151 55500022',
+        role: 'referee',
+        license: 'D',
+        active: true,
+      });
+      expect(result.ok, result.message).toBe(true);
+      expect(result.message).toBe('Gespeichert.');
+
+      const after = await sql<{ password_hash: string }[]>`
+        SELECT password_hash FROM referees WHERE initials = ${code}`;
+      expect(after[0]?.password_hash).toBe(before[0]?.password_hash);
+
+      await sql`DELETE FROM referees WHERE initials = ${code}`;
+    });
+
     it('Regel 4: erteilt und entzieht Qualifikationen', async () => {
       expect((await setQualification(admin, a, 'U18', true)).ok).toBe(true);
       let rows = await sql<{ n: number }[]>`
@@ -619,6 +708,7 @@ suite('Adminbereich', () => {
       const onlyOne = (rows[0]?.n ?? 0) <= 1;
 
       const result = await updateReferee(admin, admin, {
+        name: 'Admin Konto',
         firstName: 'Admin',
         license: 'D' as const,
         initials: usedInitials.get(admin) ?? '',
@@ -633,6 +723,7 @@ suite('Adminbereich', () => {
         // Es gibt weitere Admins — dann ist die Änderung erlaubt.
         expect(result.ok).toBe(true);
         await updateReferee(admin, admin, {
+          name: 'Admin Konto',
           firstName: 'Admin',
           license: 'D' as const,
           initials: usedInitials.get(admin) ?? '',

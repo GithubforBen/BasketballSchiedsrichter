@@ -1,4 +1,5 @@
 import { LICENSES, isLicense, firstNameSuggestion } from './license';
+import { composeName } from './name';
 import { hasUsableStartPassword } from './password';
 import { normalisePhone } from './phone';
 import type { License } from './types';
@@ -34,6 +35,17 @@ export const REFEREE_CSV_COLUMNS = ['Name', 'Telefon'] as const;
  */
 export const REFEREE_CSV_OPTIONAL_COLUMNS = [
   'Vorname',
+  /*
+   * „Nachname“ statt „Name“ — und dann traegt „Name“ nichts mehr.
+   *
+   * Die Spalte gibt es, weil ihr Fehlen einmal teuer war: eine Vereinsliste
+   * mit den Spalten „Vorname“ und „Name“ wurde eins zu eins uebernommen, und
+   * damit stand in „Name“ nur der Nachname. Auffallen konnte das nirgends —
+   * bis auf das Start-Passwort, das nach Regel 35 aus dem Namen folgt und
+   * deshalb auch nur „schnorrenberger“ hiess. Wer die beiden Spalten getrennt
+   * hat, benennt sie jetzt getrennt.
+   */
+  'Nachname',
   'Kürzel',
   'Rolle',
   'Lizenz',
@@ -131,7 +143,13 @@ const readHeader = (
     columns.set(known, position);
   }
 
-  const missing = REFEREE_CSV_COLUMNS.filter((column) => !columns.has(column));
+  /*
+   * „Nachname“ vertritt „Name“: wer die Liste getrennt fuehrt, hat den vollen
+   * Namen nirgends stehen und soll ihn nicht eigens bilden muessen.
+   */
+  const missing = REFEREE_CSV_COLUMNS.filter(
+    (column) => !columns.has(column) && !(column === 'Name' && columns.has('Nachname')),
+  );
   if (missing.length > 0) {
     return {
       ok: false,
@@ -197,10 +215,15 @@ const readRow = (
     return position === undefined ? '' : (cells[position] ?? '');
   };
 
-  const name = cell('Name');
   const rawPhone = cell('Telefon');
   const initialsCell = cell('Kürzel');
   const firstNameCell = cell('Vorname');
+  /*
+   * Steht der Nachname in einer eigenen Spalte, entsteht der volle Name aus
+   * beiden. Steht er nicht da, gilt „Name“ wie bisher als der volle Name.
+   */
+  const surnameCell = cell('Nachname');
+  const name = surnameCell === '' ? cell('Name') : composeName(firstNameCell, surnameCell);
 
   const initialsFromName = initialsCell === '';
   const initials = (initialsFromName ? initialsSuggestion(name) : initialsCell).toUpperCase();
@@ -321,8 +344,15 @@ export const conflictMessage = (row: RefereeCsvRow): string =>
 
 /** Die Beispiel-Datei als Vorbelegung des Eingabefelds. */
 export const REFEREE_CSV_EXAMPLE = [
-  'Name;Vorname;Kürzel;Telefon;Rolle;Lizenz;Ligen',
-  'Jan Schnorrenberger;Jan;JS;0152 23529220;Schiri;E;U14,U16',
-  'Lena Vogt;;LV;0171 2345678;Schiri;D;U12,Senioren',
-  'Mara Kern;;;+49 160 5551234;Admin;D;U10,U12',
+  /*
+   * Das Beispiel fuehrt Vor- und Nachnamen getrennt — so, wie eine
+   * Vereinsliste sie ohnehin fuehrt. Frueher stand hier „Name“ mit dem vollen
+   * Namen und „Vorname“ daneben; wer die eigene Liste darueberkopierte, hatte
+   * danach nur den Nachnamen in der Namensspalte stehen. „Name“ geht weiter,
+   * aber es steht nicht mehr als Einladung dazu da.
+   */
+  'Vorname;Nachname;Kürzel;Telefon;Rolle;Lizenz;Ligen',
+  'Jan;Schnorrenberger;JS;0152 23529220;Schiri;E;U14,U16',
+  'Lena;Vogt;LV;0171 2345678;Schiri;D;U12,Senioren',
+  'Mara;Kern;;+49 160 5551234;Admin;D;U10,U12',
 ].join('\n');

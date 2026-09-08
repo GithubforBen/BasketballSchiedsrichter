@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { isLicense } from '@/domain/license';
+import { composeName } from '@/domain/name';
 import type { License } from '@/domain/types';
 import { adminResultRoute } from '@/routes';
 import {
@@ -31,10 +32,21 @@ const license = (formData: FormData): License | null => {
   return isLicense(value) ? value : null;
 };
 
+/**
+ * Der volle Name aus den beiden Feldern des Formulars.
+ *
+ * Gespeichert wird ein Name, eingegeben werden zwei Felder. Beides
+ * auseinanderzuhalten ist die Lehre aus dem Fehler, der diese Umstellung
+ * ausgeloest hat: stand in der Spalte nur der Nachname, hiess das
+ * Start-Passwort nach Regel 35 auch nur so.
+ */
+const fullName = (formData: FormData): string =>
+  composeName(read(formData, 'vorname'), read(formData, 'nachname'));
+
 export const createRefereeAction = async (formData: FormData): Promise<void> => {
   const user = await requireAdmin();
   const result = await createReferee(user.id, {
-    name: read(formData, 'name'),
+    name: fullName(formData),
     firstName: read(formData, 'vorname'),
     initials: read(formData, 'kuerzel'),
     phone: read(formData, 'telefon'),
@@ -66,6 +78,7 @@ export const importRefereeCsvAction = async (formData: FormData): Promise<void> 
 export const updateRefereeAction = async (formData: FormData): Promise<void> => {
   const user = await requireAdmin();
   const result = await updateReferee(user.id, read(formData, 'person'), {
+    name: fullName(formData),
     firstName: read(formData, 'vorname'),
     initials: read(formData, 'kuerzel'),
     phone: read(formData, 'telefon'),

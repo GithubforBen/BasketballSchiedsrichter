@@ -193,3 +193,36 @@ describe('Abgleich mit dem Bestand', () => {
     expect(dedupeReferees(parsed.valid, after).fresh).toEqual([]);
   });
 });
+
+describe('Getrennte Spalten für Vor- und Nachnamen', () => {
+  /*
+   * Der Fehler, den diese Spalte verhindert: eine Vereinsliste mit „Vorname“
+   * und „Name“ wurde eins zu eins übernommen, und in „Name“ stand danach nur
+   * der Nachname. Sichtbar wurde das erst am Start-Passwort.
+   */
+  it('setzt den vollen Namen aus Vorname und Nachname zusammen', () => {
+    const result = parseRefereeCsv(
+      ['Vorname;Nachname;Telefon', 'Linda;Schnorrenberger;0151 2345678'].join('\n'),
+      ['U14'],
+    );
+    expect(result.fileProblem).toBe('');
+    expect(result.valid[0]?.name).toBe('Linda Schnorrenberger');
+    expect(result.valid[0]?.firstName).toBe('Linda');
+  });
+
+  it('verlangt „Name“ nicht mehr, wenn „Nachname“ dasteht', () => {
+    // Die Kopfzeile wird angenommen, und der Name kommt aus „Nachname“. Dass
+    // die Zeile am Kürzel scheitert, ist eine andere Prüfung: aus einem
+    // einzelnen Wort lässt sich kein zweibuchstabiges Kürzel bilden.
+    const result = parseRefereeCsv('Nachname;Telefon\nVogt;0151 2345678', ['U14']);
+    expect(result.fileProblem).toBe('');
+    expect(result.rows[0]?.name).toBe('Vogt');
+  });
+
+  it('lässt „Name“ als vollen Namen bestehen', () => {
+    const result = parseRefereeCsv('Name;Telefon\nLena Vogt;0151 2345678', ['U14']);
+    expect(result.fileProblem).toBe('');
+    expect(result.valid[0]?.name).toBe('Lena Vogt');
+    expect(result.valid[0]?.firstName).toBe('Lena');
+  });
+});

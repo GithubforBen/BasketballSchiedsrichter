@@ -5,6 +5,7 @@ import { AdminShell, single } from '@/components/admin/AdminShell';
 import { RefereeCsvImport } from '@/components/admin/RefereeCsvImport';
 import { CLUB } from '@/config/club';
 import { LICENSES } from '@/domain/license';
+import { surnameOf } from '@/domain/name';
 import { dateLabel } from '@/domain/schedule';
 import { formatPhone } from '@/domain/phone';
 import { REFEREE_CSV_EXAMPLE } from '@/domain/referee-csv';
@@ -143,7 +144,7 @@ const Referees = async ({ searchParams }: PageProps) => {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Name</th>
+                  <th>Nachname</th>
                   <th>Vorname</th>
                   <th>Kürzel</th>
                   <th>Telefon</th>
@@ -183,10 +184,10 @@ const Referees = async ({ searchParams }: PageProps) => {
                     <td>
                       <Input
                         form={NEW_FORM}
-                        name="name"
+                        name="nachname"
                         required
-                        placeholder="Vorname Nachname"
-                        aria-label="Name der neuen Person"
+                        placeholder="Schnorrenberger"
+                        aria-label="Nachname der neuen Person"
                         style={{ width: '160px' }}
                       />
                     </td>
@@ -194,7 +195,8 @@ const Referees = async ({ searchParams }: PageProps) => {
                       <Input
                         form={NEW_FORM}
                         name="vorname"
-                        placeholder="Anrede"
+                        required
+                        placeholder="Linda"
                         aria-label="Vorname der neuen Person"
                         style={{ width: '110px' }}
                       />
@@ -290,13 +292,20 @@ const Referees = async ({ searchParams }: PageProps) => {
                 ) : null}
                 {referees.map((referee) => (
                   <tr key={referee.id}>
-                    <td
-                      style={{
-                        fontFamily: 'var(--font-heading)',
-                        fontWeight: 800,
-                      }}
-                    >
-                      {referee.name}
+                    <td>
+                      {/*
+                    Der Nachname war hier lange nur Text. Damit liess sich ein
+                    Konto, das mit dem Nachnamen allein in der Namensspalte
+                    stand, nicht mehr geradeziehen — und sein Start-Passwort
+                    hiess nach Regel 35 auch nur so.
+                  */}
+                      <Input
+                        form={`person-${referee.id}`}
+                        name="nachname"
+                        defaultValue={surnameOf(referee.name, referee.firstName)}
+                        style={{ width: '160px' }}
+                        aria-label={`Nachname von ${referee.name}`}
+                      />
                     </td>
                     <td>
                       {/*
@@ -388,9 +397,11 @@ const Referees = async ({ searchParams }: PageProps) => {
                         </td>
                       );
                     })}
-                    <td>
-                      <PasswordCell entry={passwordOf.get(referee.id)} />
-                    </td>
+                    {/*
+                  Reihenfolge wie in der Kopfzeile: erst „Aktiv“, dann
+                  „Passwort“. Beide standen vertauscht — das Häkchen unter der
+                  Passwortspalte, das Passwort unter „Aktiv“.
+                */}
                     <td>
                       <input
                         form={`person-${referee.id}`}
@@ -401,6 +412,9 @@ const Referees = async ({ searchParams }: PageProps) => {
                         aria-label={`${referee.name} ist aktiv`}
                         style={{ accentColor: 'var(--color-accent)' }}
                       />
+                    </td>
+                    <td>
+                      <PasswordCell entry={passwordOf.get(referee.id)} />
                     </td>
                     <td>
                       <form action={updateRefereeAction} id={`person-${referee.id}`}>

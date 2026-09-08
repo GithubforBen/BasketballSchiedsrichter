@@ -65,10 +65,11 @@ export const RefereeCsvImport = ({
         <Note>
           Semikolon getrennt, erste Zeile Kopfzeile. Die Kopfzeile nennt die Spalten — ihre
           Reihenfolge ist egal. Dabei sein müssen {REFEREE_CSV_COLUMNS.join(' und ')};{' '}
-          {REFEREE_CSV_OPTIONAL_COLUMNS.join(', ')} sind freiwillig. Bleibt „Kürzel“ leer oder
-          fehlt die Spalte, entsteht es aus den Anfangsbuchstaben; bei „Vorname“ gilt dann das
-          erste Wort des Namens. Ligen werden mit Komma getrennt. Wessen Nummer schon eingetragen
-          ist, wird übersprungen.
+          {REFEREE_CSV_OPTIONAL_COLUMNS.join(', ')} sind freiwillig. „Name“ ist der{' '}
+          <strong>volle</strong> Name; wer die Liste getrennt führt, nimmt statt dessen
+          „Vorname“ und „Nachname“. Bleibt „Kürzel“ leer oder fehlt die Spalte, entsteht es aus
+          den Anfangsbuchstaben; bei „Vorname“ gilt dann das erste Wort des Namens. Ligen werden
+          mit Komma getrennt. Wessen Nummer schon eingetragen ist, wird übersprungen.
         </Note>
         <Button type="submit" variant="primary">
           Importieren

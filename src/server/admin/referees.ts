@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { and, eq, gte, sql as sqlRaw } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { firstNameSuggestion } from '@/domain/license';
-import { START_PASSWORD_VALID_DAYS, hasUsableStartPassword } from '@/domain/password';
+import {
+  START_PASSWORD_VALID_DAYS,
+  hasUsableStartPassword,
+  passwordState,
+} from '@/domain/password';
 import { slotKind } from '@/domain/slots';
 import type { License, SlotIndex } from '@/domain/types';
 import { applyStartPassword } from '../auth/password-login';
@@ -143,6 +147,11 @@ export const createReferee = async (
 };
 
 export interface RefereeUpdate {
+  /**
+   * Der volle Name. Er entsteht im Formular aus Vor- und Nachnamen und ist
+   * hier bereits zusammengesetzt — siehe `composeName`.
+   */
+  name: string;
   firstName: string;
   initials: string;
   phone: string;
@@ -151,20 +160,53 @@ export interface RefereeUpdate {
   active: boolean;
 }
 
-/** Aendert die Stammdaten einer Person. */
+/**
+ * Aendert die Stammdaten einer Person.
+ *
+ * Der Name war hier lange nicht dabei: die Tabelle zeigte ihn nur an. Das war
+ * kein Weglassen aus Vorsicht, sondern eine Luecke — wer eine Vereinsliste mit
+ * getrennten Spalten importiert hatte, stand mit dem *Nachnamen* in `name` da
+ * und kam an diesem Bildschirm nicht mehr heran. Sichtbar wurde es am
+ * Start-Passwort, das nach Regel 35 aus dem Namen folgt.
+ */
 export const updateReferee = async (
   actorId: string,
   refereeId: string,
   input: RefereeUpdate,
+  now: Date = new Date(),
 ): Promise<AdminResult> => {
   const initials = input.initials.trim().toUpperCase();
   if (!/^[A-ZÄÖÜ]{2,4}$/.test(initials)) {
     return fail('Das Kürzel besteht aus zwei bis vier Buchstaben.');
   }
+  const name = input.name.trim();
+  if (name === '') return fail('Bitte einen Namen angeben.');
+  if (!hasUsableStartPassword(name)) {
+    return fail('Aus diesem Namen lässt sich kein Start-Passwort bilden — bitte ausschreiben.');
+  }
   const firstName = input.firstName.trim();
   if (firstName === '') return fail('Bitte einen Vornamen angeben — er steht in jeder Nachricht.');
   const phone = normalisePhone(input.phone);
   if (!phone.ok) return fail(phone.message);
+
+  /*
+   * Der Stand vor der Änderung. Er entscheidet weiter unten, ob das
+   * Start-Passwort neu gesetzt werden muss: es folgt aus dem Namen, liegt aber
+   * als Hash in der Zeile. Aendert sich der Name, ohne dass der Hash mitgeht,
+   * zeigt die Tabelle ein Passwort an, mit dem sich niemand anmelden kann.
+   */
+  const before = (
+    await db
+      .select({
+        name: schema.referees.name,
+        ownPasswordSetAt: schema.referees.ownPasswordSetAt,
+        startPasswordExpiresAt: schema.referees.startPasswordExpiresAt,
+      })
+      .from(schema.referees)
+      .where(eq(schema.referees.id, refereeId))
+      .limit(1)
+  )[0];
+  if (!before) return fail('Dieses Konto gibt es nicht mehr.');
 
   /*
    * Der letzte Admin darf sich weder selbst herabstufen noch stilllegen —
@@ -185,6 +227,7 @@ export const updateReferee = async (
     await db
       .update(schema.referees)
       .set({
+        name,
         firstName,
         initials,
         phone: phone.phone,
@@ -198,13 +241,34 @@ export const updateReferee = async (
     throw error;
   }
 
+  /*
+   * Regel 35 und 39 zusammen: das Start-Passwort steht nirgends, es wird aus
+   * dem Namen gerechnet — einmal beim Setzen fuer den Hash und einmal beim
+   * Anzeigen fuer den Admin. Aendert sich der Name, muessen beide Rechnungen
+   * denselben Namen benutzen, sonst laufen sie auseinander. Betroffen sind nur
+   * Konten, fuer die noch das Start-Passwort gilt; wer laengst ein eigenes hat,
+   * behaelt es.
+   */
+  const renamed = name !== before.name;
+  const onStartPassword = passwordState(before, now) === 'start';
+  if (renamed && onStartPassword) await applyStartPassword(refereeId, name, now);
+
   await audit(actorId, 'referee.update', refereeId, {
+    name,
     initials,
     role: input.role,
     lizenz: input.license,
     active: input.active,
+    startPasswortNeu: renamed && onStartPassword,
   });
-  return { ok: true, message: 'Gespeichert.' };
+  return {
+    ok: true,
+    message:
+      renamed && onStartPassword
+        ? `Gespeichert. Der Name hat sich geändert — das Start-Passwort daneben ist neu ` +
+          `und gilt wieder ${START_PASSWORD_VALID_DAYS} Tage.`
+        : 'Gespeichert.',
+  };
 };
 
 /** Setzt eine Qualifikation. Regel 4: ohne sie geht kein Eintrag. */
