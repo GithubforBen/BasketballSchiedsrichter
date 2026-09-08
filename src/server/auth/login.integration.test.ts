@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { redeemCode, redeemLink, requestLogin } from './login';
-import { maskPhone } from './phone';
+import { maskPhone } from '@/domain/phone';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 /**

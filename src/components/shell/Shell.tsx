@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { CLUB } from '@/config/club';
 import { Initials } from '@/components/primitives';
-import { isCurrent, tabTargets, type NavTarget } from './nav';
+import { isCurrent, tabTargets, type NavGroup, type NavTarget } from './nav';
 
 /**
  * Das Grundraster der Anwendung.
@@ -13,7 +13,7 @@ import { isCurrent, tabTargets, type NavTarget } from './nav';
  */
 
 export interface ShellProps {
-  nav: readonly NavTarget[];
+  nav: readonly NavGroup[];
   /**
    * Die Ziele der Tab-Leiste am Handy. Dort ist nur Platz fuer vier Eintraege —
    * die Admin-Navigation hat sieben. Wer mehr als vier Ziele hat, muss hier
@@ -27,7 +27,7 @@ export interface ShellProps {
   children: ReactNode;
 }
 
-export type { NavTarget };
+export type { NavGroup, NavTarget };
 
 export const Shell = ({
   nav,
@@ -64,24 +64,34 @@ export const Shell = ({
           </form>
         </div>
       ) : (
-        <span className="text-muted" style={{ fontSize: '13px' }}>
-          nicht angemeldet
-        </span>
+        /*
+         * Der Hinweis ist der Weg zur Anmeldung und kein blosser Zustand.
+         * Als Text stand er genau dort, wo sonst "Abmelden" steht — wer
+         * daraufklickte, erwartete die Anmeldung und bekam nichts.
+         */
+        <Link href="/anmelden" className="btn btn-ghost btn-compact">
+          Anmelden
+        </Link>
       )}
     </header>
 
     <div className="shell-body">
       <nav className="shell-nav" aria-label="Hauptnavigation">
-        {nav.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="nav-item"
-            aria-current={isCurrent(current, item.href) ? 'page' : undefined}
-          >
-            <span className="nav-item-label">{item.label}</span>
-            {item.badge ? <span className="tag tag-accent">{item.badge}</span> : null}
-          </Link>
+        {nav.map((group) => (
+          <div key={group.label ?? 'start'} className="nav-group">
+            {group.label ? <h2 className="nav-group-label">{group.label}</h2> : null}
+            {group.items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="nav-item"
+                aria-current={isCurrent(current, item.href) ? 'page' : undefined}
+              >
+                <span className="nav-item-label">{item.label}</span>
+                {item.badge ? <span className="tag tag-accent">{item.badge}</span> : null}
+              </Link>
+            ))}
+          </div>
         ))}
         {footerNav.length > 0 ? (
           <div className="nav-footer">
@@ -103,6 +113,27 @@ export const Shell = ({
 
       <main className="shell-main" id="inhalt" tabIndex={-1}>
         {children}
+
+        {/*
+          Am Handy gibt es keine Seitenleiste, und in die Tab-Leiste passen nur
+          vier Ziele — Regeln und Rechtliches waren dort schlicht nicht zu
+          erreichen. Hier stehen sie am Ende jeder Seite, wo Rechtliches
+          ueblicherweise steht; am Desktop bleibt die Fusszeile der Leiste.
+        */}
+        {footerNav.length > 0 ? (
+          <div className="shell-footer">
+            {footerNav.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={isCurrent(current, item.href) ? 'page' : undefined}
+              >
+                {item.label}
+              </Link>
+            ))}
+            <span className="text-muted">Alle Nachrichten laufen über WhatsApp.</span>
+          </div>
+        ) : null}
       </main>
     </div>
 

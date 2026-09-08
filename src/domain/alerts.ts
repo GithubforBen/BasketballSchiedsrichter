@@ -74,7 +74,7 @@ export const buildAdminAlerts = (
         kind: 'unfilled',
         gameId: game.id,
         label: gameStatus(slots).label,
-        detail: `${missingReferees} von ${refereeSlots(slots).length} Schiedsrichter-Plaetzen offen, ${missingSubstitutes} Ersatzplaetze frei. Anpfiff ${lead}.`,
+        detail: `${missingReferees} von ${refereeSlots(slots).length} Schiedsrichter-Plätzen offen, ${missingSubstitutes} Ersatzplätze frei. Anpfiff ${lead}.`,
         meta: `${qualified} Schiedsrichter mit Qualifikation ${game.leagueId} und Lizenz ${game.requiredLicense}`,
         msUntilKickoff,
       });
@@ -88,8 +88,8 @@ export const buildAdminAlerts = (
         alerts.push({
           kind: 'confirmation-overdue',
           gameId: game.id,
-          label: 'Bestaetigung offen',
-          detail: `${overdue.length} Pflichtbestaetigung(en) seit mehr als ${settings.confirmationFollowUpHours} Stunden unbeantwortet. Anpfiff ${lead}.`,
+          label: 'Bestätigung offen',
+          detail: `${overdue.length} Pflichtbestätigung(en) seit mehr als ${settings.confirmationFollowUpHours} Stunden unbeantwortet. Anpfiff ${lead}.`,
           meta: 'Nachfassen ist automatisch erfolgt · Meldung geht an alle Admins',
           msUntilKickoff,
         });
@@ -102,7 +102,7 @@ export const buildAdminAlerts = (
         gameId: game.id,
         label: 'Ersatz fehlt',
         detail: `${missingSubstitutes} Ersatzplatz frei. Beide Schiedsrichter sind besetzt. Anpfiff ${lead}.`,
-        meta: `${qualified} qualifizierte Schiedsrichter fuer ${game.leagueId}`,
+        meta: `${qualified} qualifizierte Schiedsrichter für ${game.leagueId}`,
         msUntilKickoff,
       });
     }

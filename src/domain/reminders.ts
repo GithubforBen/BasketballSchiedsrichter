@@ -57,13 +57,13 @@ export const evaluateReminder = (
   if (hoursBefore < settings.reminderMinHours || hoursBefore > settings.reminderMaxHours) {
     return {
       kind: 'out-of-range',
-      message: `Erinnerungen sind zwischen ${describeHours(settings.reminderMinHours)} und ${describeHours(settings.reminderMaxHours)} vor Anpfiff moeglich.`,
+      message: `Erinnerungen sind zwischen ${describeHours(settings.reminderMinHours)} und ${describeHours(settings.reminderMaxHours)} vor Anpfiff möglich.`,
     };
   }
   if (existing.length >= settings.reminderLimit) {
     return {
       kind: 'limit-reached',
-      message: `Mehr als ${settings.reminderLimit} Erinnerungen sind nicht moeglich. Entferne zuerst eine bestehende.`,
+      message: `Mehr als ${settings.reminderLimit} Erinnerungen sind nicht möglich. Entferne zuerst eine bestehende.`,
     };
   }
   if (existing.length >= settings.reminderCostWarningFrom - 1) {

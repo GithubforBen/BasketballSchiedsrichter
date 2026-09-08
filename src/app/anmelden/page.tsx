@@ -2,9 +2,11 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { Button, Field, Input, Note } from '@/components/primitives';
 import { FOOTER_NAV, PUBLIC_NAV, PUBLIC_TABS } from '@/components/shell/navigation';
+import { PasswordField } from '@/components/auth/PasswordField';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
-import { formatPhone } from '@/server/auth/phone';
+import { landingScreen } from '@/server/auth/landing';
+import { formatPhone } from '@/domain/phone';
 import { CODE_LENGTH, TOKEN_LIFETIME_MINUTES } from '@/server/auth/tokens';
 import { env } from '@/server/env';
 import { currentUser } from '@/server/viewer';
@@ -25,7 +27,15 @@ const single = (value: string | string[] | undefined): string | undefined =>
 
 const Login = async ({ searchParams }: PageProps) => {
   const user = await currentUser();
-  if (user) redirect(user.mustChangePassword ? '/passwort' : '/');
+  /*
+   * Wer schon angemeldet ist, hat auf der Anmeldeseite nichts zu suchen — aber
+   * die Weiterleitung gehoert in seinen Bereich und nicht auf die oeffentliche
+   * Ansicht. Von dort fuehrte der einzige sichtbare Weg wieder hierher, und
+   * beide Seiten schoben sich gegenseitig zu: angemeldet, aber ausgesperrt.
+   */
+  if (user) {
+    redirect(user.mustChangePassword ? '/passwort' : landingScreen(user.lastScreen, user.role));
+  }
 
   const params = await searchParams;
   // Der zweite Schritt gehoert zum Weg ueber den Link. Ist der zu, gibt es ihn
@@ -69,16 +79,7 @@ const Login = async ({ searchParams }: PageProps) => {
                   style={{ fontVariantNumeric: 'tabular-nums', minHeight: '46px' }}
                 />
               </Field>
-              <Field label="Passwort" htmlFor="passwort">
-                <Input
-                  id="passwort"
-                  name="passwort"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  style={{ minHeight: '46px' }}
-                />
-              </Field>
+              <PasswordField label="Passwort" name="passwort" autoComplete="current-password" />
               <Button type="submit" variant="primary" block>
                 Anmelden
               </Button>
@@ -148,7 +149,7 @@ const Login = async ({ searchParams }: PageProps) => {
 
         <div style={{ marginTop: 'var(--space-6)' }}>
           <Note>
-            Ohne Anmeldung siehst du den Spielplan mit Kürzeln. Namen und Profilbilder erscheinen
+            Ohne Anmeldung siehst du den Spielplan mit Kürzeln. Namen erscheinen
             erst nach dem Login.
           </Note>
         </div>

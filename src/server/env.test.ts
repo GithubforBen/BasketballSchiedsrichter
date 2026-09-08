@@ -51,6 +51,31 @@ describe('Sitzungsschlüssel', () => {
     setNodeEnv('production');
     expect(() => env.sessionSecret).toThrow(/Beispielwert/);
   });
+
+  it('lehnt einen zu kurzen Schlüssel im Echtbetrieb ab', () => {
+    process.env.SESSION_SECRET = 'geheim';
+    setNodeEnv('production');
+    expect(() => env.sessionSecret).toThrow(/zu kurz/);
+  });
+
+  it('nimmt einen ausreichend langen Schlüssel im Echtbetrieb an', () => {
+    const secret = 'x'.repeat(32);
+    process.env.SESSION_SECRET = secret;
+    setNodeEnv('production');
+    expect(env.sessionSecret).toBe(secret);
+  });
+
+  /*
+   * In der Entwicklung bleibt jeder Wert erlaubt. Die Laengengrenze soll einen
+   * schwachen Schluessel im Echtbetrieb verhindern, nicht das Ausprobieren auf
+   * dem eigenen Rechner erschweren — und die Tests selbst laufen mit einem
+   * kurzen Schluessel aus `test/setup-env.ts`.
+   */
+  it('lässt in der Entwicklung auch einen kurzen Schlüssel durch', () => {
+    process.env.SESSION_SECRET = 'kurz';
+    setNodeEnv('development');
+    expect(env.sessionSecret).toBe('kurz');
+  });
 });
 
 describe('Versandkanal', () => {

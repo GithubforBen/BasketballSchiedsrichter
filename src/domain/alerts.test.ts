@@ -23,7 +23,7 @@ describe('Regel 20 — Meldungen an die Admins', () => {
       { game: makeGame({ kickoff: inDays(5) }), slots: slotsFrom(['r-lb', null, null, null]) },
     ]);
     const alert = alerts[0];
-    expect(alert?.detail).toContain('1 von 2 Schiedsrichter-Plaetzen offen');
+    expect(alert?.detail).toContain('1 von 2 Schiedsrichter-Plätzen offen');
     expect(alert?.detail).toContain('in 5 Tagen');
     // Nur die beiden U14-Qualifizierten, nicht der U16-Schiedsrichter.
     expect(alert?.meta).toContain('2 Schiedsrichter mit Qualifikation U14');

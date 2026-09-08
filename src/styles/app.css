@@ -283,6 +283,27 @@ body {
 
 /* — Seitennavigation — */
 
+/*
+ * Gruppen der Seitenleiste.
+ *
+ * Die Ueberschrift steht in Satzschreibung und nicht in Versalien: sie ordnet
+ * die Ziele, sie ruft nicht. Der Abstand darueber macht die Gruppe sichtbar,
+ * eine Linie waere fuer drei Eintraege zu viel Apparat.
+ */
+.nav-group + .nav-group {
+  margin-top: var(--space-5);
+}
+
+.nav-group-label {
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-4);
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: var(--font-heading-weight);
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+}
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -333,10 +354,18 @@ body {
 
 /* — Kleinteile, die im Mockup mehrfach vorkommen — */
 
+/*
+ * Titel links, Nebensache rechts — beide oben buendig.
+ *
+ * Vorher stand hier `flex-end`: die Legende der Startseite sank damit auf die
+ * Unterkante des Textblocks und stand neben der letzten Zeile der
+ * Beschreibung statt neben der Ueberschrift, zu der sie gehoert.
+ */
 .page-head {
   display: flex;
-  align-items: flex-end;
-  gap: var(--space-4);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-8);
   flex-wrap: wrap;
   margin-bottom: var(--space-6);
 }
@@ -344,6 +373,18 @@ body {
 .page-head-text {
   flex: 1;
   min-width: 280px;
+}
+
+/*
+ * Die Zeile unter der Ueberschrift.
+ *
+ * Ohne Begrenzung lief sie auf einem breiten Bildschirm ueber die volle
+ * Fensterbreite — weit ueber zweihundert Zeichen, und das Auge findet den
+ * Zeilenanfang nicht wieder.
+ */
+.lead {
+  max-width: 62ch;
+  margin-top: var(--space-1);
 }
 
 .kicker {
@@ -495,6 +536,39 @@ body {
   overflow-x: auto;
 }
 
+/*
+ * Gleiche Spalten ueber alle Spieltage.
+ *
+ * Jeder Spieltag ist eine eigene Tabelle, und eine Tabelle misst ihre Spalten
+ * an ihrem eigenen Inhalt. Ein Spieltag mit einem langen Ligakuerzel oder einer
+ * langen Paarung schob die Schiedsrichter-Spalte damit weiter nach rechts als
+ * der Spieltag darueber — von oben nach unten gelesen sprang die Ansicht bei
+ * jeder Ueberschrift neu, und keine Spalte stand unter ihrer eigenen.
+ *
+ * `fixed` loest die Breite vom Inhalt. Sie steht im `<colgroup>` neben den
+ * Ueberschriften, ist fuer jeden Spieltag dieselbe, und damit stehen alle
+ * Tabellen der Seite in einer Flucht. Die Mindestbreite haelt die Spalten
+ * lesbar; darunter scrollt der Rahmen aus `.scroll-x` waagerecht.
+ */
+.table-aligned {
+  table-layout: fixed;
+}
+
+/* Ohne diese Zeile stiege ein zu langes Wort aus seiner festen Spalte aus. */
+.table-aligned td {
+  overflow-wrap: break-word;
+}
+
+/* Der oeffentliche Spielplan: sieben Spalten. */
+.table-schedule {
+  min-width: 820px;
+}
+
+/* Die Verwaltungsuebersicht: zwei Spalten mehr, dazu der Bearbeiten-Knopf. */
+.table-schedule-admin {
+  min-width: 1040px;
+}
+
 /* Sichtbar nur fuer Screenreader — fuer Beschriftungen, die visuell aus dem
    Zusammenhang hervorgehen, aber vorgelesen werden muessen. */
 .visually-hidden {
@@ -584,6 +658,70 @@ body {
   }
 }
 
+/*
+ * Die Fusszeile am Handy.
+ *
+ * Die Seitenleiste ist unter 1024px ausgeblendet, und in die Tab-Leiste passen
+ * vier Ziele. Regeln und Rechtliches hingen damit an keinem sichtbaren Weg —
+ * erreichbar nur ueber die Adresszeile. Hier stehen sie am Seitenende.
+ */
+.shell-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  margin-top: var(--space-8);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-divider);
+  font-size: 12px;
+}
+
+.shell-footer a {
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.shell-footer a:hover,
+.shell-footer a[aria-current='page'] {
+  color: var(--color-accent-strong);
+}
+
+.shell-footer span {
+  font-size: 11px;
+}
+
+/*
+ * Ab hier gibt es die Seitenleiste, und dort steht dasselbe schon.
+ *
+ * Der Umbruch ist derselbe wie bei `.shell-nav` und ausdruecklich nicht der
+ * von `.only-narrow` (768px): zwischen 768 und 1024 ist die Seitenleiste noch
+ * ausgeblendet, die Fusszeile also weiterhin der einzige Weg.
+ */
+@media (min-width: 1024px) {
+  .shell-footer {
+    display: none;
+  }
+}
+
+/* Nachladen weiterer Spieltage. */
+.load-more {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 2px solid var(--color-divider);
+  font-size: 12px;
+}
+
+.load-more-end {
+  margin-top: var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 2px solid var(--color-divider);
+  font-size: 12px;
+}
+
 /* — Antwortseite eines Nachrichtenlinks — */
 
 .answer-facts {
@@ -634,6 +772,21 @@ body {
 
 .prose {
   max-width: 68ch;
+}
+
+.prose p,
+.prose li {
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.prose h4 {
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-1);
+}
+
+.prose ul {
+  padding-left: var(--space-5);
 }
 
 .prose h3 {
@@ -690,6 +843,44 @@ body {
   white-space: pre-wrap;
   word-break: break-word;
   margin: var(--space-2) 0 0;
+}
+
+/*
+ * Der Vorlagen-Aufruf im Nachrichten-Protokoll.
+ *
+ * Zugeklappt, weil er die Ausnahme ist: gelesen wird der Fliesstext darueber.
+ * Aufgeklappt beantwortet er die eine Frage, die der Text nicht beantworten
+ * kann — welche Werte gingen an Meta, und wie viele.
+ */
+.log-template {
+  margin-top: var(--space-2);
+  font-size: 12px;
+}
+
+.log-template summary {
+  cursor: pointer;
+}
+
+.log-parameters {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.log-parameters li {
+  /* Ein langer Wert — die Zeile der Tagesuebersicht — bricht, statt aufzuziehen. */
+  overflow-wrap: break-word;
+}
+
+/* Der Zeitstempel steht rechts und soll dort nicht springen. */
+.log-stamp {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Die Filterleiste haelt Abstand zur ersten Nachricht. */
+.log-filters {
+  margin-bottom: var(--space-4);
 }
 
 /*
@@ -857,13 +1048,23 @@ body {
   flex: none;
 }
 
-.month-bar {
+/*
+ * Die Spur gibt der Prozentbreite eine feste Bezugsgroesse. Ohne sie sass
+ * `flex: 1` auf dem Balken: flex-basis 0 plus flex-grow 1 haben die Breite aus
+ * dem style-Attribut ueberstimmt, und jeder Monat war voll ausgeschlagen — auch
+ * einer mit null Spielen.
+ */
+.month-track {
+  flex: none;
+  width: 180px;
   height: 12px;
-  background: var(--color-accent);
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+}
+
+.month-bar {
   display: block;
-  flex: 1;
-  max-width: 180px;
-  min-width: 2px;
+  height: 100%;
+  background: var(--color-accent);
 }
 
 .month-count {
@@ -915,11 +1116,78 @@ body {
   }
 }
 
+/*
+ * Ein Feld, das nur der Admin aendert.
+ *
+ * Es sah aus wie ein Eingabefeld mit gestricheltem Rand — also wie etwas, das
+ * gleich bearbeitbar wird. Jetzt liegt es sichtbar tiefer als die Felder
+ * daneben: fester Grauton, gedaempfte Schrift, kein Rahmen, der zum Tippen
+ * einlaedt. Das Schloss sagt dasselbe noch einmal fuer alle, die den
+ * Grauwert nicht unterscheiden koennen.
+ */
 .readonly-field {
-  padding: var(--space-2);
-  border: 1px dashed var(--color-divider);
-  background: color-mix(in srgb, var(--color-text) 4%, transparent);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--color-text) 9%, transparent);
+  color: var(--text-dim);
   font-size: 14px;
+}
+
+.readonly-field::before {
+  content: '🔒';
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.55;
+}
+
+/*
+ * Passwortfeld mit Schalter. Der Knopf liegt im Feld, damit er nicht als
+ * zweite Handlung neben dem Absenden gelesen wird.
+ */
+/* Auswahl und Knopf einer Platzbesetzung — schmal, sie stehen in der Spalte. */
+.slot-assign {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  min-width: 0;
+}
+
+.slot-assign .input {
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+  padding: 4px var(--space-2);
+}
+
+.password-field {
+  position: relative;
+  display: flex;
+}
+
+.password-field .input {
+  flex: 1;
+  padding-right: 92px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  bottom: 1px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  font-family: var(--font-heading);
+  font-size: 12px;
+  color: var(--color-accent-strong);
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }
 
 .chip-row {
@@ -1129,4 +1397,16 @@ body {
   font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
   font-size: 12px;
   line-height: 1.5;
+}
+
+/* Zeilen der CSV-Vorschau. Sie laufen beim Tippen mit, deshalb bleibt die
+   Gestaltung schlicht: eine Trennlinie, sonst nichts. */
+.csv-preview-row {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.csv-preview-row-bad {
+  color: var(--color-accent-700);
+  font-size: 12px;
 }

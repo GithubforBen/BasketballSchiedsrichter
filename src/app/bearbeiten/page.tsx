@@ -4,12 +4,16 @@ import { notFound } from 'next/navigation';
 import { Button, Field, Input, Note } from '@/components/primitives';
 import { AdminShell, single } from '@/components/admin/AdminShell';
 import { CLUB } from '@/config/club';
+import { LICENSES, licenseRequirementLabel } from '@/domain/license';
 import { matchTitle } from '@/domain/schedule';
 import { describeLeadTime } from '@/domain/time';
+import { leagueDisplay } from '@/domain/league';
 import { requireAdmin } from '@/server/guard';
+import { qualifiedReferees } from '@/domain/rules';
 import { adminGame } from '@/server/queries/admin-view';
+import { loadAllReferees } from '@/server/queries/referees';
 import { loadSettings } from '@/server/queries/settings';
-import { removeFromGameAction, saveGameAction } from './actions';
+import { assignRefereeAction, removeFromGameAction, saveGameAction } from './actions';
 
 /**
  * Spiel bearbeiten.
@@ -57,6 +61,18 @@ const EditGame = async ({ searchParams }: PageProps) => {
   const detail = await adminGame(gameId, settings, now);
   if (!detail) notFound();
 
+  /*
+   * Wer fuer dieses Spiel in Frage kommt: Qualifikation fuer die Liga und
+   * mindestens die noetige Lizenz. Wer schon auf einem Platz steht, faellt
+   * raus — niemand belegt zwei Plaetze im selben Spiel (Regel 5).
+   */
+  const taken = new Set(detail.slots.flatMap((slot) => (slot.refereeId ? [slot.refereeId] : [])));
+  const eligible = qualifiedReferees(
+    await loadAllReferees(),
+    detail.game.leagueId,
+    detail.game.requiredLicense,
+  ).filter((referee) => !taken.has(referee.id));
+
   const { date, time } = localParts(detail.game.kickoff);
   const overrides = [
     {
@@ -83,7 +99,7 @@ const EditGame = async ({ searchParams }: PageProps) => {
     <AdminShell
       user={user}
       current="/uebersicht"
-      kicker={`${detail.game.leagueId} · Anpfiff ${describeLeadTime(detail.game.kickoff, now)}`}
+      kicker={`${leagueDisplay(detail.game)} · Anpfiff ${describeLeadTime(detail.game.kickoff, now)}`}
       title="Spiel bearbeiten"
       lead={matchTitle(detail.game)}
       hint={single(params.hinweis)}
@@ -97,8 +113,19 @@ const EditGame = async ({ searchParams }: PageProps) => {
             <Field label="Datum" htmlFor="datum">
               <Input id="datum" name="datum" type="date" defaultValue={date} required />
             </Field>
-            <Field label="Uhrzeit" htmlFor="zeit">
-              <Input id="zeit" name="zeit" type="time" defaultValue={time} required />
+            <Field label="Uhrzeit (24 Stunden)" htmlFor="zeit">
+              {/* Wie beim Anlegen: `type="time"` folgt der Sprache des Browsers. */}
+              <Input
+                id="zeit"
+                name="zeit"
+                inputMode="numeric"
+                pattern="([01]?[0-9]|2[0-3])[:.][0-5][0-9]"
+                maxLength={5}
+                placeholder="18:30"
+                title="Uhrzeit als HH:MM, zum Beispiel 18:30"
+                defaultValue={time}
+                required
+              />
             </Field>
             <Field label="Ort / Halle" htmlFor="ort">
               <Input id="ort" name="ort" defaultValue={detail.game.venue} required />
@@ -111,8 +138,11 @@ const EditGame = async ({ searchParams }: PageProps) => {
                 defaultValue={detail.game.requiredLicense}
                 required
               >
-                <option value="E">E — Einstiegslizenz</option>
-                <option value="D">D — nur mit D-Lizenz</option>
+                {LICENSES.map((license) => (
+                  <option key={license} value={license}>
+                    {licenseRequirementLabel(license)}
+                  </option>
+                ))}
               </select>
             </Field>
           </div>
@@ -213,13 +243,50 @@ const EditGame = async ({ searchParams }: PageProps) => {
                       Entfernen
                     </Button>
                   </form>
-                ) : null}
+                ) : (
+                  /*
+                   * Einteilen von Hand. Der Weg "wer zuerst eintraegt" bleibt
+                   * daneben bestehen — dieser hier ist fuer die Spiele, die
+                   * sonst liegen bleiben, und fuer die Zusage per Anruf.
+                   */
+                  <form action={assignRefereeAction} className="slot-assign">
+                    <input type="hidden" name="spiel" value={detail.game.id} />
+                    <input type="hidden" name="platz" value={slot.index} />
+                    <select
+                      name="person"
+                      className="input"
+                      defaultValue=""
+                      aria-label={`${slot.role} besetzen`}
+                      disabled={eligible.length === 0}
+                    >
+                      <option value="" disabled>
+                        {eligible.length === 0 ? 'niemand qualifiziert' : 'Person wählen'}
+                      </option>
+                      {eligible.map((referee) => (
+                        <option key={referee.id} value={referee.id}>
+                          {referee.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      className="btn-compact"
+                      disabled={eligible.length === 0}
+                    >
+                      Eintragen
+                    </Button>
+                  </form>
+                )}
               </li>
             ))}
           </ul>
           <p className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-3)' }}>
-            Entfernen wirft die Person aus dem Spiel und informiert sie. Auf einem
-            Schiedsrichter-Platz wird danach zuerst der Ersatz gefragt, ob er nachrückt.
+            Eintragen benachrichtigt die Person — sie erfährt sonst nicht, dass sie eingeteilt
+            ist. Zur Auswahl steht, wer die Qualifikation {detail.game.leagueId} und mindestens
+            Lizenz {detail.game.requiredLicense} hat. Entfernen wirft die Person aus dem Spiel und
+            informiert sie ebenfalls; auf einem Schiedsrichter-Platz wird danach zuerst der Ersatz
+            gefragt, ob er nachrückt.
           </p>
         </aside>
       </div>

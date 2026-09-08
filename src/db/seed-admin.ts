@@ -3,7 +3,7 @@ import { INITIAL_LEAGUES } from '@/config/club';
 import { firstNameSuggestion } from '@/domain/license';
 import { START_PASSWORD_VALID_DAYS, hasUsableStartPassword } from '@/domain/password';
 import { applyStartPassword } from '@/server/auth/password-login';
-import { normalisePhone } from '@/server/auth/phone';
+import { normalisePhone } from '@/domain/phone';
 import { db, schema, sql } from './index';
 
 /**
@@ -37,7 +37,7 @@ const run = async (): Promise<void> => {
   if (!parsed.ok) throw new Error(parsed.message);
 
   if (!hasUsableStartPassword(name)) {
-    throw new Error(`Aus "${name}" laesst sich kein Start-Passwort bilden.`);
+    throw new Error(`Aus "${name}" lässt sich kein Start-Passwort bilden.`);
   }
 
   const leagues = await db.select({ id: schema.leagues.id }).from(schema.leagues);
@@ -62,7 +62,7 @@ const run = async (): Promise<void> => {
     role: 'admin',
     license: 'D',
   });
-  const start = await applyStartPassword(id, name);
+  const { password: start } = await applyStartPassword(id, name);
   await db
     .insert(schema.qualifications)
     .values(INITIAL_LEAGUES.map((leagueId) => ({ refereeId: id, leagueId })));

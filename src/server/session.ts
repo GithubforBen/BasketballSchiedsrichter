@@ -14,6 +14,14 @@ export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 export interface SessionPayload {
   refereeId: string;
   role: 'referee' | 'admin';
+  /**
+   * Stand des Sitzungszaehlers beim Ausstellen.
+   *
+   * `currentUser` vergleicht ihn mit dem Wert in der Datenbank. Zaehlt eine
+   * Passwortaenderung dort hoch, passt dieses Cookie nicht mehr — und zwar
+   * sofort, nicht erst nach dreissig Tagen. Siehe `referees.sessionEpoch`.
+   */
+  epoch: number;
   /** Ablauf als Unix-Sekunden. */
   exp: number;
 }
@@ -76,7 +84,19 @@ const parse = (body: string): SessionPayload | null => {
   if (typeof candidate.refereeId !== 'string' || candidate.refereeId === '') return null;
   if (candidate.role !== 'referee' && candidate.role !== 'admin') return null;
   if (typeof candidate.exp !== 'number' || !Number.isFinite(candidate.exp)) return null;
-  return { refereeId: candidate.refereeId, role: candidate.role, exp: candidate.exp };
+  /*
+   * Ein Cookie ohne Zaehler stammt aus der Zeit vor dieser Spalte. Es wird
+   * verworfen statt mit einer angenommenen Null durchgelassen: sonst waere die
+   * Luecke, die der Zaehler schliesst, ueber ein altes Cookie weiter offen.
+   * Der Preis ist eine einmalige Neuanmeldung nach dem Aufspielen.
+   */
+  if (typeof candidate.epoch !== 'number' || !Number.isInteger(candidate.epoch)) return null;
+  return {
+    refereeId: candidate.refereeId,
+    role: candidate.role,
+    epoch: candidate.epoch,
+    exp: candidate.exp,
+  };
 };
 
 /** Vergleich ohne Laufzeitunterschied, damit die Signatur nicht erratbar wird. */

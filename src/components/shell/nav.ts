@@ -21,6 +21,21 @@ export interface NavTarget {
   badge?: number;
 }
 
+/**
+ * Ein Abschnitt der Seitenleiste.
+ *
+ * `label` ist `null` fuer den ersten Abschnitt: eine Ueberschrift ueber einem
+ * einzelnen Eintrag waere mehr Beschriftung als Inhalt.
+ */
+export interface NavGroup {
+  label: string | null;
+  items: readonly NavTarget[];
+}
+
+/** Alle Ziele einer gruppierten Navigation, der Reihe nach. */
+export const navItems = (groups: readonly NavGroup[]): readonly NavTarget[] =>
+  groups.flatMap((group) => group.items);
+
 /** Ein Ziel gilt als aktuell, wenn der Pfad darauf oder darunter liegt. */
 export const isCurrent = (current: string, href: string): boolean =>
   current === href || (href !== '/' && current.startsWith(`${href}/`));
@@ -36,15 +51,16 @@ const MAX_TABS = 4;
  * fallen hier auf, statt am Handy als gequetschte Leiste zu erscheinen.
  */
 export const tabTargets = (
-  nav: readonly NavTarget[],
+  nav: readonly NavGroup[],
   tabs?: readonly NavTarget[],
 ): readonly NavTarget[] => {
   if (tabs) return tabs.slice(0, MAX_TABS);
-  if (nav.length > MAX_TABS) {
+  const items = navItems(nav);
+  if (items.length > MAX_TABS) {
     throw new Error(
-      `Die Tab-Leiste traegt hoechstens ${MAX_TABS} Ziele, bekommen hat sie ${nav.length}. ` +
+      `Die Tab-Leiste traegt hoechstens ${MAX_TABS} Ziele, bekommen hat sie ${items.length}. ` +
         'Uebergib der Shell eine eigene "tabs"-Auswahl.',
     );
   }
-  return nav;
+  return items;
 };

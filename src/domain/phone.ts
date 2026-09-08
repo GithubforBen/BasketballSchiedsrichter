@@ -13,6 +13,33 @@ export type PhoneResult =
   | { readonly ok: true; readonly phone: string }
   | { readonly ok: false; readonly message: string };
 
+/**
+ * Die Nummer wird zurechtgebogen, nicht zurueckgewiesen.
+ *
+ * Jede uebliche Schreibweise fuehrt auf dieselbe gespeicherte Nummer:
+ *
+ * | Eingabe              | Ergebnis         |
+ * | -------------------- | ---------------- |
+ * | `+49 1522 6693501`   | `+4915226693501` |
+ * | `01522 6693501`      | `+4915226693501` |
+ * | `0049 1522 6693501`  | `+4915226693501` |
+ * | `1522 6693501`       | `+4915226693501` |
+ * | `4915226693501`      | `+4915226693501` |
+ * | `+49 01522 6693501`  | `+4915226693501` |
+ *
+ * Die letzten drei Zeilen waren frueher Fehlermeldungen. Sie sind es nicht
+ * mehr, weil in allen dreien steht, was gemeint ist: eine deutsche Mobilnummer
+ * beginnt national mit einer `1`, und `49` am Anfang einer *langen* Nummer
+ * kann nur die Landesvorwahl sein. Die Null hinter der Landesvorwahl wird
+ * still gestrichen, statt eine Belehrung auszuloesen — sie ist ein Vertipper
+ * und keine Entscheidung.
+ *
+ * Nicht geraten wird dort, wo Raten eine *andere* Nummer ergaebe: `41 79 …`
+ * ohne Plus koennte die Schweiz sein oder eine deutsche Ortsvorwahl ohne Null.
+ * Eine falsch geratene Nummer faellt niemandem auf — die Nachrichten kommen
+ * einfach nie an, und bezahlt sind sie trotzdem (Regel 33). Dieser eine Fall
+ * bleibt deshalb eine Nachfrage.
+ */
 export const normalisePhone = (input: string): PhoneResult => {
   const trimmed = input.trim();
   if (trimmed === '') {
@@ -28,13 +55,24 @@ export const normalisePhone = (input: string): PhoneResult => {
     return { ok: false, message: 'Die Nummer enthält keine Ziffern.' };
   }
 
-  let national: string;
+  let international: string;
   if (hasPlus) {
-    national = digits;
+    international = digits;
   } else if (digits.startsWith('00')) {
-    national = digits.slice(2);
+    international = digits.slice(2);
   } else if (digits.startsWith('0')) {
-    national = `${DEFAULT_COUNTRY_CODE}${digits.slice(1)}`;
+    international = `${DEFAULT_COUNTRY_CODE}${digits.slice(1)}`;
+  } else if (digits.startsWith(DEFAULT_COUNTRY_CODE) && digits.length >= 11) {
+    /*
+     * "4915226693501" — die Landesvorwahl ohne Plus. Die Laenge entscheidet:
+     * eine *nationale* Nummer, die mit 49 beginnt, ist eine Ortsvorwahl ohne
+     * ihre Null (Leer ist 0491) und kommt auf hoechstens zehn Ziffern. Ab elf
+     * kann nur die Landesvorwahl gemeint sein.
+     */
+    international = digits;
+  } else if (digits.startsWith('1')) {
+    // Nationale Mobilnummer, bei der die fuehrende Null fehlt: 15x, 16x, 17x.
+    international = `${DEFAULT_COUNTRY_CODE}${digits}`;
   } else {
     return {
       ok: false,
@@ -42,29 +80,23 @@ export const normalisePhone = (input: string): PhoneResult => {
     };
   }
 
-  if (national.startsWith('0')) {
+  /*
+   * Landesvorwahl und nationale Null zusammen ("+49 0151 …") ist der haeufigste
+   * Vertipper. Gemeint ist offensichtlich dieselbe Nummer ohne die Null, also
+   * faellt sie weg. Frueher stand hier eine Fehlermeldung; sie hat niemanden
+   * vor einer falschen Nummer bewahrt, sondern nur das Eintragen aufgehalten.
+   */
+  const withoutNationalZero = new RegExp(`^(${DEFAULT_COUNTRY_CODE})0+`);
+  international = international.replace(withoutNationalZero, '$1');
+
+  if (international.startsWith('0')) {
     return { ok: false, message: 'Nach der Landesvorwahl darf keine Null stehen.' };
   }
-
-  /*
-   * "+49 0151 …" ist die haeufigste Fehleingabe: internationale Vorwahl und
-   * nationale Null zusammen. Das ergibt stillschweigend eine falsche Nummer,
-   * an die dann nie eine Nachricht ankommt. Erkennbar ist das nur fuer die
-   * eigene Landesvorwahl — bei fremden Vorwahlen waere dafuer eine Tabelle
-   * aller Laendercodes noetig, die dieses Projekt nicht braucht.
-   */
-  if (national.startsWith(`${DEFAULT_COUNTRY_CODE}0`)) {
-    return {
-      ok: false,
-      message:
-        'Entweder mit Ländervorwahl ohne Null (+49 151 …) oder national mit Null (0151 …) — nicht beides.',
-    };
-  }
-  if (national.length < 8 || national.length > 15) {
+  if (international.length < 8 || international.length > 15) {
     return { ok: false, message: 'Die Nummer ist zu kurz oder zu lang.' };
   }
 
-  return { ok: true, phone: `+${national}` };
+  return { ok: true, phone: `+${international}` };
 };
 
 /**

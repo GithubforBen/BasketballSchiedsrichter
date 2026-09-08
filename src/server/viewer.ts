@@ -43,6 +43,7 @@ export const currentUser = async (now: Date = new Date()): Promise<CurrentUser |
       lastScreen: schema.referees.lastScreen,
       ownPasswordSetAt: schema.referees.ownPasswordSetAt,
       startPasswordExpiresAt: schema.referees.startPasswordExpiresAt,
+      sessionEpoch: schema.referees.sessionEpoch,
     })
     .from(schema.referees)
     .where(eq(schema.referees.id, session.refereeId))
@@ -50,6 +51,12 @@ export const currentUser = async (now: Date = new Date()): Promise<CurrentUser |
 
   const row = rows[0];
   if (!row || !row.active) return null;
+  /*
+   * Der Rueckruf einer Sitzung. Aendert jemand sein Passwort, zaehlt die Spalte
+   * hoch und jedes vorher ausgestellte Cookie faellt hier durch — auch das in
+   * fremder Hand, um dessentwillen das Passwort ueberhaupt geaendert wurde.
+   */
+  if (row.sessionEpoch !== session.epoch) return null;
 
   return {
     id: row.id,

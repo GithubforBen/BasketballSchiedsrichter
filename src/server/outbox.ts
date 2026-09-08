@@ -7,7 +7,7 @@ import { salutationName } from '@/domain/license';
 import { isNotificationKind, type NotificationIntent } from '@/domain/notifications';
 import { answerClaimsFor, issueAnswerToken } from '@/notifications/action-links';
 import { activeChannel, isPermanent, type Channel } from '@/notifications/channel';
-import { renderMessage } from '@/notifications/templates';
+import { renderMessage, type RenderedMessage } from '@/notifications/templates';
 import { startOfLocalDay } from '@/domain/time';
 import { logFailure } from './log';
 import { toGame } from './queries/games';
@@ -169,16 +169,47 @@ const claim = async (limit: number, onlyKey?: string): Promise<readonly ClaimedR
 };
 
 /**
+ * Die Nachricht, so wie sie in die Zeile geschrieben wird.
+ *
+ * Sie steht in derselben `UPDATE`-Anweisung wie das Ergebnis des Versuchs und
+ * nicht in einer eigenen: ein zweiter Schreibvorgang koennte scheitern, und
+ * dann stuende in der Zeile ein Ergebnis ohne den Text, der es erklaert.
+ */
+const logged = (message: RenderedMessage | undefined) =>
+  message === undefined
+    ? /*
+       * Es gibt keinen Text — die Zeile scheiterte, bevor einer entstand: der
+       * Empfaenger ist geloescht, oder die Art gibt es nicht mehr. Dann bleiben
+       * die Spalten unangetastet statt leer ueberschrieben; `lastError` sagt in
+       * diesen beiden Faellen alles, was zu sagen ist.
+       */
+      {}
+    : {
+        sentSubject: message.subject,
+        sentBody: message.body,
+        /*
+         * Ohne Vorlage bleibt die Spalte leer: die Nachricht ging dann als
+         * Fliesstext raus, und genau das soll die leere Spalte sagen.
+         */
+        sentTemplate: message.template ? { ...message.template } : null,
+      };
+
+/**
  * Haelt fest, wie die Nachricht tatsaechlich rausging.
  *
  * Der Kanal wird hier erneut geschrieben und nicht nur beim Anlegen: wird
  * zwischen Anlegen und Versand umgeschaltet, soll die Zeile den Weg nennen,
  * den sie genommen hat, statt den, der einmal geplant war.
  */
-const markSent = async (id: string, channel: Channel['name'], at: Date): Promise<void> => {
+const markSent = async (
+  id: string,
+  channel: Channel['name'],
+  at: Date,
+  message: RenderedMessage,
+): Promise<void> => {
   await db
     .update(schema.notificationOutbox)
-    .set({ state: 'sent', sentAt: at, channel, lastError: null })
+    .set({ state: 'sent', sentAt: at, channel, lastError: null, ...logged(message) })
     .where(eq(schema.notificationOutbox.id, id));
 };
 
@@ -187,16 +218,18 @@ const markFailure = async (
   error: unknown,
   giveUp: boolean,
   now: Date,
+  message?: RenderedMessage,
 ): Promise<void> => {
   const text = error instanceof Error ? error.message : String(error);
   await db
     .update(schema.notificationOutbox)
     .set(
       giveUp
-        ? { state: 'failed', lastError: text }
+        ? { state: 'failed', lastError: text, ...logged(message) }
         : {
             state: 'queued',
             lastError: text,
+            ...logged(message),
             sendAfter: new Date(now.getTime() + retryDelayMinutes(row.attempts) * 60_000),
           },
     )
@@ -327,12 +360,12 @@ export const dispatchOutbox = async (options: DispatchOptions = {}): Promise<Dis
         key: row.key,
         recipient: { refereeId: recipient.id, name: recipient.name, phone: recipient.phone },
       });
-      await markSent(row.id, channel.name, now);
+      await markSent(row.id, channel.name, now, rendered);
       result.sent += 1;
       result.cost += row.cost_units;
     } catch (error) {
       const giveUp = isPermanent(error) || row.attempts >= MAX_ATTEMPTS;
-      await markFailure(row, error, giveUp, now);
+      await markFailure(row, error, giveUp, now, rendered);
       /*
        * Ins Protokoll geht die Art des Fehlers, nicht seine Meldung — die kann
        * die Telefonnummer des Empfaengers enthalten. Der ausfuehrliche Text

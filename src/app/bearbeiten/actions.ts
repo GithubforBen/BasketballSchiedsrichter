@@ -2,10 +2,11 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { parseTime } from '@/domain/csv';
 import { isLicense } from '@/domain/license';
-import type { SlotIndex } from '@/domain/types';
+import type { License, SlotIndex } from '@/domain/types';
 import { editGameRoute } from '@/routes';
-import { editGame, removeFromGame } from '@/server/admin/games';
+import { assignReferee, editGame, removeFromGame } from '@/server/admin/games';
 import { requireAdmin } from '@/server/guard';
 
 /** Spiel bearbeiten: verschieben, Halle ändern, absagen, Besetzung entfernen. */
@@ -16,6 +17,12 @@ const read = (formData: FormData, key: string): string => {
 };
 
 const checked = (formData: FormData, key: string): boolean => formData.get(key) === 'an';
+/** Die Lizenz aus dem Formular. Was keine gueltige Stufe ist, gilt als E. */
+const readLicense = (formData: FormData): License => {
+  const value = read(formData, 'lizenz');
+  return isLicense(value) ? value : 'E';
+};
+
 
 export const saveGameAction = async (formData: FormData): Promise<void> => {
   const user = await requireAdmin();
@@ -24,9 +31,9 @@ export const saveGameAction = async (formData: FormData): Promise<void> => {
 
   const result = await editGame(user.id, gameId, {
     localDate: read(formData, 'datum'),
-    localTime: read(formData, 'zeit'),
+    localTime: parseTime(read(formData, 'zeit')) ?? '',
     venue: read(formData, 'ort'),
-    requiredLicense: isLicense(read(formData, 'lizenz')) ? (read(formData, 'lizenz') as 'E' | 'D') : 'E',
+    requiredLicense: readLicense(formData),
     reason: reason === 'cancelled' ? 'cancelled' : reason === 'venue' ? 'venue' : 'moved',
     overrideWithdraw: checked(formData, 'freigabeAustragen'),
     overrideSubstituteRequest: checked(formData, 'freigabeErsatz'),
@@ -35,6 +42,21 @@ export const saveGameAction = async (formData: FormData): Promise<void> => {
 
   revalidatePath('/bearbeiten');
   revalidatePath('/uebersicht');
+  redirect(editGameRoute(gameId, result));
+};
+
+/** Teilt eine Person auf einen bestimmten Platz ein. Sie bekommt eine Nachricht. */
+export const assignRefereeAction = async (formData: FormData): Promise<void> => {
+  const user = await requireAdmin();
+  const gameId = read(formData, 'spiel');
+  const slot = Number.parseInt(read(formData, 'platz'), 10);
+
+  if (![0, 1, 2, 3].includes(slot)) {
+    redirect(editGameRoute(gameId, { ok: false, message: 'Unbekannter Platz.' }));
+  }
+
+  const result = await assignReferee(user.id, gameId, slot as SlotIndex, read(formData, 'person'));
+  revalidatePath('/bearbeiten');
   redirect(editGameRoute(gameId, result));
 };
 

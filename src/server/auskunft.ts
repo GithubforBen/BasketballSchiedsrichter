@@ -72,6 +72,7 @@ export const buildDataExport = async (refereeId: string): Promise<DataExport | n
         state: schema.notificationOutbox.state,
         sendAfter: schema.notificationOutbox.sendAfter,
         sentAt: schema.notificationOutbox.sentAt,
+        body: schema.notificationOutbox.sentBody,
       })
       .from(schema.notificationOutbox)
       .where(eq(schema.notificationOutbox.recipientId, refereeId))
@@ -139,15 +140,23 @@ export const buildDataExport = async (refereeId: string): Promise<DataExport | n
       );
     }),
     /*
-     * Der Inhalt der Nachrichten steht bewusst nicht dabei: er entsteht beim
-     * Versand aus Spiel und Person und laesst sich hier nicht rekonstruieren.
-     * Was gespeichert ist — Art, Weg, Zustand, Zeitpunkt — steht vollstaendig da.
+     * Der Wortlaut gehoert dazu, sobald er gespeichert ist.
+     *
+     * Frueher stand hier, der Inhalt lasse sich nicht rekonstruieren — das
+     * stimmte, solange der Text nur beim Versand entstand. Seit er in der Zeile
+     * steht, ist er eine gespeicherte Angabe *ueber diese Person*, und eine
+     * Auskunft, die ihn verschwiege, waere unvollstaendig.
+     *
+     * Zeilen ohne Text sind die, die noch warten oder von vor dieser Aenderung
+     * stammen; bei ihnen bleibt es bei den Eckdaten.
      */
-    nachrichten: outbox.map(
-      (m) =>
+    nachrichten: outbox.map((m) => {
+      const kopf =
         `${m.kind} über ${m.channel} · ${m.state} · fällig ${timestamp(m.sendAfter)} · ` +
-        `zugestellt ${timestamp(m.sentAt)}`,
-    ),
+        `zugestellt ${timestamp(m.sentAt)}`;
+      /* Eingerueckt, damit der Text im Auszug als Block erkennbar bleibt. */
+      return m.body === null ? kopf : `${kopf}\n    ${m.body.split('\n').join('\n    ')}`;
+    }),
     anmeldungen: tokens.map(
       (t) =>
         `angefordert ${timestamp(t.createdAt)} · eingelöst ${timestamp(t.usedAt)} · ` +

@@ -29,19 +29,38 @@ describe('Regel 42 — jede übliche Schreibweise wird angenommen', () => {
     expect(ok('+43 664 1234567')).toBe('+436641234567');
   });
 
+  it('ergänzt die fehlende Null einer Mobilnummer', () => {
+    // Wer die Nummer aus dem eigenen Handy abliest, hat dort keine Null stehen.
+    expect(ok('151 23456789')).toBe('+4915123456789');
+    expect(ok('15123456789')).toBe('+4915123456789');
+  });
+
+  it('erkennt die Landesvorwahl auch ohne Plus, wenn die Länge sie verrät', () => {
+    expect(ok('4915123456789')).toBe('+4915123456789');
+    // Kurz genug, um eine Ortsvorwahl ohne Null zu sein — Leer ist 0491.
+    // Hier waere Raten eine andere Nummer, also wird gefragt.
+    expect(normalisePhone('491234567').ok).toBe(false);
+  });
+
+  it('streicht die nationale Null hinter der Ländervorwahl, statt zu belehren', () => {
+    // "+49 0151 …" ist der haeufigste Vertipper. Gemeint ist dieselbe Nummer;
+    // eine Fehlermeldung hielte nur das Eintragen auf.
+    expect(ok('+49 0151 23456789')).toBe('+4915123456789');
+    expect(ok('0049 0151 23456789')).toBe('+4915123456789');
+  });
+
   it('lehnt ab, was keine Nummer sein kann', () => {
-    for (const input of ['', '   ', 'Telefon', '151 23456789', '+49 0151 234567']) {
+    for (const input of ['', '   ', 'Telefon']) {
       expect(normalisePhone(input).ok, `"${input}" wurde angenommen`).toBe(false);
     }
   });
 
-  it('lehnt die Vermischung aus Ländervorwahl und nationaler Null ab', () => {
-    // "+49 0151 …" ergaebe sonst stillschweigend eine falsche Nummer, an die
-    // nie eine Nachricht ankommt.
-    const result = normalisePhone('+49 0151 23456789');
+  it('rät nicht, wo Raten eine andere Nummer ergäbe', () => {
+    // "41 79 …" ohne Plus: Schweiz oder deutsche Ortsvorwahl ohne Null? Eine
+    // falsch geratene Nummer faellt niemandem auf — die Nachricht kommt nie an.
+    const result = normalisePhone('41 79 1234567');
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.message).toContain('nicht beides');
-    expect(normalisePhone('0049 0151 23456789').ok).toBe(false);
+    if (!result.ok) expect(result.message).toContain('Vorwahl');
   });
 
   it('lehnt zu kurze und zu lange Nummern ab', () => {

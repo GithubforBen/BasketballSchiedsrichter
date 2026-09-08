@@ -47,6 +47,24 @@ export const answerRoute = (
     result ? { [result.ok ? 'hinweis' : 'fehler']: result.message } : {},
   );
 
+/**
+ * Das Nachrichten-Protokoll, gefiltert und geblaettert.
+ *
+ * Filter und Seite stehen in der Adresse und nicht in einem Zustand im
+ * Browser: so ueberleben sie das Neuladen, lassen sich verlinken — "schau dir
+ * diese gescheiterte Nachricht an" — und der Zurueck-Knopf tut, was er soll.
+ */
+export const messageLogRoute = (filter: {
+  state?: string | undefined;
+  kind?: string | undefined;
+  before?: string | undefined;
+}): Route =>
+  withQuery('/nachrichten', {
+    zustand: filter.state,
+    art: filter.kind,
+    vor: filter.before,
+  });
+
 /** Ein bestimmter Spieltag in „Offene Spiele“. */
 export const openGamesRoute = (day?: string): Route => withQuery('/spiele', { tag: day });
 

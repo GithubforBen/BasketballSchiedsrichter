@@ -43,9 +43,9 @@ export const referees = pgTable(
     /**
      * Schiedsrichter-Lizenz. `null` heisst: keine — dann ist keine Eintragung
      * moeglich, auch nicht in eine Liga, fuer die die Qualifikation vorliegt.
-     * D deckt D und E ab, E nur E.
+     * C deckt C, D und E ab, D deckt D und E, E nur E.
      */
-    license: text('license', { enum: ['E', 'D'] }),
+    license: text('license', { enum: ['E', 'D', 'C'] }),
     /** In E.164, damit der Nachrichtenversand keine Formate raten muss. */
     phone: text('phone').notNull(),
     role: text('role', { enum: ['referee', 'admin'] })
@@ -78,6 +78,23 @@ export const referees = pgTable(
     ownPasswordSetAt: timestamp('own_password_set_at', { withTimezone: true }),
     /** Ende der 14-Tage-Frist des Start-Passworts. Regel 36. */
     startPasswordExpiresAt: timestamp('start_password_expires_at', { withTimezone: true }),
+    /**
+     * Zaehler, der alle offenen Sitzungen dieser Person ungueltig macht.
+     *
+     * Das Sitzungscookie ist signiert und traegt sich selbst — der Server legt
+     * nichts darueber ab. Das ist schnell und ueberlebt einen Neustart, hat
+     * aber eine Kehrseite: ein einmal ausgestelltes Cookie gilt dreissig Tage,
+     * und niemand kann es zuruecknehmen. Wer sein Passwort aendert, weil er
+     * fuerchtet, dass jemand mitgelesen hat, aendert damit nichts an der
+     * Sitzung, die dieser Jemand offen hat.
+     *
+     * Deshalb steht die Zahl hier und noch einmal im Cookie. Beim Aendern des
+     * Passworts wird sie hochgezaehlt; danach passt kein vorher ausgestelltes
+     * Cookie mehr zu ihr und alle alten Sitzungen sind mit einem Schlag zu.
+     * Das kostet keine Abfrage: `currentUser` liest die Zeile ohnehin, um Rolle
+     * und Passwortzustand frisch zu holen — die Spalte kommt einfach mit.
+     */
+    sessionEpoch: integer('session_epoch').notNull().default(0),
     /** Bildschirm, der nach dem Login zuerst geoeffnet wird. */
     lastScreen: text('last_screen'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -116,14 +133,26 @@ export const games = pgTable(
     leagueId: text('league_id')
       .notNull()
       .references(() => leagues.id),
+    /**
+     * Das Kuerzel des Verbands, so wie es in der Spielplandatei stand —
+     * `XU14Bz`, `Herren Kreisliga B, Gruppe 1`. Die Liga daneben ist die
+     * gedeutete Altersklasse; dieses Feld behaelt, was dabei verloren ginge.
+     * Wer sich eintraegt, will es sehen: nicht jeder pfeift jede Klasse gern.
+     * Leer bei Spielen, die von Hand angelegt wurden.
+     */
+    leagueLabel: text('league_label').notNull().default(''),
     home: text('home').notNull(),
     away: text('away').notNull(),
     venue: text('venue').notNull(),
     /**
-     * Lizenz, die zum Pfeifen dieses Spiels noetig ist. E ist die niedrigere,
-     * D die hoehere: wer D hat, darf auch E-Spiele pfeifen, umgekehrt nicht.
+     * Lizenz, die zum Pfeifen dieses Spiels noetig ist. E ist die niedrigste,
+     * darueber D, darueber C: wer die hoehere hat, darf auch die Spiele der
+     * niedrigeren pfeifen, umgekehrt nie.
+     *
+     * Die Spalte ist einfacher Text ohne Pruefbedingung in der Datenbank; der
+     * `enum` gilt nur in TypeScript. Deshalb kam C ohne Migration dazu.
      */
-    requiredLicense: text('required_license', { enum: ['E', 'D'] })
+    requiredLicense: text('required_license', { enum: ['E', 'D', 'C'] })
       .notNull()
       .default('E'),
     state: text('state', { enum: ['scheduled', 'moved', 'cancelled'] })
@@ -146,10 +175,17 @@ export const games = pgTable(
   (table) => [
     index('games_kickoff_idx').on(table.kickoff),
     /**
-     * Duplikaterkennung fuer den CSV-Import: dasselbe Spiel zur selben Zeit
-     * zwischen denselben Mannschaften gibt es nur einmal.
+     * Nachschlagehilfe fuer die Duplikaterkennung des CSV-Imports — bewusst
+     * **nicht** eindeutig.
+     *
+     * Dieselbe Paarung zur selben Zeit gibt es sehr wohl zweimal: der Verband
+     * setzt in derselben Halle zwei Begegnungen parallel an, und jede braucht
+     * ihre eigenen Schiedsrichter. Solange hier ein eindeutiger Index stand,
+     * verschwand die zweite stillschweigend. Der Import zaehlt stattdessen,
+     * wie oft eine Paarung in der Datei und wie oft sie in der Datenbank
+     * steht (siehe `dedupe`), und bleibt so trotzdem wiederholbar.
      */
-    uniqueIndex('games_natural_key').on(table.kickoff, table.home, table.away),
+    index('games_natural_key').on(table.kickoff, table.home, table.away),
   ],
 );
 
@@ -269,6 +305,32 @@ export const notificationOutbox = pgTable(
     sendAfter: timestamp('send_after', { withTimezone: true }).notNull().defaultNow(),
     sentAt: timestamp('sent_at', { withTimezone: true }),
     lastError: text('last_error'),
+    /**
+     * Die Nachricht, wie sie tatsaechlich rausging.
+     *
+     * Der Text entsteht beim Versand aus dem frisch gelesenen Spiel und war
+     * danach nirgends festgehalten. Wer wissen wollte, was jemand bekommen
+     * hat, konnte ihn nur nachbauen — und bekam dabei den *heutigen* Stand:
+     * ein Spiel, das nach der Nachricht verlegt wurde, zeigte in der Vorschau
+     * den neuen Termin, obwohl in der Nachricht der alte stand. Auf die Frage
+     * "was habt ihr mir denn geschickt?" gab es damit keine belastbare
+     * Antwort.
+     *
+     * Leer bei allem, was noch nicht versucht wurde. Geschrieben wird bei
+     * jedem Versuch, auch beim gescheiterten: gerade dann ist der Text die
+     * Auskunft darueber, was abgelehnt wurde.
+     */
+    sentSubject: text('sent_subject'),
+    sentBody: text('sent_body'),
+    /**
+     * Der Vorlagen-Aufruf, den die WhatsApp Cloud API bekommen hat — Name,
+     * Sprache, Werte, Knopfwert.
+     *
+     * Der Fliesstext daneben ist die lesbare Fassung; **verschickt** wird bei
+     * WhatsApp aber die Vorlage. Ob eine Ablehnung am Namen lag (Code 132001)
+     * oder an der Zahl der Werte (132000), steht nur hier.
+     */
+    sentTemplate: jsonb('sent_template').$type<Record<string, unknown>>(),
   },
   (table) => [
     uniqueIndex('notification_outbox_key').on(table.key, table.recipientId),

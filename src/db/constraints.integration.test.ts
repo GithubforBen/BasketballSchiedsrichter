@@ -66,14 +66,26 @@ suite('Datenbank-Zusicherungen', () => {
     ).rejects.toThrow();
   });
 
-  it('Duplikaterkennung: dasselbe Spiel laesst sich nicht zweimal importieren', async () => {
+  it('dieselbe Paarung zur selben Zeit darf es zweimal geben', async () => {
+    /*
+     * Frueher stand hier eine Eindeutigkeitsbedingung. Sie ist gefallen: der
+     * Verband setzt in derselben Halle zwei Begegnungen parallel an, und jede
+     * braucht eigene Schiedsrichter. Solange die Datenbank das verbot, verwarf
+     * der CSV-Import die zweite Zeile stillschweigend — aus vierzig Zeilen
+     * wurden vierunddreissig Spiele. Wiederholbar bleibt der Import, weil er
+     * die Vorkommen zaehlt (siehe `dedupe`) statt sich auf den Index zu
+     * verlassen.
+     */
     const row = await sql`SELECT kickoff, home, away FROM games WHERE id = ${gameId}`;
     const game = row[0];
-    await expect(
-      sql`INSERT INTO games (id, kickoff, league_id, home, away, venue)
-          VALUES (${`${gameId}-dup`}, ${game?.kickoff as Date}, 'TESTLIGA',
-                  ${game?.home as string}, ${game?.away as string}, 'Andere Halle')`,
-    ).rejects.toThrow();
+    await sql`INSERT INTO games (id, kickoff, league_id, home, away, venue)
+        VALUES (${`${gameId}-dup`}, ${game?.kickoff as Date}, 'TESTLIGA',
+                ${game?.home as string}, ${game?.away as string}, 'Andere Halle')`;
+
+    const both = await sql`SELECT id FROM games WHERE home = ${game?.home as string}
+                           AND away = ${game?.away as string} AND kickoff = ${game?.kickoff as Date}`;
+    expect(both).toHaveLength(2);
+    await sql`DELETE FROM games WHERE id = ${`${gameId}-dup`}`;
   });
 
   it('Outbox: dieselbe Nachricht geht nicht zweimal an dieselbe Person', async () => {

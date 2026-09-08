@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Note, Panel, TableWrap } from '@/components/primitives';
-import { FOOTER_NAV, REFEREE_NAV, REFEREE_TABS } from '@/components/shell/navigation';
+import { FOOTER_NAV, navFor } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
 import { CONFIRMATION_LABELS } from '@/domain/confirmation';
@@ -44,10 +44,12 @@ const Calendar = async () => {
   const maxCount = Math.max(1, ...months.map((m) => m.count));
   const me = ownRank(ranking);
 
+  const { nav, tabs } = navFor(user.role);
+
   return (
     <Shell
-      nav={REFEREE_NAV}
-      tabs={REFEREE_TABS}
+      nav={nav}
+      tabs={tabs}
       footerNav={FOOTER_NAV}
       current="/kalender"
       user={{ name: user.name, initials: user.initials }}
@@ -56,7 +58,7 @@ const Calendar = async () => {
         <div className="page-head-text">
           <div className="kicker kicker-accent">Deine Einsätze</div>
           <h1>Kalender &amp; Verlauf</h1>
-          <p className="text-muted">Deine nächsten Spiele und was bisher gezählt hat.</p>
+          <p className="lead text-muted">Deine nächsten Spiele und was bisher gezählt hat.</p>
         </div>
       </div>
 
@@ -152,11 +154,12 @@ const Calendar = async () => {
               {months.map((month) => (
                 <li key={month.key}>
                   <span className="month-name text-muted">{month.label}</span>
-                  <span
-                    className="month-bar"
-                    style={{ width: `${Math.round((month.count / maxCount) * 100)}%` }}
-                    aria-hidden="true"
-                  />
+                  <span className="month-track" aria-hidden="true">
+                    <span
+                      className="month-bar"
+                      style={{ width: `${Math.round((month.count / maxCount) * 100)}%` }}
+                    />
+                  </span>
                   <span className="month-count">{month.count}</span>
                 </li>
               ))}

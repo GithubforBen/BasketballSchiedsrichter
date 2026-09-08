@@ -44,6 +44,7 @@ export const makeGame = (overrides: Partial<Game> = {}): Game => ({
   id: 'g1',
   kickoff: inDays(30),
   leagueId: league,
+  leagueLabel: '',
   home: 'BG Nordstadt',
   away: 'TV Ostheim',
   venue: 'Sporthalle Nordstadt, Feld 2',

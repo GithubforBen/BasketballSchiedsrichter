@@ -242,6 +242,90 @@ suite('Outbox', () => {
     });
   });
 
+  describe('Das Protokoll haelt fest, was rausging', () => {
+    /** Was in der Zeile steht, nachdem sie verschickt wurde. */
+    const loggedOf = async (key: string) =>
+      sql<
+        {
+          sent_subject: string | null;
+          sent_body: string | null;
+          sent_template: Record<string, unknown> | null;
+        }[]
+      >`SELECT sent_subject, sent_body, sent_template FROM notification_outbox WHERE key = ${key}`;
+
+    it('schreibt Betreff, Text und Vorlage der zugestellten Nachricht mit', async () => {
+      const { db } = await import('@/db');
+      await enqueue(db, intent(24));
+
+      const channel = recorder();
+      await dispatchOutbox({ channel });
+
+      const [row] = await loggedOf(intent(24).key);
+      const sent = channel.sent[0];
+      /*
+       * Nicht "irgendein Text", sondern derselbe: was der Kanal bekommen hat,
+       * steht Zeichen fuer Zeichen in der Zeile. Ein Protokoll, das etwas
+       * anderes festhaelt als das Verschickte, waere schlimmer als keines.
+       */
+      expect(row?.sent_body).toBe(sent?.body);
+      expect(row?.sent_subject).toBe(sent?.subject);
+      expect(row?.sent_template?.['name']).toBe(sent?.template?.name);
+      expect(row?.sent_template?.['parameters']).toEqual(sent?.template?.parameters);
+    });
+
+    it('haelt auch fest, was abgelehnt wurde', async () => {
+      const { db } = await import('@/db');
+      const failing = intent(48);
+      await enqueue(db, failing);
+
+      await dispatchOutbox({
+        channel: {
+          name: 'whatsapp',
+          send: () => Promise.reject(new PermanentSendError('Vorlage gibt es nicht')),
+        },
+      });
+
+      /*
+       * Gerade bei der abgelehnten Nachricht ist der Text die Auskunft: er
+       * sagt, was Meta vorgelegt bekam. Ohne ihn bliebe nur der Fehlercode.
+       */
+      const [row] = await loggedOf(failing.key);
+      expect(row?.sent_body).toContain('Erinnerung');
+      expect(row?.sent_template?.['name']).toBe('schiriplan_erinnerung');
+    });
+
+    it('bewahrt den Wortlaut, auch wenn das Spiel danach verlegt wird', async () => {
+      const { db } = await import('@/db');
+      const moved = intent(72);
+      await enqueue(db, moved);
+      await dispatchOutbox({ channel: recorder() });
+
+      const [before] = await loggedOf(moved.key);
+      await sql`UPDATE games SET venue = 'Ganz andere Halle' WHERE id = ${gameId}`;
+      const [after] = await loggedOf(moved.key);
+
+      /*
+       * Der Kern der Sache: der Beleg gehoert dem Zeitpunkt des Versands. Als
+       * der Text noch beim Ansehen neu erzeugt wurde, zeigte er den heutigen
+       * Ort — und behauptete damit etwas, das so nie verschickt wurde.
+       */
+      expect(after?.sent_body).toBe(before?.sent_body);
+      expect(after?.sent_body).not.toContain('Ganz andere Halle');
+
+      await sql`UPDATE games SET venue = 'Halle 1' WHERE id = ${gameId}`;
+    });
+
+    it('laesst die Spalten leer, solange die Nachricht wartet', async () => {
+      const { db } = await import('@/db');
+      const waiting = personalReminderIntent(gameId, referee, 96);
+      await enqueue(db, waiting);
+
+      const [row] = await loggedOf(waiting.key);
+      expect(row?.sent_body).toBeNull();
+      expect(row?.sent_template).toBeNull();
+    });
+  });
+
   describe('Der Text entsteht erst beim Versand', () => {
     it('nennt den Termin, wie er jetzt gilt — nicht den vom Anlegen', async () => {
       const { db } = await import('@/db');

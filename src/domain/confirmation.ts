@@ -57,11 +57,11 @@ export const confirmationState = (
 
 /** Anzeigetexte, wie sie im Mockup stehen. */
 export const CONFIRMATION_LABELS: Readonly<Record<ConfirmationState, string>> = {
-  'not-required': 'keine Bestaetigung noetig',
-  scheduled: 'Bestaetigung folgt',
-  pending: 'Bestaetigung offen',
-  overdue: 'Bestaetigung ueberfaellig',
-  confirmed: 'bestaetigt',
+  'not-required': 'keine Bestätigung nötig',
+  scheduled: 'Bestätigung folgt',
+  pending: 'Bestätigung offen',
+  overdue: 'Bestätigung überfällig',
+  confirmed: 'bestätigt',
 };
 
 /**

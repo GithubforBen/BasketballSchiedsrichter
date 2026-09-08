@@ -30,7 +30,7 @@ export interface League {
  * eintragen — auch nicht in eine Liga, fuer die die Qualifikation vorliegt.
  * Sehen darf er weiterhin jedes Spiel.
  */
-export type License = 'E' | 'D';
+export type License = 'E' | 'D' | 'C';
 
 export interface Referee {
   id: string;
@@ -65,6 +65,8 @@ export interface Game {
   /** Anpfiff. Alle Fristen rechnen gegen diesen Zeitpunkt. */
   kickoff: Date;
   leagueId: string;
+  /** Kuerzel des Verbands, wie es in der Spielplandatei stand. Kann leer sein. */
+  leagueLabel: string;
   home: string;
   away: string;
   venue: string;
