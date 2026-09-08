@@ -536,6 +536,39 @@ body {
   overflow-x: auto;
 }
 
+/*
+ * Gleiche Spalten ueber alle Spieltage.
+ *
+ * Jeder Spieltag ist eine eigene Tabelle, und eine Tabelle misst ihre Spalten
+ * an ihrem eigenen Inhalt. Ein Spieltag mit einem langen Ligakuerzel oder einer
+ * langen Paarung schob die Schiedsrichter-Spalte damit weiter nach rechts als
+ * der Spieltag darueber — von oben nach unten gelesen sprang die Ansicht bei
+ * jeder Ueberschrift neu, und keine Spalte stand unter ihrer eigenen.
+ *
+ * `fixed` loest die Breite vom Inhalt. Sie steht im `<colgroup>` neben den
+ * Ueberschriften, ist fuer jeden Spieltag dieselbe, und damit stehen alle
+ * Tabellen der Seite in einer Flucht. Die Mindestbreite haelt die Spalten
+ * lesbar; darunter scrollt der Rahmen aus `.scroll-x` waagerecht.
+ */
+.table-aligned {
+  table-layout: fixed;
+}
+
+/* Ohne diese Zeile stiege ein zu langes Wort aus seiner festen Spalte aus. */
+.table-aligned td {
+  overflow-wrap: break-word;
+}
+
+/* Der oeffentliche Spielplan: sieben Spalten. */
+.table-schedule {
+  min-width: 820px;
+}
+
+/* Die Verwaltungsuebersicht: zwei Spalten mehr, dazu der Bearbeiten-Knopf. */
+.table-schedule-admin {
+  min-width: 1040px;
+}
+
 /* Sichtbar nur fuer Screenreader — fuer Beschriftungen, die visuell aus dem
    Zusammenhang hervorgehen, aber vorgelesen werden muessen. */
 .visually-hidden {

@@ -102,7 +102,19 @@ const Overview = async ({ searchParams }: PageProps) => {
             </div>
 
             <div className="scroll-x">
-              <table className="table">
+              <table className="table table-aligned table-schedule-admin">
+                {/* Wie im oeffentlichen Spielplan: feste Breiten, hundert Prozent. */}
+                <colgroup>
+                  <col style={{ width: '6%' }} />
+                  <col style={{ width: '11%' }} />
+                  <col style={{ width: '20%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '12%' }} />
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '8%' }} />
+                  <col style={{ width: '9%' }} />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Zeit</th>

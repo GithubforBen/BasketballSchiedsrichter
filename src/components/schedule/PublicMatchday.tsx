@@ -46,7 +46,21 @@ export const PublicMatchday = ({ matchday, timeZone, initials }: PublicMatchdayP
     </div>
 
     <div className="scroll-x only-wide">
-      <table className="table">
+      <table className="table table-aligned table-schedule">
+        {/*
+          Die Breiten stehen hier und nicht im Stilblatt: sie gehoeren zu dieser
+          Spaltenfolge, und wer eine Spalte ergaenzt, sieht die Zeile daneben.
+          Zusammen ergeben sie hundert Prozent.
+        */}
+        <colgroup>
+          <col style={{ width: '7%' }} />
+          <col style={{ width: '14%' }} />
+          <col style={{ width: '26%' }} />
+          <col style={{ width: '17%' }} />
+          <col style={{ width: '14%' }} />
+          <col style={{ width: '11%' }} />
+          <col style={{ width: '11%' }} />
+        </colgroup>
         <thead>
           <tr>
             <th>Zeit</th>
