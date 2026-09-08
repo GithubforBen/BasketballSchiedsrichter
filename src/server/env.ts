@@ -14,11 +14,36 @@ const required = (name: string): string => {
   return value;
 };
 
+/**
+ * Kuerzeste Laenge, die der Sitzungsschluessel im Echtbetrieb haben darf.
+ *
+ * An diesem einen Schluessel haengt alles, was diese Anwendung unterschreibt:
+ * das Sitzungscookie, der Anmeldelink samt Code, der Antwort-Token aus jeder
+ * Nachricht und die Ableitung der Notzugaenge. Wer ihn erraet, unterschreibt
+ * sich selbst eine Admin-Sitzung — kein Passwort, kein Rate-Limit steht dann
+ * noch dazwischen, denn geprueft wird nur die Signatur.
+ *
+ * Bisher wurde allein der Beispielwert abgewiesen. Damit waere "geheim"
+ * durchgegangen, und der Fehler faellt nirgends auf: die Anwendung laeuft
+ * damit tadellos. 32 Zeichen sind das, was `openssl rand -base64 24` liefert;
+ * `.env.example` schlaegt ohnehin 48 Byte vor.
+ */
+const MIN_SESSION_SECRET_LENGTH = 32;
+
 export const env = {
   get sessionSecret(): string {
     const secret = required('SESSION_SECRET');
-    if (process.env.NODE_ENV === 'production' && secret === 'bitte-ersetzen') {
-      throw new Error('SESSION_SECRET steht noch auf dem Beispielwert.');
+    if (process.env.NODE_ENV === 'production') {
+      if (secret === 'bitte-ersetzen') {
+        throw new Error('SESSION_SECRET steht noch auf dem Beispielwert.');
+      }
+      if (secret.length < MIN_SESSION_SECRET_LENGTH) {
+        throw new Error(
+          `SESSION_SECRET ist zu kurz (${secret.length} Zeichen, mindestens ` +
+            `${MIN_SESSION_SECRET_LENGTH}). An ihm haengen Sitzungen, Anmeldelinks, ` +
+            'Antwortlinks und Notzugaenge. Neu erzeugen: openssl rand -base64 48',
+        );
+      }
     }
     return secret;
   },

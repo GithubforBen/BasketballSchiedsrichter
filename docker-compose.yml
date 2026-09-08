@@ -7,7 +7,15 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: schiriplan
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-schiriplan}
+      # Kein Standardwert, so wie bei CRON_SECRET und PUBLIC_BASE_URL auch.
+      # Hier stand "schiriplan" — derselbe Wert wie Benutzer und Datenbank, und
+      # er steht in .env.example, also oeffentlich. Wer den Verbund ohne
+      # gesetzte Variable hochzieht, bekommt damit eine Datenbank mit einem
+      # Passwort, das jeder kennt. Nach aussen ist sie zwar nicht offen (kein
+      # "ports"-Eintrag), aber jeder andere Dienst im Compose-Netz erreicht sie
+      # — und die Sicherungen unter ./sicherungen enthalten Telefonnummern.
+      # Ein Abbruch beim Start ist die bessere Antwort als ein stiller Standard.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss gesetzt sein}
       POSTGRES_DB: schiriplan
     volumes:
       - db-data:/var/lib/postgresql/data
@@ -24,7 +32,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgres://schiriplan:${POSTGRES_PASSWORD:-schiriplan}@db:5432/schiriplan
+      DATABASE_URL: postgres://schiriplan:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss gesetzt sein}@db:5432/schiriplan
       NODE_ENV: production
       # Muss die oeffentliche Adresse sein, unter der der Tunnel die App
       # veroeffentlicht — nicht der interne Dienstname. Anmeldelinks und
@@ -78,7 +86,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:-schiriplan}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss gesetzt sein}
     volumes:
       - ./sicherungen:/sicherungen
     command: >
