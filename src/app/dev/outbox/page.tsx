@@ -96,7 +96,17 @@ const Outbox = async () => {
                   game,
                 })
               : null;
-            const rendered = isNotificationKind(row.kind)
+            /*
+             * Was schon rausging, steht in der Zeile — und wird nicht neu
+             * erzeugt. Der Unterschied ist nicht kosmetisch: der Text entsteht
+             * aus dem *heutigen* Spiel, ein nach der Nachricht verlegtes Spiel
+             * zeigte hier also den neuen Termin, obwohl beim Empfaenger der
+             * alte steht. Nachgebaut wird deshalb nur noch, was noch wartet —
+             * dort ist die Vorschau richtig, weil der Text erst beim Versand
+             * entsteht.
+             */
+            const recorded = row.sentBody === null ? null : { subject: row.sentSubject ?? '', body: row.sentBody };
+            const rendered = recorded ?? (isNotificationKind(row.kind)
               ? renderMessage(row.kind, {
                   recipientName: byReferee.get(row.recipientId) ?? row.recipientId,
                   game,
@@ -106,13 +116,15 @@ const Outbox = async () => {
                   now,
                   answerToken: claims ? issueAnswerToken(claims, env.sessionSecret) : null,
                 })
-              : { subject: `Unbekannte Art: ${row.kind}`, body: '', template: null };
+              : { subject: `Unbekannte Art: ${row.kind}`, body: '' });
             return (
               <li key={row.id} className="outbox-entry">
                 <div className="row" style={{ gap: 'var(--space-2)' }}>
                   <Tag tone={row.state === 'failed' ? 'outline' : 'neutral'}>{row.state}</Tag>
                   <Tag tone="neutral">{row.channel}</Tag>
                   <Tag tone="neutral">{row.kind}</Tag>
+                  {/* Sagen, was man sieht: den Beleg oder die Vorhersage. */}
+                  <Tag tone="outline">{recorded ? 'wie verschickt' : 'Vorschau'}</Tag>
                   <span
                     className="text-muted"
                     style={{ fontSize: '11px', marginLeft: 'auto', fontVariantNumeric: 'tabular-nums' }}

@@ -71,6 +71,13 @@
       "when": 1788706930591,
       "tag": "0009_liga_kuerzel_und_doppelte_spiele",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788807745561,
+      "tag": "0010_nachrichten_protokoll",
+      "breakpoints": true
     }
   ]
 }

@@ -846,6 +846,44 @@ body {
 }
 
 /*
+ * Der Vorlagen-Aufruf im Nachrichten-Protokoll.
+ *
+ * Zugeklappt, weil er die Ausnahme ist: gelesen wird der Fliesstext darueber.
+ * Aufgeklappt beantwortet er die eine Frage, die der Text nicht beantworten
+ * kann — welche Werte gingen an Meta, und wie viele.
+ */
+.log-template {
+  margin-top: var(--space-2);
+  font-size: 12px;
+}
+
+.log-template summary {
+  cursor: pointer;
+}
+
+.log-parameters {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.log-parameters li {
+  /* Ein langer Wert — die Zeile der Tagesuebersicht — bricht, statt aufzuziehen. */
+  overflow-wrap: break-word;
+}
+
+/* Der Zeitstempel steht rechts und soll dort nicht springen. */
+.log-stamp {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Die Filterleiste haelt Abstand zur ersten Nachricht. */
+.log-filters {
+  margin-bottom: var(--space-4);
+}
+
+/*
  * Der schmale Textknopf aus dem Mockup — etwa "Entfernen" in einer Zeile oder
  * "Abmelden" in der Kopfzeile. Die Abstaende sind kleiner als der kleinste
  * Token (4px) und deshalb hier ausgeschrieben statt inline: eine Ausnahme mit

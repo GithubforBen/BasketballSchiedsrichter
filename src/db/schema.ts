@@ -288,6 +288,32 @@ export const notificationOutbox = pgTable(
     sendAfter: timestamp('send_after', { withTimezone: true }).notNull().defaultNow(),
     sentAt: timestamp('sent_at', { withTimezone: true }),
     lastError: text('last_error'),
+    /**
+     * Die Nachricht, wie sie tatsaechlich rausging.
+     *
+     * Der Text entsteht beim Versand aus dem frisch gelesenen Spiel und war
+     * danach nirgends festgehalten. Wer wissen wollte, was jemand bekommen
+     * hat, konnte ihn nur nachbauen — und bekam dabei den *heutigen* Stand:
+     * ein Spiel, das nach der Nachricht verlegt wurde, zeigte in der Vorschau
+     * den neuen Termin, obwohl in der Nachricht der alte stand. Auf die Frage
+     * "was habt ihr mir denn geschickt?" gab es damit keine belastbare
+     * Antwort.
+     *
+     * Leer bei allem, was noch nicht versucht wurde. Geschrieben wird bei
+     * jedem Versuch, auch beim gescheiterten: gerade dann ist der Text die
+     * Auskunft darueber, was abgelehnt wurde.
+     */
+    sentSubject: text('sent_subject'),
+    sentBody: text('sent_body'),
+    /**
+     * Der Vorlagen-Aufruf, den die WhatsApp Cloud API bekommen hat — Name,
+     * Sprache, Werte, Knopfwert.
+     *
+     * Der Fliesstext daneben ist die lesbare Fassung; **verschickt** wird bei
+     * WhatsApp aber die Vorlage. Ob eine Ablehnung am Namen lag (Code 132001)
+     * oder an der Zahl der Werte (132000), steht nur hier.
+     */
+    sentTemplate: jsonb('sent_template').$type<Record<string, unknown>>(),
   },
   (table) => [
     uniqueIndex('notification_outbox_key').on(table.key, table.recipientId),
