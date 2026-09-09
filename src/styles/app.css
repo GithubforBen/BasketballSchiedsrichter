@@ -162,6 +162,24 @@ body {
   background: var(--color-accent-strong);
 }
 
+/*
+ * Der Link im Fliesstext.
+ *
+ * Das Design-System faerbt jedes `a` mit dem vollen Akzent — 3,76:1, und damit
+ * unter den 4,5:1, die WCAG 2.1 AA fuer Text verlangt. Aufgefallen ist es
+ * nie, weil es bis zum Impressum keinen Link im Fliesstext gab: die Knoepfe
+ * und die Fusszeile setzen ihre Farbe selbst. Die beiden E-Mail-Adressen dort
+ * waren die ersten, und axe hat sie sofort gemeldet.
+ *
+ * Es gilt dieselbe Regel wie fuer alle Farben hier: der Farbton bleibt, die
+ * Helligkeit gibt nach, sobald Schrift im Spiel ist. Alles, was seine Farbe
+ * selbst setzt — `.btn`, `.shell-footer a`, `.nav a` —, hat die hoehere
+ * Spezifitaet und bleibt unberuehrt.
+ */
+a {
+  color: var(--color-accent-strong);
+}
+
 .btn-ghost {
   color: var(--color-accent-strong);
 }
@@ -376,6 +394,22 @@ body {
 }
 
 /*
+ * Die Ueberschrift auf schmalen Geraeten.
+ *
+ * Das Design-System setzt h1 auf 42px. "Schiedsrichter" ist darin 302px breit
+ * und stand in einer 280px schmalen Spalte — ein einzelnes Wort bricht nicht,
+ * also lief es hinaus und zog die Seite mit: 14px auf einem 320px-Display,
+ * 10px auf der Spieluebersicht. Bei 32px sind es 230px, und der Umbruch faengt
+ * ab, was noch laenger wird.
+ */
+@media (max-width: 419px) {
+  h1 {
+    font-size: 32px;
+    overflow-wrap: break-word;
+  }
+}
+
+/*
  * Die Zeile unter der Ueberschrift.
  *
  * Ohne Begrenzung lief sie auf einem breiten Bildschirm ueber die volle
@@ -559,6 +593,67 @@ body {
   overflow-wrap: break-word;
 }
 
+/*
+ * Ein Rahmen, der auch senkrecht bei sich bleibt.
+ *
+ * `.scroll-x` allein loest nur die halbe Aufgabe: die Tabelle scrollt
+ * waagerecht, der Balken dafuer sitzt aber an der Unterkante des Rahmens — und
+ * die liegt bei sechsunddreissig Schiedsrichtern 1400px unterhalb des
+ * Fensters. Wer die hinteren Spalten sehen wollte, musste erst ans Seitenende
+ * scrollen, den Balken ziehen und wieder hochscrollen; und oben angekommen
+ * stand die Tabelle wieder am linken Rand.
+ *
+ * Deshalb bekommt der Rahmen eine Hoehe. Sobald er nicht hoeher ist als das
+ * Fenster, laesst sich seine Unterkante immer ins Bild holen — und mit ihr der
+ * Balken. Auf 1366x768 waren es vorher 1408px zu scrollen, jetzt sind es 0.
+ *
+ * Abgezogen wird ein fester Betrag und kein Anteil: ueber dem Rahmen steht die
+ * Kopfzeile der Seite, und die ist ungefaehr gleich hoch, ob das Fenster nun
+ * 768 oder 1440 Punkte misst. Ein Anteil verschenkte auf dem grossen Schirm
+ * Zeilen, die dort Platz haetten.
+ *
+ * `dvh` ist dasselbe wie `vh`, solange keine Browserleiste ein- und ausfaehrt.
+ * Wo eine das tut, folgt der Rahmen ihr — `vh` steht als Rueckfall darueber.
+ */
+.scroll-pane {
+  overflow-y: auto;
+  max-height: calc(100vh - 16rem);
+  max-height: calc(100dvh - 16rem);
+}
+
+/*
+ * Solange die Tab-Leiste unten klebt, verdeckt sie die letzten Punkte des
+ * Fensters — und damit genau den Balken, um den es hier geht. Sie kommt vom
+ * Abzug mit ab.
+ */
+@media (max-width: 1023px) {
+  .scroll-pane {
+    max-height: calc(100vh - 16rem - var(--shell-tabbar-height));
+    max-height: calc(100dvh - 16rem - var(--shell-tabbar-height));
+  }
+}
+
+/*
+ * Der Spaltenkopf bleibt stehen.
+ *
+ * Ohne ihn ist ein Rahmen, in dem man senkrecht scrollt, schlechter als vorher:
+ * in der siebten Zeile weiss niemand mehr, ob die Spalte "U14" oder "U16"
+ * heisst. Der Hintergrund ist Pflicht, sonst scheinen die Zeilen durch.
+ */
+.scroll-pane .table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-bg);
+  /*
+   * Bei `border-collapse: collapse` gehoert der Rahmen der Tabelle und nicht
+   * der Zelle — er bleibt liegen, waehrend die Zelle klebt. Der Schatten
+   * gehoert der Zelle und wandert mit.
+   */
+  border-bottom-color: transparent;
+  box-shadow: inset 0 -2px 0 var(--color-divider);
+}
+
 /* Der oeffentliche Spielplan: sieben Spalten. */
 .table-schedule {
   min-width: 820px;
@@ -634,10 +729,21 @@ body {
   align-self: stretch;
 }
 
+/*
+ * Die Textspalte der Karte. `min-width: 0` steht hier, weil ein Flex-Kind sonst
+ * mindestens so breit ist wie sein laengstes Wort — ein Hallenname wie
+ * "Melibokushalle" schob die Karte damit ueber den Rand.
+ */
+.game-card-text {
+  flex: 1;
+  min-width: 0;
+}
+
 .game-card-title {
   font-family: var(--font-heading);
   font-weight: var(--font-heading-weight);
   font-size: 13px;
+  overflow-wrap: break-word;
 }
 
 /*
@@ -780,6 +886,11 @@ body {
   line-height: 1.7;
 }
 
+/* Adressen und zusammengesetzte Woerter brechen, statt die Spalte aufzuziehen. */
+.prose {
+  overflow-wrap: break-word;
+}
+
 .prose h4 {
   margin-top: var(--space-4);
   margin-bottom: var(--space-1);
@@ -795,9 +906,19 @@ body {
   border-bottom: 2px solid var(--color-divider);
 }
 
+/*
+ * Wie beim Kalenderraster: `minmax(0, 1fr)` statt der automatischen Spur.
+ *
+ * Eine automatische Spur ist mindestens so breit wie das laengste Wort, das
+ * nicht umbrechen kann — auf dieser Seite eine E-Mail-Adresse und Woerter wie
+ * "Datenschutz-Aufsichtsbehoerde". Auf einem 320px-Display schob das die Seite
+ * um 18px hinaus. Die Null als Minimum bindet die Spur ans Fenster; damit die
+ * langen Woerter dann nicht ihrerseits hinauslaufen, brechen sie unten.
+ */
 .definition-grid {
   display: grid;
   gap: var(--space-6);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 768px) {
@@ -1003,9 +1124,22 @@ body {
 
 /* — Kalender und Verlauf — */
 
+/*
+ * `minmax(0, 1fr)` und nicht die Voreinstellung `auto`.
+ *
+ * Eine automatische Spur ist mindestens so breit wie der schmalste Inhalt, den
+ * sie fassen muss — und dieser Inhalt war eine Tabelle mit sechs Spalten. Der
+ * `.scroll-x`-Rahmen half nichts: er schneidet ab, wenn er selbst schmal ist,
+ * aber er ist hier ein gewoehnlicher Block und wird so breit gemacht, wie die
+ * Spur ihn laesst. Die Spur wuchs also mit der Tabelle, das Raster schob die
+ * ganze Seite auf 656px, und auf einem iPhone (320-430px) stand die Haelfte
+ * ausserhalb des Bildes. Die Null als Minimum bricht diese Kette: die Spur
+ * folgt dem Fenster, der Rahmen schneidet wieder ab.
+ */
 .calendar-grid {
   display: grid;
   gap: var(--space-8);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 @media (min-width: 1024px) {
@@ -1055,8 +1189,15 @@ body {
  * einer mit null Spielen.
  */
 .month-track {
-  flex: none;
-  width: 180px;
+  flex: 1;
+  /* Feste 180px passten auf einem 320px-Display nicht mehr ins Panel: die Zeile
+     schob es bis 25px ueber seine eigene Kante, bis auf 7px an den Bildrand. Die
+     Seite scrollte deshalb nicht, aber das Panel stand nicht mehr in der Flucht
+     der uebrigen. Die Spur darf jetzt schrumpfen — nicht aber ueber die Breite
+     hinauswachsen, fuer die die Balken gezeichnet sind. Ab 360px aendert sich
+     nichts. */
+  min-width: 0;
+  max-width: 180px;
   height: 12px;
   background: color-mix(in srgb, var(--color-text) 7%, transparent);
 }

@@ -5,7 +5,7 @@ import { AdminShell, single } from '@/components/admin/AdminShell';
 import { RefereeCsvImport } from '@/components/admin/RefereeCsvImport';
 import { CLUB } from '@/config/club';
 import { LICENSES } from '@/domain/license';
-import { surnameOf } from '@/domain/name';
+import { compareAdminsFirst, surnameOf } from '@/domain/name';
 import { dateLabel } from '@/domain/schedule';
 import { formatPhone } from '@/domain/phone';
 import { REFEREE_CSV_EXAMPLE } from '@/domain/referee-csv';
@@ -87,6 +87,13 @@ const Referees = async ({ searchParams }: PageProps) => {
     tab === 'csv' ? existingRefereeKeys() : Promise.resolve({ phones: [], initials: [] }),
   ]);
   const activeLeagues = leagues.filter((league) => league.active);
+  /*
+   * `loadAllReferees` liefert schon alphabetisch; hier kommen die Admins nach
+   * vorn. Das ist eine Entscheidung dieser Seite und keine des Bestands —
+   * ueberall sonst, etwa in der Besetzung eines Spiels, waere eine Liste, die
+   * zwei Namen vorzieht, nur verwirrend.
+   */
+  const sortedReferees = [...referees].sort(compareAdminsFirst);
   const passwordOf = new Map(passwords.map((entry) => [entry.refereeId, entry]));
   /*
    * Die leere Zeile haengt an der Adresse und nicht an einem Zustand im
@@ -140,7 +147,13 @@ const Referees = async ({ searchParams }: PageProps) => {
         />
       ) : (
         <>
-          <div className="scroll-x">
+          {/*
+            Der Rahmen scrollt hier in beide Richtungen und nicht mit der Seite:
+            die Tabelle ist breiter als das Fenster *und* laenger, und der
+            waagerechte Balken saesse sonst unter allen Zeilen. Warum das so
+            gebaut ist, steht bei `.scroll-pane` in app.css.
+          */}
+          <div className="scroll-x scroll-pane">
             <table className="table">
               <thead>
                 <tr>
@@ -290,7 +303,7 @@ const Referees = async ({ searchParams }: PageProps) => {
                     </td>
                   </tr>
                 ) : null}
-                {referees.map((referee) => (
+                {sortedReferees.map((referee) => (
                   <tr key={referee.id}>
                     <td>
                       {/*

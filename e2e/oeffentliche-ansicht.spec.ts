@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { LEGAL, missingLegalFields } from '@/config/legal';
 
 /**
  * Die zentrale Zusicherung aus Meilenstein 2: ohne Anmeldung verlaesst kein
@@ -49,7 +50,18 @@ test.describe('Öffentliche Ansicht', () => {
 
     await page.goto('/impressum');
     await expect(page.getByRole('heading', { name: /Impressum/, level: 1 })).toBeVisible();
-    await expect(page.getByText(/juristische Prüfung/)).toBeVisible();
+    /*
+     * Hier stand: der Entwurfshinweis ist sichtbar. Den gibt es nicht mehr,
+     * seit die Erklärung freigegeben ist (`reviewed` in src/config/legal.ts) —
+     * ein Test, der ihn verlangt, hielte die Seite dauerhaft im Entwurf fest.
+     *
+     * Geprüft wird deshalb, was das Impressum tatsächlich leisten muss: die
+     * Angaben nach § 5 DDG. Das ist die schärfere Prüfung — sie wäre auch bei
+     * dem leeren Impressum angeschlagen, mit dem diese Seite lange lief.
+     */
+    expect(missingLegalFields()).toEqual([]);
+    await expect(page.getByText(LEGAL.operator)).toBeVisible();
+    await expect(page.getByText(/Vertreten durch:/)).toBeVisible();
   });
 
   test('scrollt nie waagerecht', async ({ page }) => {

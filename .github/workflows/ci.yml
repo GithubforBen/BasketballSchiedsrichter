@@ -26,7 +26,12 @@ jobs:
     env:
       DATABASE_URL: postgres://schiriplan:schiriplan@localhost:5432/schiriplan
       TEST_DATABASE_URL: postgres://schiriplan:schiriplan@localhost:5432/schiriplan
-      SESSION_SECRET: nur-fuer-die-ci-nicht-geheim
+      # Mindestens 32 Zeichen — src/server/env.ts weist im Produktionsmodus
+      # kuerzere ab, und der E2E-Schritt startet genau diesen Build. Der
+      # bisherige Wert hatte 28: die Anwendung kam nicht hoch, jede Seite
+      # antwortete mit 500, und `wait-on` lief in die Zeitueberschreitung.
+      # Geheim ist hier nichts, die Laenge ist der ganze Zweck.
+      SESSION_SECRET: nur-fuer-die-ci-nicht-geheim-und-lang-genug
       NOTIFICATION_CHANNEL: dev
       PUBLIC_BASE_URL: http://localhost:3100
 

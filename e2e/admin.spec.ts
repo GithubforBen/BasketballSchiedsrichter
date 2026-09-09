@@ -265,6 +265,79 @@ test.describe('Adminbereich', () => {
       await expectNoHorizontalScroll(page, path);
     }
   });
+
+  /*
+   * Dasselbe auf 320px.
+   *
+   * Das Handy-Profil dieser Suite ist ein Pixel 7 mit 412px. Dort passte die
+   * Ueberschrift noch; auf 320px war "Schiedsrichter" in 42px breiter als seine
+   * Spalte und zog die Seite um 14px hinaus, die Spieluebersicht um 10px.
+   */
+  test('auch auf 320px bleibt kein Adminbildschirm hinter dem Rand', async ({ page }) => {
+    test.slow();
+    await loginAs(page, SEED.nele.phone);
+    await page.setViewportSize({ width: 320, height: 568 });
+    for (const path of ['/uebersicht', '/meldungen', '/anlegen', '/schiris', '/einstellungen', '/nachpflegen']) {
+      await page.goto(path);
+      await expectNoHorizontalScroll(page, path);
+    }
+  });
+
+  /*
+   * Der Rahmen der Schiedsrichter-Tabelle darf nie hoeher werden als das
+   * Fenster.
+   *
+   * Daran haengt der ganze Zweck: der waagerechte Balken sitzt an seiner
+   * Unterkante, und nur eine Unterkante, die ins Fenster passt, laesst sich
+   * erreichen. Vorher war der Rahmen so hoch wie die Tabelle — bei
+   * sechsunddreissig Personen 1943px, und der Balken lag 1408px unter dem Rand.
+   *
+   * Geprueft wird die zugesicherte Hoehe und nicht die gemessene: mit den sechs
+   * Personen aus dem Seed ist die Tabelle ohnehin kurz, und ein Test, der nur
+   * bei vielen Zeilen etwas aussagt, sagt hier nichts.
+   */
+  test('haelt die Schiedsrichter-Tabelle im Fenster', async ({ page }) => {
+    await loginAs(page, SEED.nele.phone);
+    await page.goto('/schiris');
+
+    const pane = page.locator('.scroll-pane');
+    await expect(pane).toBeVisible();
+
+    const mass = await pane.evaluate((element) => ({
+      maxHoehe: Number.parseFloat(getComputedStyle(element).maxHeight),
+      fenster: window.innerHeight,
+      kopf: getComputedStyle(element.querySelector('thead th')!).position,
+    }));
+
+    expect(
+      mass.maxHoehe,
+      `Der Rahmen darf hoechstens ${mass.fenster}px hoch werden, zugesichert sind ${mass.maxHoehe}px`,
+    ).toBeLessThanOrEqual(mass.fenster);
+    // Wer im Rahmen nach unten scrollt, soll die Spaltenkoepfe behalten.
+    expect(mass.kopf).toBe('sticky');
+  });
+
+  /*
+   * Die Ordnung der Verwaltungsliste: Admins zuerst, danach nach Nachnamen.
+   *
+   * Der Seed liefert Baumann (Admin), Brandt, Faerber, Keller, Silva, Yildiz.
+   * Ohne Sortierung kaeme die Reihenfolge aus der Datenbank, und die ist keine.
+   */
+  test('sortiert die Schiedsrichter: Admins zuerst, dann nach Nachnamen', async ({ page }) => {
+    await loginAs(page, SEED.nele.phone);
+    await page.goto('/schiris');
+
+    const nachnamen = await page
+      .locator('tbody tr input[name="nachname"]')
+      .evaluateAll((felder) => felder.map((feld) => (feld as HTMLInputElement).value));
+    expect(nachnamen).toEqual(['Baumann', 'Brandt', 'Färber', 'Keller', 'Silva', 'Yildiz']);
+
+    const rollen = await page
+      .locator('tbody tr select[name="rolle"]')
+      .evaluateAll((felder) => felder.map((feld) => (feld as HTMLSelectElement).value));
+    expect(rollen[0], 'die Adminzeile steht oben').toBe('admin');
+    expect(rollen.slice(1).every((rolle) => rolle === 'referee')).toBe(true);
+  });
 });
 
 /**

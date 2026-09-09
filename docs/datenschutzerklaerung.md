@@ -1,24 +1,16 @@
-# Datenschutzerklärung (Muster)
+# Datenschutzerklärung
 
-> **Entwurf — vor dem Echtbetrieb juristisch prüfen lassen.**
->
 > Dieser Text beschreibt, was SCHIRIPLAN tatsächlich tut: er ist aus dem Code
 > abgeleitet (Schema, `src/server/aufbewahrung.ts`, `src/notifications/channel.ts`,
-> `src/server/auskunft.ts`) und nicht aus einer Vorlage abgeschrieben. Er ersetzt
-> aber keine Rechtsberatung. Nach der Prüfung `reviewed` in `src/config/legal.ts`
-> auf `true` setzen — dann verschwindet der Entwurfshinweis auch in der App.
+> `src/server/auskunft.ts`) und nicht aus einer Vorlage abgeschrieben. Ändert
+> sich die Verarbeitung, ändert sich dieser Text mit ihr.
 >
 > Die vollständige Liste der verarbeiteten Felder steht in
 > [`verarbeitete-daten.md`](verarbeitete-daten.md).
 
-**Noch auszufüllen** — überall dort, wo `AUSFÜLLEN:` steht. Diese Angaben fehlen
-zurzeit auch in `src/config/legal.ts`:
-
-- Anschrift des Vereins
-- Vertretungsberechtigte (§ 5 DDG)
-- E-Mail-Adresse
-- Registergericht und Registernummer
-- Zuständige Aufsichtsbehörde (richtet sich nach dem Sitz des Vereins)
+Die Angaben zum Verein — Anschrift, Vertretung, E-Mail, Registergericht,
+Aufsichtsbehörde und Kontakt für Betroffenenrechte — stehen in
+`src/config/legal.ts` und erscheinen von dort auf der Seite `/impressum`.
 
 ---
 
@@ -35,7 +27,7 @@ Michael Dieter (1. Vorsitzender)
 Matthias Karch (2. Vorsitzender)
 E-Mail: info@sc-bergstrasse.net
 Registergericht: Amtsgericht Darmstadt, VR 1774
-Inhaltlich Verantwortliche gemäß § 10 Absatz 3 MDStV: Linda Schnorrenberger
+Inhaltlich Verantwortliche: Linda Schnorrenberger
 
 Eine eigene Datenschutzbeauftragte ist nicht bestellt; die Voraussetzungen des
 § 38 BDSG liegen nicht vor. Anfragen zum Datenschutz nimmt der Vorstand
@@ -70,7 +62,7 @@ Zustand des Kontos (aktiv oder stillgelegt).
 Zusätzlich werden im Zusammenhang mit den Schiedsrichtereinsätzen folgende Daten verarbeitet:
 
 Eintragungen auf Schiedsrichter- und Ersatzplätze, Zeitpunkt der Eintragung,
-Bestätigungen, Rückmeldungen zu verlegten Spielen, Name des eingeteilten Schiedsrichters, Heim- und Gastmannschaft, Datum und Uhrzeit des Spiels,	Spielort, Liga, Zuordnung des Schiedsrichters zum jeweiligen Spiel
+Bestätigungen, Rückmeldungen zu verlegten Spielen, Name des eingeteilten Schiedsrichters, Heim- und Gastmannschaft, Datum und Uhrzeit des Spiels, Spielort, Liga, Zuordnung des Schiedsrichters zum jeweiligen Spiel
 
 - **Zweck:** Planung der Besetzung, Nachweis der geleisteten Einsätze.
 - **Rechtsgrundlage:** Art. 6 Abs. 1 lit. b DSGVO.
@@ -159,9 +151,6 @@ die IP-Adresse ausschließlich zur Begrenzung von Anmeldeversuchen aus
 - **Rechtsgrundlage:** Art. 6 Abs. 1 lit. f DSGVO — berechtigtes Interesse an
   einem erreichbaren und gegen Überlastung geschützten Betrieb.
 
-AUSFÜLLEN: Anbieter des Servers (Hoster) benennen und Auftragsverarbeitungs-
-verträge nach Art. 28 DSGVO mit Hoster und Cloudflare schließen.
-
 ## 7. Cookies
 
 Gesetzt wird ein einziges Cookie:
@@ -243,14 +232,14 @@ Anfragen richtest du an den Vorstand; die Kontaktdaten stehen unter 1.
 Unabhängig davon steht dir ein Beschwerderecht bei einer Aufsichtsbehörde für
 den Datenschutz zu (Art. 77 DSGVO).
 
-Zuständige Aufsichtsbehörde: Hessische Beauftragte für Datenschutz und
+Zuständige Aufsichtsbehörde: Der Hessische Beauftragte für Datenschutz und
 Informationsfreiheit, Postfach 3163, 65021 Wiesbaden.
 
 ## 13. Datensicherheit
 
 Der Verein trifft angemessene technische und organisatorische Maßnahmen, um die personenbezogenen Daten vor Verlust, Zerstörung, Manipulation sowie vor unberechtigtem Zugriff zu schützen.
 
-Der Zugang zur Anwendung ist auf berechtigte Benutzer beschränkt und erfolgt über persönliche Benutzerkonten
+Der Zugang zur Anwendung ist auf berechtigte Benutzer beschränkt und erfolgt über persönliche Benutzerkonten.
 
 Die Anforderungen an die Sicherheit der Verarbeitung richten sich insbesondere nach Art. 32 DSGVO.
 
@@ -258,14 +247,14 @@ Die Anforderungen an die Sicherheit der Verarbeitung richten sich insbesondere n
 
 Die Anwendung ist ausschließlich für die interne Organisation des Vereins bestimmt. Sie bietet insbesondere keine öffentliche Kommentarfunktion, Chatfunktion oder Möglichkeit zur Veröffentlichung eigener Inhalte.
 
-Die Anwendung ist daher nach der derzeitigen Einordnung keine öffentliche Online-Plattform im Sinne des Digital Services Act (DSA). 
+Die Anwendung ist daher nach der derzeitigen Einordnung keine öffentliche Online-Plattform im Sinne des Digital Services Act (DSA).
 
-## 14. Änderungen dieser Erklärung
+## 15. Änderungen dieser Erklärung
 
 Diese Erklärung wird angepasst, sobald sich die Verarbeitung ändert. Maßgeblich
 ist die jeweils in der Anwendung veröffentlichte Fassung.
 
-## 15. Kontakt
+## 16. Kontakt
 
 Bei Fragen zur Verarbeitung personenbezogener Daten oder zur Wahrnehmung der Betroffenenrechte kann sich die betroffene Person an den Verantwortlichen wenden:
 
