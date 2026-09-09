@@ -15,6 +15,10 @@ import { currentUser } from '@/server/viewer';
  * Verein seine Angaben ein. Was die Anwendung mit Daten tut, steht hier im
  * Text: das ist eine Aussage ueber den Code und muss sich mit ihm aendern,
  * nicht per Konfiguration.
+ *
+ * Die ausfuehrliche Fassung liegt unter `docs/datenschutzerklaerung.md`. Diese
+ * Seite ist ihre Kurzfassung und muss dieselben Aussagen treffen — weicht eine
+ * von beiden ab, ist es ein Fehler und keine Redaktion.
  */
 
 export const metadata: Metadata = {
@@ -23,6 +27,15 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = 'force-dynamic';
+
+/* Das Datum steht als ISO-Wert in der Konfiguration; geschrieben wird es hier. */
+const dateLabel = (iso: string): string =>
+  new Intl.DateTimeFormat(CLUB.locale, {
+    timeZone: CLUB.timeZone,
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(iso));
 
 const Legal = async () => {
   const user = await currentUser();
@@ -88,6 +101,12 @@ const Legal = async () => {
                 {LEGAL.register}
               </>
             ) : null}
+            {LEGAL.contentResponsible ? (
+              <>
+                <br />
+                Inhaltlich verantwortlich nach § 18 Abs. 2 MStV: {LEGAL.contentResponsible}
+              </>
+            ) : null}
           </p>
 
           {missing.length > 0 ? (
@@ -101,9 +120,29 @@ const Legal = async () => {
         <section className="prose">
           <h3>Datenschutzerklärung</h3>
           <p>
-            Verarbeitet werden Name, Vorname, Kürzel, Telefonnummer, Lizenz, Qualifikationen,
-            Eintragungen und Einsatzzahlen. Zweck ist die Besetzung der Spiele und die Abrechnung
-            der Einsätze. Rechtsgrundlage ist die Mitgliedschaft im Verein.
+            Die Anwendung dient ausschließlich der vereinsinternen Organisation und Planung von
+            Schiedsrichtereinsätzen: Schiedsrichter werden für Spiele eingeteilt, Einsätze
+            verwaltet und Erinnerungen sowie organisatorische Nachrichten versandt. Sie wird
+            weder öffentlich angeboten noch an andere Vereine weitergegeben.
+          </p>
+
+          <h4>Welche Daten</h4>
+          <p>
+            <strong>Stammdaten:</strong> Name, Vorname, Kürzel, Telefonnummer, Lizenz,
+            Qualifikationen für einzelne Ligen, Rolle und Zustand des Kontos.
+          </p>
+          <p>
+            <strong>Einsatzdaten:</strong> Eintragungen auf Schiedsrichter- und Ersatzplätze,
+            Zeitpunkt der Eintragung, Bestätigungen, Rückmeldungen zu verlegten Spielen, Name der
+            eingeteilten Person, Heim- und Gastmannschaft, Datum, Uhrzeit, Spielort und Liga des
+            Spiels sowie die Zuordnung zum jeweiligen Spiel.
+          </p>
+          <p>
+            Zweck ist die Besetzung der Spiele und die Abrechnung der Einsätze. Rechtsgrundlage
+            ist Art. 6 Abs. 1 lit. b DSGVO — die Durchführung des Mitgliedschaftsverhältnisses —
+            sowie Art. 6 Abs. 1 lit. f DSGVO: Der Verein hat ein berechtigtes Interesse daran,
+            den Spielbetrieb zu organisieren, Schiedsrichter einzuteilen, die Durchführung der
+            Spiele sicherzustellen und die dafür erforderliche Kommunikation zu ermöglichen.
           </p>
           <p>
             Nachrichten laufen über WhatsApp (Meta Platforms Ireland Ltd.). Dabei wird die
@@ -144,13 +183,49 @@ const Legal = async () => {
             </li>
           </ul>
 
+          <h4>Datensicherheit</h4>
+          <p>
+            Der Verein trifft angemessene technische und organisatorische Maßnahmen, um die Daten
+            vor Verlust, Zerstörung, Manipulation und unberechtigtem Zugriff zu schützen
+            (Art. 32 DSGVO). Der Zugang ist auf berechtigte Personen beschränkt und erfolgt über
+            persönliche Konten.
+          </p>
+
+          <h4>Keine öffentliche Plattform</h4>
+          <p>
+            Die Anwendung ist ausschließlich für die interne Organisation des Vereins bestimmt.
+            Sie bietet keine öffentliche Kommentar- oder Chatfunktion und keine Möglichkeit,
+            eigene Inhalte zu veröffentlichen. Nach der derzeitigen Einordnung ist sie damit
+            keine öffentliche Online-Plattform im Sinne des Digital Services Act.
+          </p>
+
           <h4>Deine Rechte</h4>
           <p>
             Angemeldet lädst du unter „Profil &amp; Erinnerungen“ jederzeit einen vollständigen
-            Auszug deiner Daten herunter. Auskunft, Berichtigung, Löschung und Widerspruch nimmt{' '}
-            {LEGAL.dataProtectionContact ?? 'ein Admin der Abteilung'} entgegen; die Kontaktdaten
-            stehen im Impressum.
+            Auszug deiner Daten herunter. Auskunft, Berichtigung, Löschung, Einschränkung,
+            Datenübertragbarkeit und Widerspruch nimmt{' '}
+            {LEGAL.dataProtectionContact ?? 'ein Admin der Abteilung'} entgegen
+            {LEGAL.dataProtectionEmail ? (
+              <>
+                {' '}
+                (<a href={`mailto:${LEGAL.dataProtectionEmail}`}>{LEGAL.dataProtectionEmail}</a>)
+              </>
+            ) : null}
+            ; die weiteren Kontaktdaten stehen im Impressum.
           </p>
+
+          <h4>Beschwerderecht</h4>
+          <p>
+            Unabhängig davon steht dir ein Beschwerderecht bei einer Datenschutz-Aufsichtsbehörde
+            zu (Art. 77 DSGVO).
+            {LEGAL.supervisoryAuthority ? (
+              <> Zuständig ist: {LEGAL.supervisoryAuthority}.</>
+            ) : null}
+          </p>
+
+          {LEGAL.privacyPolicyDate ? (
+            <p className="text-muted">Stand: {dateLabel(LEGAL.privacyPolicyDate)}</p>
+          ) : null}
 
           {LEGAL.reviewed ? null : (
             <Note>

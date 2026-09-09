@@ -31,11 +31,32 @@ export interface LegalConfig {
   /** Registergericht und Nummer, z. B. "Amtsgericht Darmstadt · VR 1234". */
   register: string | null;
   /**
+   * Inhaltlich Verantwortliche nach § 18 Abs. 2 MStV — wer fuer die
+   * redaktionellen Inhalte einsteht. Ohne eigene Redaktion bleibt es `null`.
+   */
+  contentResponsible: string | null;
+  /**
    * Wer Auskunft, Loeschung und Widerspruch entgegennimmt. Ohne eigene
    * Datenschutzbeauftragte ist das der Vorstand — dann bleibt es `null` und
    * die Seite verweist auf das Impressum.
    */
   dataProtectionContact: string | null;
+  /**
+   * Die Adresse, an die Betroffenenrechte gehen. Steht sie hier, wird sie auf
+   * der Seite verlinkt — sonst bleibt nur der Verweis auf das Impressum.
+   */
+  dataProtectionEmail: string | null;
+  /**
+   * Die zustaendige Datenschutz-Aufsichtsbehoerde. Sie richtet sich nach dem
+   * Sitz des Vereins und ist Teil der Belehrung nach Art. 77 DSGVO — ohne sie
+   * weiss niemand, wohin die Beschwerde geht.
+   */
+  supervisoryAuthority: string | null;
+  /**
+   * Stand der Datenschutzerklaerung als ISO-Datum. Die Seite formatiert es
+   * selbst; ein hier eingetragener Text waere nur eine zweite Schreibweise.
+   */
+  privacyPolicyDate: string | null;
   /**
    * Ob die Datenschutzerklaerung juristisch geprueft ist. Solange `false`,
    * steht der Entwurfshinweis auf der Seite. Er verschwindet erst, wenn
@@ -47,12 +68,17 @@ export interface LegalConfig {
 export const LEGAL: LegalConfig = {
   operator: 'Schulsportclub Bergstraße e.V.',
   department: 'Abteilung Basketball',
-  address: { street: '', postalCode: '', city: '' },
-  representedBy: null,
-  email: null,
+  address: { street: 'Pfungstädter Str. 6', postalCode: '64404', city: 'Bickenbach' },
+  representedBy: 'Michael Dieter (1. Vorsitzender), Matthias Karch (2. Vorsitzender)',
+  email: 'info@sc-bergstrasse.net',
   phone: null,
-  register: null,
-  dataProtectionContact: null,
+  register: 'Amtsgericht Darmstadt · VR 1774',
+  contentResponsible: 'Linda Schnorrenberger',
+  dataProtectionContact: 'Linda Schnorrenberger',
+  dataProtectionEmail: 'medienwart.bb.scb@gmail.com',
+  supervisoryAuthority:
+    'Der Hessische Beauftragte für Datenschutz und Informationsfreiheit, Postfach 3163, 65021 Wiesbaden',
+  privacyPolicyDate: '2026-09-09',
   reviewed: false,
 };
 
