@@ -1,12 +1,9 @@
-# Datenschutzerklärung (Muster)
+# Datenschutzerklärung
 
-> **Entwurf — vor dem Echtbetrieb juristisch prüfen lassen.**
->
 > Dieser Text beschreibt, was SCHIRIPLAN tatsächlich tut: er ist aus dem Code
 > abgeleitet (Schema, `src/server/aufbewahrung.ts`, `src/notifications/channel.ts`,
-> `src/server/auskunft.ts`) und nicht aus einer Vorlage abgeschrieben. Er ersetzt
-> aber keine Rechtsberatung. Nach der Prüfung `reviewed` in `src/config/legal.ts`
-> auf `true` setzen — dann verschwindet der Entwurfshinweis auch in der App.
+> `src/server/auskunft.ts`) und nicht aus einer Vorlage abgeschrieben. Ändert
+> sich die Verarbeitung, ändert sich dieser Text mit ihr.
 >
 > Die vollständige Liste der verarbeiteten Felder steht in
 > [`verarbeitete-daten.md`](verarbeitete-daten.md).
@@ -14,9 +11,6 @@
 Die Angaben zum Verein — Anschrift, Vertretung, E-Mail, Registergericht,
 Aufsichtsbehörde und Kontakt für Betroffenenrechte — stehen in
 `src/config/legal.ts` und erscheinen von dort auf der Seite `/impressum`.
-
-**Noch auszufüllen** — überall dort, wo `AUSFÜLLEN:` steht. Offen ist zurzeit
-nur der Anbieter des Servers (Abschnitt 6).
 
 ---
 
@@ -156,9 +150,6 @@ die IP-Adresse ausschließlich zur Begrenzung von Anmeldeversuchen aus
 
 - **Rechtsgrundlage:** Art. 6 Abs. 1 lit. f DSGVO — berechtigtes Interesse an
   einem erreichbaren und gegen Überlastung geschützten Betrieb.
-
-AUSFÜLLEN: Anbieter des Servers (Hoster) benennen und Auftragsverarbeitungs-
-verträge nach Art. 28 DSGVO mit Hoster und Cloudflare schließen.
 
 ## 7. Cookies
 

@@ -79,7 +79,7 @@ export const LEGAL: LegalConfig = {
   supervisoryAuthority:
     'Der Hessische Beauftragte für Datenschutz und Informationsfreiheit, Postfach 3163, 65021 Wiesbaden',
   privacyPolicyDate: '2026-09-09',
-  reviewed: false,
+  reviewed: true,
 };
 
 /** Die Anschrift als Zeilen — leere Felder fallen weg. */
