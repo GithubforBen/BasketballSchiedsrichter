@@ -11,8 +11,11 @@
  * `lindaschnorrenberger`.
  *
  * Deshalb stehen in der Verwaltung jetzt zwei Felder, und der volle Name
- * entsteht aus ihnen. Die beiden Funktionen hier sind das Scharnier dazwischen:
- * `surnameOf` fuellt das Formular, `composeName` liest es zurueck.
+ * entsteht aus ihnen. Die beiden ersten Funktionen hier sind das Scharnier
+ * dazwischen: `surnameOf` fuellt das Formular, `composeName` liest es zurueck.
+ *
+ * Am Ende der Datei steht, was daraus folgt: wer nach Nachnamen ordnen will,
+ * muss ihn erst gewinnen. Deshalb liegt auch die Sortierung hier.
  */
 
 /** Mehrfache Leerzeichen und Rand weg — sonst vergleicht sich nichts sauber. */
@@ -67,3 +70,44 @@ export const composeName = (firstName: string, surname: string): string => {
   if (startsWithWord(last, first)) return last;
   return `${first} ${last}`;
 };
+
+/** Eine Person, soweit die Sortierung sie kennen muss. */
+export interface NameOrdered {
+  readonly id: string;
+  readonly name: string;
+  readonly firstName: string;
+}
+
+/**
+ * Die Ordnung jeder Personenliste: Nachname, dann Vorname.
+ *
+ * Ohne sie kam die Reihenfolge aus der Datenbank, und die ist keine: eine
+ * Abfrage ohne `ORDER BY` darf jede Reihenfolge liefern und muss ihre eigene
+ * nicht einmal beibehalten. Solange die Liste kurz ist, faellt das nicht auf;
+ * verlassen kann man sich darauf trotzdem nicht.
+ *
+ * Verglichen wird der Nachname aus `surnameOf` und nicht der volle Name: sonst
+ * ordnete die Liste nach Vornamen, weil der vorn steht. Bei gleichem Nachnamen
+ * entscheidet der Vorname, und zuletzt die Kennung — zwei Menschen koennen
+ * denselben Namen tragen, und auch dann soll die Liste stillstehen.
+ *
+ * `localeCompare` mit `de`, damit Umlaute dort stehen, wo sie im Telefonbuch
+ * stehen: Ätzel zwischen Atzel und Auer, nicht hinter Zwingli.
+ */
+export const compareByName = (a: NameOrdered, b: NameOrdered): number =>
+  surnameOf(a.name, a.firstName).localeCompare(surnameOf(b.name, b.firstName), 'de') ||
+  collapse(a.firstName).localeCompare(collapse(b.firstName), 'de') ||
+  a.id.localeCompare(b.id);
+
+/**
+ * Dieselbe Ordnung, Admins zuerst — fuer die Schiedsrichter-Verwaltung.
+ *
+ * Wer dort etwas sucht, sucht meistens sich selbst oder die andere Person, die
+ * eintragen darf. Die stehen jetzt oben, statt irgendwo zwischen dreissig
+ * Namen. Innerhalb beider Gruppen bleibt es alphabetisch.
+ */
+export const compareAdminsFirst = (
+  a: NameOrdered & { readonly role: 'referee' | 'admin' },
+  b: NameOrdered & { readonly role: 'referee' | 'admin' },
+): number =>
+  Number(b.role === 'admin') - Number(a.role === 'admin') || compareByName(a, b);

@@ -376,6 +376,22 @@ body {
 }
 
 /*
+ * Die Ueberschrift auf schmalen Geraeten.
+ *
+ * Das Design-System setzt h1 auf 42px. "Schiedsrichter" ist darin 302px breit
+ * und stand in einer 280px schmalen Spalte — ein einzelnes Wort bricht nicht,
+ * also lief es hinaus und zog die Seite mit: 14px auf einem 320px-Display,
+ * 10px auf der Spieluebersicht. Bei 32px sind es 230px, und der Umbruch faengt
+ * ab, was noch laenger wird.
+ */
+@media (max-width: 419px) {
+  h1 {
+    font-size: 32px;
+    overflow-wrap: break-word;
+  }
+}
+
+/*
  * Die Zeile unter der Ueberschrift.
  *
  * Ohne Begrenzung lief sie auf einem breiten Bildschirm ueber die volle
@@ -557,6 +573,67 @@ body {
 /* Ohne diese Zeile stiege ein zu langes Wort aus seiner festen Spalte aus. */
 .table-aligned td {
   overflow-wrap: break-word;
+}
+
+/*
+ * Ein Rahmen, der auch senkrecht bei sich bleibt.
+ *
+ * `.scroll-x` allein loest nur die halbe Aufgabe: die Tabelle scrollt
+ * waagerecht, der Balken dafuer sitzt aber an der Unterkante des Rahmens — und
+ * die liegt bei sechsunddreissig Schiedsrichtern 1400px unterhalb des
+ * Fensters. Wer die hinteren Spalten sehen wollte, musste erst ans Seitenende
+ * scrollen, den Balken ziehen und wieder hochscrollen; und oben angekommen
+ * stand die Tabelle wieder am linken Rand.
+ *
+ * Deshalb bekommt der Rahmen eine Hoehe. Sobald er nicht hoeher ist als das
+ * Fenster, laesst sich seine Unterkante immer ins Bild holen — und mit ihr der
+ * Balken. Auf 1366x768 waren es vorher 1408px zu scrollen, jetzt sind es 0.
+ *
+ * Abgezogen wird ein fester Betrag und kein Anteil: ueber dem Rahmen steht die
+ * Kopfzeile der Seite, und die ist ungefaehr gleich hoch, ob das Fenster nun
+ * 768 oder 1440 Punkte misst. Ein Anteil verschenkte auf dem grossen Schirm
+ * Zeilen, die dort Platz haetten.
+ *
+ * `dvh` ist dasselbe wie `vh`, solange keine Browserleiste ein- und ausfaehrt.
+ * Wo eine das tut, folgt der Rahmen ihr — `vh` steht als Rueckfall darueber.
+ */
+.scroll-pane {
+  overflow-y: auto;
+  max-height: calc(100vh - 16rem);
+  max-height: calc(100dvh - 16rem);
+}
+
+/*
+ * Solange die Tab-Leiste unten klebt, verdeckt sie die letzten Punkte des
+ * Fensters — und damit genau den Balken, um den es hier geht. Sie kommt vom
+ * Abzug mit ab.
+ */
+@media (max-width: 1023px) {
+  .scroll-pane {
+    max-height: calc(100vh - 16rem - var(--shell-tabbar-height));
+    max-height: calc(100dvh - 16rem - var(--shell-tabbar-height));
+  }
+}
+
+/*
+ * Der Spaltenkopf bleibt stehen.
+ *
+ * Ohne ihn ist ein Rahmen, in dem man senkrecht scrollt, schlechter als vorher:
+ * in der siebten Zeile weiss niemand mehr, ob die Spalte "U14" oder "U16"
+ * heisst. Der Hintergrund ist Pflicht, sonst scheinen die Zeilen durch.
+ */
+.scroll-pane .table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-bg);
+  /*
+   * Bei `border-collapse: collapse` gehoert der Rahmen der Tabelle und nicht
+   * der Zelle — er bleibt liegen, waehrend die Zelle klebt. Der Schatten
+   * gehoert der Zelle und wandert mit.
+   */
+  border-bottom-color: transparent;
+  box-shadow: inset 0 -2px 0 var(--color-divider);
 }
 
 /* Der oeffentliche Spielplan: sieben Spalten. */

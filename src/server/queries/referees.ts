@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db, schema } from '@/db';
+import { compareByName } from '@/domain/name';
 import { passwordState, startPassword, type PasswordState } from '@/domain/password';
 import type { License, Referee } from '@/domain/types';
 
@@ -94,7 +95,15 @@ export const loadReferee = async (refereeId: string): Promise<Referee | null> =>
   return toReferee(row, quals.map((q) => q.leagueId));
 };
 
-/** Alle aktiven Personen samt Qualifikationen — fuer Meldungen und Listen. */
+/**
+ * Alle Personen samt Qualifikationen — fuer Meldungen und Listen.
+ *
+ * Sortiert nach Nachname, dann Vorname. Sortiert wird hier und nicht per
+ * `ORDER BY`: der Nachname steht in keiner eigenen Spalte, er wird aus `name`
+ * und `firstName` gewonnen (`surnameOf`). Eine Datenbank, die dieselbe Regel
+ * noch einmal in SQL nachbildete, waere die zweite Fassung derselben Regel —
+ * und die erste, die falsch liegt, sobald jemand die andere aendert.
+ */
 export const loadAllReferees = async (): Promise<readonly Referee[]> => {
   const rows = await db.select().from(schema.referees);
   const quals = await db.select().from(schema.qualifications);
@@ -104,7 +113,7 @@ export const loadAllReferees = async (): Promise<readonly Referee[]> => {
     if (list) list.push(q.leagueId);
     else byReferee.set(q.refereeId, [q.leagueId]);
   }
-  return rows.map((row) => toReferee(row, byReferee.get(row.id) ?? []));
+  return rows.map((row) => toReferee(row, byReferee.get(row.id) ?? [])).sort(compareByName);
 };
 
 /** Persoenliche Erinnerungen einer Person, in Stunden vor Anpfiff. */
