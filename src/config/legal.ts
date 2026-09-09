@@ -31,8 +31,12 @@ export interface LegalConfig {
   /** Registergericht und Nummer, z. B. "Amtsgericht Darmstadt · VR 1234". */
   register: string | null;
   /**
-   * Inhaltlich Verantwortliche nach § 18 Abs. 2 MStV — wer fuer die
-   * redaktionellen Inhalte einsteht. Ohne eigene Redaktion bleibt es `null`.
+   * Wer fuer die Inhalte einsteht. Ohne eigene Redaktion bleibt es `null`.
+   *
+   * Die Seite nennt dazu keinen Paragraphen. Verlangt ist die **Angabe**, nicht
+   * ihre Fundstelle — und ein Zitat, das niemand nachhaelt, wird mit dem
+   * naechsten Staatsvertrag falsch. Hier stand einmal der MDStV, ausser Kraft
+   * seit 2007.
    */
   contentResponsible: string | null;
   /**

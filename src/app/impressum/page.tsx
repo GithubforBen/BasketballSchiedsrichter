@@ -104,7 +104,7 @@ const Legal = async () => {
             {LEGAL.contentResponsible ? (
               <>
                 <br />
-                Inhaltlich verantwortlich nach § 18 Abs. 2 MStV: {LEGAL.contentResponsible}
+                Inhaltlich verantwortlich: {LEGAL.contentResponsible}
               </>
             ) : null}
           </p>

@@ -27,7 +27,7 @@ Michael Dieter (1. Vorsitzender)
 Matthias Karch (2. Vorsitzender)
 E-Mail: info@sc-bergstrasse.net
 Registergericht: Amtsgericht Darmstadt, VR 1774
-Inhaltlich Verantwortliche gemäß § 18 Abs. 2 MStV: Linda Schnorrenberger
+Inhaltlich Verantwortliche: Linda Schnorrenberger
 
 Eine eigene Datenschutzbeauftragte ist nicht bestellt; die Voraussetzungen des
 § 38 BDSG liegen nicht vor. Anfragen zum Datenschutz nimmt der Vorstand
