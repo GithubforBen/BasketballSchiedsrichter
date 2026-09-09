@@ -211,7 +211,13 @@ test.describe('Kalender und Verlauf', () => {
       await placeReferee(game, 0, SEED.jonas.id);
       await loginAs(page, SEED.jonas.phone);
       await page.goto('/kalender');
-      await expect(page.getByRole('table').first()).toContainText('Testheim');
+      /*
+       * Nicht `getByRole('table')`: am Handy stehen die Spiele als Karten da
+       * und die Tabelle ist ausgeblendet, also gar nicht erst im
+       * Accessibility-Baum. Geprüft wird die Aussage, die für beide Layouts
+       * gilt — die eigene Partie steht im Kalender.
+       */
+      await expect(page.locator('.calendar-grid')).toContainText('Testheim');
     } finally {
       await dropGame(game);
     }

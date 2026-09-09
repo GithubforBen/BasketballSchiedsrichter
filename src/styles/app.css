@@ -162,6 +162,24 @@ body {
   background: var(--color-accent-strong);
 }
 
+/*
+ * Der Link im Fliesstext.
+ *
+ * Das Design-System faerbt jedes `a` mit dem vollen Akzent — 3,76:1, und damit
+ * unter den 4,5:1, die WCAG 2.1 AA fuer Text verlangt. Aufgefallen ist es
+ * nie, weil es bis zum Impressum keinen Link im Fliesstext gab: die Knoepfe
+ * und die Fusszeile setzen ihre Farbe selbst. Die beiden E-Mail-Adressen dort
+ * waren die ersten, und axe hat sie sofort gemeldet.
+ *
+ * Es gilt dieselbe Regel wie fuer alle Farben hier: der Farbton bleibt, die
+ * Helligkeit gibt nach, sobald Schrift im Spiel ist. Alles, was seine Farbe
+ * selbst setzt — `.btn`, `.shell-footer a`, `.nav a` —, hat die hoehere
+ * Spezifitaet und bleibt unberuehrt.
+ */
+a {
+  color: var(--color-accent-strong);
+}
+
 .btn-ghost {
   color: var(--color-accent-strong);
 }
