@@ -165,8 +165,15 @@ test.describe('Adminbereich', () => {
     await loginAs(page, SEED.nele.phone);
     await page.goto(`/bearbeiten?spiel=${game}`);
     await page.getByLabel(/Austragen für dieses Spiel freigeben/).check();
-    await page.getByRole('button', { name: /Speichern/ }).click();
+    /*
+     * „Freigaben speichern“ und nicht „Speichern & Beteiligte informieren“:
+     * die Freigaben haben ein eigenes Formular, seit ein Haken darin ein Spiel
+     * versehentlich als verschoben eintragen und alle Beteiligten
+     * benachrichtigen konnte.
+     */
+    await page.getByRole('button', { name: 'Freigaben speichern' }).click();
     await expect(formSuccess(page)).toBeVisible();
+    await expect(page.getByText(/niemand benachrichtigt/)).toBeVisible();
 
     // Der Schiedsrichter kann sich jetzt austragen, obwohl die Frist abgelaufen ist.
     await loginAs(page, SEED.jonas.phone);
