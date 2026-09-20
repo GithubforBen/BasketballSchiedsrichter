@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
+import { CalendarExport, type CalendarExportGame } from '@/components/calendar/CalendarExport';
 import { Note, Panel, TableWrap } from '@/components/primitives';
 import { FOOTER_NAV, navFor } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
 import { CONFIRMATION_LABELS, type ConfirmationState } from '@/domain/confirmation';
-import { dateLabel, matchTitle, timeLabel } from '@/domain/schedule';
+import { dateLabel, matchdayLabel, matchTitle, timeLabel } from '@/domain/schedule';
 import { ownRank } from '@/domain/stats';
 import { requireUser } from '@/server/guard';
 import { monthlyCounts, myGames, seasonRanking } from '@/server/queries/referee-view';
@@ -56,6 +57,23 @@ const Calendar = async () => {
     monthlyCounts(user.id, now),
     seasonRanking(user.id, now),
   ]);
+
+  /*
+   * Die Auswahlliste fuer die Kalenderdatei. Voreingestellt sind die Spiele,
+   * in denen man selbst pfeift (Plaetze 0 und 1); Ersatzplaetze stehen mit in
+   * der Liste, aber ohne Haken — dort haelt man sich bereit, und ob das ein
+   * Termin ist, entscheidet jeder selbst (Regel 12).
+   */
+  const exportable: readonly CalendarExportGame[] = upcoming.map((entry) => ({
+    id: entry.game.id,
+    when: `${matchdayLabel(entry.game.kickoff, CLUB.timeZone)}, ${timeLabel(
+      entry.game.kickoff,
+      CLUB.timeZone,
+    )} Uhr`,
+    title: matchTitle(entry.game),
+    detail: `${entry.role} · ${entry.game.venue}`,
+    preselected: entry.slotIndex < 2,
+  }));
 
   const thisMonth = months[months.length - 1];
   const maxCount = Math.max(1, ...months.map((m) => m.count));
@@ -147,6 +165,19 @@ const Calendar = async () => {
               </ul>
             </>
           )}
+
+          {exportable.length > 0 ? (
+            <>
+              <h2 className="kicker" style={{ marginTop: 'var(--space-8)' }}>
+                In den eigenen Kalender
+              </h2>
+              <p className="text-muted" style={{ fontSize: '12px', marginTop: 'var(--space-2)' }}>
+                Wähle aus, welche Spiele in die Datei sollen. Vorgewählt sind die, bei denen du
+                pfeifst.
+              </p>
+              <CalendarExport games={exportable} />
+            </>
+          ) : null}
 
           <h2 className="kicker" style={{ marginTop: 'var(--space-8)' }}>
             Vergangen

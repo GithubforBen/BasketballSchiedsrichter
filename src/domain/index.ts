@@ -5,6 +5,7 @@ export * from './status';
 export * from './schedule';
 export * from './csv';
 export * from './csv-export';
+export * from './ics';
 export * from './rules';
 export * from './slot-actions';
 export * from './confirmation';

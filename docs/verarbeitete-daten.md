@@ -243,6 +243,30 @@ Abgesagte Spiele stehen nicht darin — die Spalten sagen nichts über den Zusta
 eines Spiels, und eine abgesagte Begegnung sähe in der Datei aus wie eine
 angesetzte.
 
+## Kalenderdatei der eigenen Einsätze
+
+Unter „Kalender & Verlauf“ lädt jede angemeldete Person ihre **eigenen**
+kommenden Spiele als iCalendar-Datei herunter (`/api/export/kalender`), um sie
+in Google Kalender oder Apple Kalender zu importieren. Welche Spiele in die
+Datei kommen, wählt sie selbst aus; vorgewählt sind die, auf denen sie als
+Schiedsrichter steht.
+
+In der Datei steht je Termin: Anpfiff, ein angenommenes Ende zwei Stunden
+später, die eigene Rolle, die Begegnung, der Ort, die Liga und die nötige
+Lizenz. **Kein anderer Mensch kommt darin vor** — weder Name noch Kürzel der
+übrigen Eingetragenen, und auch keine Teilnehmerfelder (`ATTENDEE`,
+`ORGANIZER`), die ein Kalender sonst an fremde Adressen zurückmelden würde.
+
+Der Abruf liefert ausschließlich die eigenen Einsätze: die Auswahl ist ein
+Filter auf die eigene Liste, eine fremde Spiel-Kennung in der Adresse fällt
+wirkungslos heraus.
+
+Wichtig für die Einordnung: **wohin die Datei danach geht, entscheidet die
+Person selbst.** Importiert sie sie in Google Kalender oder iCloud, liegen
+Termin, Ort und Rolle anschließend bei diesem Anbieter. Das ist keine
+Übermittlung durch den Verein — die Datei landet zuerst auf dem Gerät —, aber
+es ist der Grund, warum in ihr nichts über andere Personen steht.
+
 ## Was **nicht** verarbeitet wird
 
 - keine Geburtsdaten, Adressen, E-Mail-Adressen der Mitglieder, Bankverbindungen

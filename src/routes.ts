@@ -139,3 +139,16 @@ export const editGameRoute = (gameId: string, result?: { ok: boolean; message: s
  */
 export const gameExportRoute = (zeitraum: 'kommende' | 'alle'): Route =>
   withQuery('/api/export/spielplan', { zeitraum });
+
+/**
+ * Die Kalenderdatei der eigenen Einsätze.
+ *
+ * Anders als beim CSV-Export steht hier kein fertiger Link, sondern nur der
+ * Pfad: welche Spiele in der Datei landen, entscheidet ein Formular mit einem
+ * Kästchen je Spiel. Der Name des Feldes steht daneben, damit Formular und
+ * Route sich nicht auseinanderentwickeln können — eine Umbenennung an einer
+ * Stelle allein fiele erst beim Herunterladen auf, und dann wäre die Datei
+ * stillschweigend die falsche.
+ */
+export const CALENDAR_EXPORT_PATH: Route = '/api/export/kalender';
+export const CALENDAR_GAME_PARAM = 'spiel';
