@@ -3,7 +3,7 @@ import { Note, Panel, TableWrap } from '@/components/primitives';
 import { FOOTER_NAV, navFor } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
-import { CONFIRMATION_LABELS } from '@/domain/confirmation';
+import { CONFIRMATION_LABELS, type ConfirmationState } from '@/domain/confirmation';
 import { dateLabel, matchTitle, timeLabel } from '@/domain/schedule';
 import { ownRank } from '@/domain/stats';
 import { requireUser } from '@/server/guard';
@@ -15,18 +15,35 @@ import { loadSettings } from '@/server/queries/settings';
  *
  * Der Bildschirm, der sich nach dem ersten Login oeffnet: die eigenen naechsten
  * Spiele, der Verlauf und die Zahlen, die fuer die Abrechnung zaehlen.
+ *
+ * Die Spiele stehen zweimal da: am Handy als Karten, ab 768px als Tabelle —
+ * derselbe Wechsel wie im oeffentlichen Spielplan (`.only-narrow`/`.only-wide`).
+ * Sechs Spalten sind auf einem Telefon keine Tabelle mehr, sondern ein Streifen,
+ * an dem man waagerecht entlangschiebt.
  */
 
 export const metadata: Metadata = { title: `Kalender & Verlauf · ${CLUB.appName}` };
 export const dynamic = 'force-dynamic';
 
 /* Schriftvarianten der Ampel — die vollen Toene sind als Text zu blass. */
-const CONFIRMATION_COLORS: Record<string, string> = {
+const CONFIRMATION_COLORS: Readonly<Record<ConfirmationState, string>> = {
   confirmed: 'var(--status-filled-text)',
   pending: 'var(--status-substitute-missing-text)',
   overdue: 'var(--status-open-text)',
   scheduled: 'var(--text-dim)',
   'not-required': 'var(--text-dim)',
+};
+
+/*
+ * Dieselbe Ampel als Flaeche — der Streifen an der Karte. Flaechen brauchen
+ * 3:1 und behalten deshalb den vollen Ton, genau wie bei `StatusView`.
+ */
+const CONFIRMATION_TONES: Readonly<Record<ConfirmationState, string>> = {
+  confirmed: 'var(--status-filled)',
+  pending: 'var(--status-substitute-missing)',
+  overdue: 'var(--status-open)',
+  scheduled: 'var(--color-divider)',
+  'not-required': 'var(--color-divider)',
 };
 
 const Calendar = async () => {
@@ -71,34 +88,64 @@ const Calendar = async () => {
               Plätze.
             </Note>
           ) : (
-            <TableWrap>
-              <thead>
-                <tr>
-                  <th>Datum</th>
-                  <th>Zeit</th>
-                  <th>Spiel</th>
-                  <th>Ort</th>
-                  <th>Rolle</th>
-                  <th>Bestätigung</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              <div className="only-wide">
+                <TableWrap>
+                  <thead>
+                    <tr>
+                      <th>Datum</th>
+                      <th>Zeit</th>
+                      <th>Spiel</th>
+                      <th>Ort</th>
+                      <th>Rolle</th>
+                      <th>Bestätigung</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {upcoming.map((entry) => (
+                      <tr key={entry.game.id}>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          {dateLabel(entry.game.kickoff, CLUB.timeZone)}
+                        </td>
+                        <td>{timeLabel(entry.game.kickoff, CLUB.timeZone)}</td>
+                        <td>{matchTitle(entry.game)}</td>
+                        <td className="text-muted">{entry.game.venue}</td>
+                        <td>{entry.role}</td>
+                        <td style={{ color: CONFIRMATION_COLORS[entry.confirmation] }}>
+                          {CONFIRMATION_LABELS[entry.confirmation]}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </TableWrap>
+              </div>
+
+              <ul className="card-list only-narrow">
                 {upcoming.map((entry) => (
-                  <tr key={entry.game.id}>
-                    <td style={{ whiteSpace: 'nowrap' }}>
-                      {dateLabel(entry.game.kickoff, CLUB.timeZone)}
-                    </td>
-                    <td>{timeLabel(entry.game.kickoff, CLUB.timeZone)}</td>
-                    <td>{matchTitle(entry.game)}</td>
-                    <td className="text-muted">{entry.game.venue}</td>
-                    <td>{entry.role}</td>
-                    <td style={{ color: CONFIRMATION_COLORS[entry.confirmation] }}>
-                      {CONFIRMATION_LABELS[entry.confirmation]}
-                    </td>
-                  </tr>
+                  <li key={entry.game.id} className="game-card">
+                    <span
+                      className="game-card-bar"
+                      style={{ background: CONFIRMATION_TONES[entry.confirmation] }}
+                      aria-hidden="true"
+                    />
+                    <div className="game-card-text">
+                      <div className="game-card-title">{matchTitle(entry.game)}</div>
+                      <div className="text-muted" style={{ fontSize: '11px' }}>
+                        {dateLabel(entry.game.kickoff, CLUB.timeZone)},{' '}
+                        {timeLabel(entry.game.kickoff, CLUB.timeZone)} · {entry.game.venue}
+                      </div>
+                      <div style={{ fontSize: '11px', marginTop: 'var(--space-1)' }}>
+                        {entry.role}
+                        <span aria-hidden="true"> · </span>
+                        <span style={{ color: CONFIRMATION_COLORS[entry.confirmation] }}>
+                          {CONFIRMATION_LABELS[entry.confirmation]}
+                        </span>
+                      </div>
+                    </div>
+                  </li>
                 ))}
-              </tbody>
-            </TableWrap>
+              </ul>
+            </>
           )}
 
           <h2 className="kicker" style={{ marginTop: 'var(--space-8)' }}>
@@ -107,34 +154,64 @@ const Calendar = async () => {
           {past.length === 0 ? (
             <Note>Noch keine vergangenen Einsätze.</Note>
           ) : (
-            <TableWrap>
-              <thead>
-                <tr>
-                  <th>Datum</th>
-                  <th>Spiel</th>
-                  <th>Rolle</th>
-                  <th>Gezählt</th>
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              <div className="only-wide">
+                <TableWrap>
+                  <thead>
+                    <tr>
+                      <th>Datum</th>
+                      <th>Spiel</th>
+                      <th>Rolle</th>
+                      <th>Gezählt</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {past.map((entry) => (
+                      <tr key={entry.game.id}>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          {dateLabel(entry.game.kickoff, CLUB.timeZone)}
+                        </td>
+                        <td>{matchTitle(entry.game)}</td>
+                        <td className="text-muted">{entry.role}</td>
+                        <td
+                          style={{
+                            color: entry.countsForStats
+                              ? 'var(--status-filled-text)'
+                              : 'var(--text-dim)',
+                          }}
+                        >
+                          {entry.countsForStats ? 'gezählt' : 'zählt nicht'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </TableWrap>
+              </div>
+
+              <ul className="card-list only-narrow">
                 {past.map((entry) => (
-                  <tr key={entry.game.id}>
-                    <td style={{ whiteSpace: 'nowrap' }}>
-                      {dateLabel(entry.game.kickoff, CLUB.timeZone)}
-                    </td>
-                    <td>{matchTitle(entry.game)}</td>
-                    <td className="text-muted">{entry.role}</td>
-                    <td
+                  <li key={entry.game.id} className="game-card">
+                    <div className="game-card-text">
+                      <div className="game-card-title">{matchTitle(entry.game)}</div>
+                      <div className="text-muted" style={{ fontSize: '11px' }}>
+                        {dateLabel(entry.game.kickoff, CLUB.timeZone)} · {entry.role}
+                      </div>
+                    </div>
+                    <span
                       style={{
-                        color: entry.countsForStats ? 'var(--status-filled-text)' : 'var(--text-dim)',
+                        fontSize: '11px',
+                        whiteSpace: 'nowrap',
+                        color: entry.countsForStats
+                          ? 'var(--status-filled-text)'
+                          : 'var(--text-dim)',
                       }}
                     >
                       {entry.countsForStats ? 'gezählt' : 'zählt nicht'}
-                    </td>
-                  </tr>
+                    </span>
+                  </li>
                 ))}
-              </tbody>
-            </TableWrap>
+              </ul>
+            </>
           )}
         </div>
 

@@ -260,8 +260,10 @@ angesetzte.
 | ---------------------------- | ---------------------------------------- | ----------------------------- |
 | Meta Platforms Ireland Ltd.  | Telefonnummer und Nachrichteninhalt      | bei `NOTIFICATION_CHANNEL=whatsapp` |
 | Cloudflare                   | IP-Adresse, Verbindungsdaten             | bei jedem Seitenaufruf        |
-| AUSFÜLLEN: Hoster des Servers| alle gespeicherten Daten (Auftragsverarbeitung) | dauerhaft              |
 | AUSFÜLLEN: SMTP-Anbieter     | E-Mail-Adresse und Nachrichteninhalt     | nur bei `NOTIFICATION_CHANNEL=email` |
 
-Für Cloudflare, den Hoster und gegebenenfalls den SMTP-Anbieter sind Verträge
-zur Auftragsverarbeitung nach Art. 28 DSGVO erforderlich.
+Einen Hoster nennt die Tabelle nicht: der Server steht beim Verein, die Daten
+liegen dort und werden niemandem zur Verarbeitung überlassen.
+
+Für Cloudflare und gegebenenfalls den SMTP-Anbieter sind Verträge zur
+Auftragsverarbeitung nach Art. 28 DSGVO erforderlich.

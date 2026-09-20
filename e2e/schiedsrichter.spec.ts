@@ -12,7 +12,14 @@ import {
   setReminders,
   upcomingGameIds,
 } from './db';
-import { formError, formSuccess, loginAs, SEED, topbar } from './helfer';
+import {
+  expectNoHorizontalScroll,
+  formError,
+  formSuccess,
+  loginAs,
+  SEED,
+  topbar,
+} from './helfer';
 
 /**
  * Der Schiedsrichter-Bereich im Browser.
@@ -204,7 +211,13 @@ test.describe('Kalender und Verlauf', () => {
       await placeReferee(game, 0, SEED.jonas.id);
       await loginAs(page, SEED.jonas.phone);
       await page.goto('/kalender');
-      await expect(page.getByRole('table').first()).toContainText('Testheim');
+      /*
+       * Nicht `getByRole('table')`: am Handy stehen die Spiele als Karten da
+       * und die Tabelle ist ausgeblendet, also gar nicht erst im
+       * Accessibility-Baum. Geprüft wird die Aussage, die für beide Layouts
+       * gilt — die eigene Partie steht im Kalender.
+       */
+      await expect(page.locator('.calendar-grid')).toContainText('Testheim');
     } finally {
       await dropGame(game);
     }
@@ -298,12 +311,57 @@ test.describe('Profil und Erinnerungen', () => {
 test.describe('Darstellung', () => {
   test('keiner der Bildschirme scrollt waagerecht', async ({ page }) => {
     await loginAs(page, SEED.jonas.phone);
-    for (const path of ['/spiele', '/kalender', '/profil']) {
+    for (const path of ['/spiele', '/kalender', '/profil', '/regeln', '/impressum']) {
       await page.goto(path);
-      const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-      );
-      expect(overflow, `${path} läuft ${overflow}px über`).toBeLessThanOrEqual(1);
+      await expectNoHorizontalScroll(page, path);
+    }
+  });
+
+  /*
+   * Dasselbe noch einmal auf 320px.
+   *
+   * Das Handy-Profil dieser Suite ist ein Pixel 7 mit 412px — breit genug, dass
+   * der Kalender dort durchging, waehrend er auf einem iPhone (320-430px) um bis
+   * zu 336px hinauslief: das Raster hatte eine automatische Spalte, und die war
+   * so breit wie die Tabelle darin. 320px ist die schmalste Breite, die noch
+   * vorkommt, und sie deckt zugleich den Fall ab, dass jemand die Schrift
+   * vergroessert.
+   */
+  test('auch auf 320px bleibt jeder Bildschirm im Bild', async ({ page }) => {
+    test.slow();
+    await loginAs(page, SEED.jonas.phone);
+    await page.setViewportSize({ width: 320, height: 568 });
+    for (const path of ['/spiele', '/kalender', '/profil', '/regeln', '/impressum']) {
+      await page.goto(path);
+      await expectNoHorizontalScroll(page, path);
+    }
+  });
+
+  /*
+   * Am Handy stehen die Spiele als Karten da, nicht als Tabelle. Der Umbruch
+   * liegt bei 768px und steht in app.css (`.only-narrow`/`.only-wide`); hier
+   * wird geprueft, dass beide Fassungen dieselben Spiele nennen — sonst faellt
+   * eine von beiden irgendwann still hinten runter.
+   */
+  test('zeigt den Kalender am Handy als Karten und am Schreibtisch als Tabelle', async ({
+    page,
+    isMobile,
+  }) => {
+    await resetAssignments();
+    await placeReferee((await upcomingGameIds())[0] ?? '', 0, SEED.jonas.id);
+
+    await loginAs(page, SEED.jonas.phone);
+    await page.goto('/kalender');
+
+    const karten = page.locator('.calendar-grid .card-list.only-narrow');
+    const tabelle = page.locator('.calendar-grid .only-wide table');
+
+    if (isMobile) {
+      await expect(karten.first()).toBeVisible();
+      await expect(tabelle.first()).toBeHidden();
+    } else {
+      await expect(tabelle.first()).toBeVisible();
+      await expect(karten.first()).toBeHidden();
     }
   });
 
