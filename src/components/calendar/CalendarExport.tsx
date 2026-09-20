@@ -53,18 +53,20 @@ export const CalendarExport = ({ games }: CalendarExportProps) => {
   return (
     <form action={CALENDAR_EXPORT_PATH} method="get" className="stack">
       <div className="row" style={{ gap: 'var(--space-2)' }}>
+        {/*
+          * Bewusst ohne `btn-compact`: das sind die beiden Knoepfe, die am
+          * Telefon am haeufigsten getroffen werden muessen. Mit der kompakten
+          * Polsterung waren sie 23 Pixel hoch und damit fuer einen Daumen zu
+          * klein; in voller Groesse sind sie so hoch wie jeder andere Knopf
+          * der Anwendung.
+          */}
         <Button
           variant="ghost"
-          className="btn-compact"
           onClick={() => setChosen(new Set(games.map((game) => game.id)))}
         >
           Alle wählen
         </Button>
-        <Button
-          variant="ghost"
-          className="btn-compact"
-          onClick={() => setChosen(new Set())}
-        >
+        <Button variant="ghost" onClick={() => setChosen(new Set())}>
           Alle abwählen
         </Button>
         <span className="text-muted" style={{ fontSize: '12px' }}>
