@@ -128,3 +128,14 @@ export const editGameRoute = (gameId: string, result?: { ok: boolean; message: s
     spiel: gameId,
     ...(result ? { [result.ok ? 'hinweis' : 'fehler']: result.message } : {}),
   });
+
+/**
+ * Der CSV-Export des Spielplans.
+ *
+ * `zeitraum` entscheidet, ob nur die kommenden Spiele in der Datei stehen oder
+ * auch die vergangenen. Der Wert steht in der Adresse und nicht in einem
+ * Formular: ein Export ist ein Link, den man sich merken und erneut aufrufen
+ * kann, und der Knopf bleibt damit ein gewoehnlicher Verweis.
+ */
+export const gameExportRoute = (zeitraum: 'kommende' | 'alle'): Route =>
+  withQuery('/api/export/spielplan', { zeitraum });

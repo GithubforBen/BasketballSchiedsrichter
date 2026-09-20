@@ -5,8 +5,9 @@ import { AdminShell, single } from '@/components/admin/AdminShell';
 import { CLUB } from '@/config/club';
 import { statusOf, timeLabel, matchTitle } from '@/domain/schedule';
 import { describeLeadTime } from '@/domain/time';
+import { GAME_EXPORT_COLUMNS } from '@/domain/csv-export';
 import { leagueDisplay } from '@/domain/league';
-import { editGameRoute } from '@/routes';
+import { editGameRoute, gameExportRoute } from '@/routes';
 import { requireAdmin } from '@/server/guard';
 import { adminOverview, adminRows } from '@/server/queries/admin-view';
 import { loadSettings } from '@/server/queries/settings';
@@ -81,7 +82,21 @@ const Overview = async ({ searchParams }: PageProps) => {
         <Link href="/meldungen" className="btn btn-primary">
           Offene Spiele &amp; Meldungen
         </Link>
+        {/*
+          Gewoehnliche Verweise und kein <Link>: das Ziel ist eine Datei, keine
+          Seite. Der Router von Next wuerde versuchen, sie als Seite zu laden.
+        */}
+        <a href={gameExportRoute('kommende')} className="btn btn-secondary" download>
+          Spielplan als CSV
+        </a>
+        <a href={gameExportRoute('alle')} className="btn btn-ghost" download>
+          … samt vergangener Spiele
+        </a>
       </div>
+      <p className="text-muted" style={{ fontSize: '12px', marginTop: 'calc(-1 * var(--space-2))' }}>
+        Die Datei enthält {GAME_EXPORT_COLUMNS.join('; ')} — mit den vollen Namen der
+        Eingetragenen. Abgesagte Spiele stehen nicht darin.
+      </p>
 
       {rowsPerDay.length === 0 ? (
         <p className="text-muted">Zurzeit sind keine kommenden Spiele eingetragen.</p>
