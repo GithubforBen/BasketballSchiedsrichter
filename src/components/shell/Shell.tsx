@@ -10,6 +10,13 @@ import { isCurrent, tabTargets, type NavGroup, type NavTarget } from './nav';
  * Dieselben Ziele erscheinen am Desktop als Seitenleiste und am Handy als
  * Tab-Leiste unten — eine responsive Oberflaeche, keine zwei Layouts. Der
  * Umbruch liegt bei 1024px und steckt vollstaendig in "app.css".
+ *
+ * Die Tab-Leiste traegt vier Ziele, die Admin-Navigation hat elf. Was nicht
+ * hineinpasste, war am Handy **gar nicht** erreichbar: Einstellungen, das
+ * Nachrichten-Protokoll, das Nachpflegen — und der ganze eigene Bereich, also
+ * auch der eigene Kalender. Deshalb steht in der Kopfzeile ein Menue mit
+ * derselben Navigation, die am Desktop die Seitenleiste zeigt. Es benutzt
+ * `<details>` und braucht daher kein JavaScript.
  */
 
 export interface ShellProps {
@@ -28,6 +35,58 @@ export interface ShellProps {
 }
 
 export type { NavGroup, NavTarget };
+
+/**
+ * Die Ziele als Liste — einmal geschrieben, zweimal gezeigt.
+ *
+ * Seitenleiste und Kopfzeilenmenue rendern beide diesen Baustein. Waeren es
+ * zwei Abschriften, wuerde ein neues Ziel frueher oder spaeter nur in einer
+ * von beiden landen, und am Handy fehlte es wieder.
+ */
+const NavList = ({
+  nav,
+  footerNav,
+  current,
+}: {
+  nav: readonly NavGroup[];
+  footerNav: readonly NavTarget[];
+  current: string;
+}) => (
+  <>
+    {nav.map((group) => (
+      <div key={group.label ?? 'start'} className="nav-group">
+        {group.label ? <h2 className="nav-group-label">{group.label}</h2> : null}
+        {group.items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className="nav-item"
+            aria-current={isCurrent(current, item.href) ? 'page' : undefined}
+          >
+            <span className="nav-item-label">{item.label}</span>
+            {item.badge ? <span className="tag tag-accent">{item.badge}</span> : null}
+          </Link>
+        ))}
+      </div>
+    ))}
+    {footerNav.length > 0 ? (
+      <div className="nav-footer">
+        {footerNav.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={isCurrent(current, item.href) ? 'page' : undefined}
+          >
+            {item.label}
+          </Link>
+        ))}
+        <div className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-2)' }}>
+          Alle Nachrichten laufen über WhatsApp.
+        </div>
+      </div>
+    ) : null}
+  </>
+);
 
 export const Shell = ({
   nav,
@@ -49,6 +108,20 @@ export const Shell = ({
       Zum Inhalt springen
     </a>
     <header className="shell-topbar">
+      {/*
+        Alle Ziele am Handy. `<details>` statt eines Knopfes mit Zustand: das
+        Auf- und Zuklappen kann der Browser selbst, samt Tastatur und
+        Screenreader, und die Seite bleibt eine Server-Komponente.
+      */}
+      <details className="shell-menu">
+        <summary className="shell-menu-button" aria-label="Menü öffnen">
+          <span className="shell-menu-icon" aria-hidden="true" />
+          Menü
+        </summary>
+        <nav className="shell-menu-panel" aria-label="Alle Bereiche">
+          <NavList nav={nav} footerNav={footerNav} current={current} />
+        </nav>
+      </details>
       <div className="shell-brand">
         {CLUB.appName} <span className="shell-brand-mark">·</span> {CLUB.shortName}
       </div>
@@ -77,38 +150,7 @@ export const Shell = ({
 
     <div className="shell-body">
       <nav className="shell-nav" aria-label="Hauptnavigation">
-        {nav.map((group) => (
-          <div key={group.label ?? 'start'} className="nav-group">
-            {group.label ? <h2 className="nav-group-label">{group.label}</h2> : null}
-            {group.items.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="nav-item"
-                aria-current={isCurrent(current, item.href) ? 'page' : undefined}
-              >
-                <span className="nav-item-label">{item.label}</span>
-                {item.badge ? <span className="tag tag-accent">{item.badge}</span> : null}
-              </Link>
-            ))}
-          </div>
-        ))}
-        {footerNav.length > 0 ? (
-          <div className="nav-footer">
-            {footerNav.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isCurrent(current, item.href) ? 'page' : undefined}
-              >
-                {item.label}
-              </Link>
-            ))}
-            <div className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-2)' }}>
-              Alle Nachrichten laufen über WhatsApp.
-            </div>
-          </div>
-        ) : null}
+        <NavList nav={nav} footerNav={footerNav} current={current} />
       </nav>
 
       <main className="shell-main" id="inhalt" tabIndex={-1}>
