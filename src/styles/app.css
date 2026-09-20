@@ -221,6 +221,13 @@ a {
   border-bottom: 2px solid var(--color-divider);
   /* Bezugspunkt fuer das aufgeklappte Menue darunter. */
   position: relative;
+  /*
+   * Umbrechen statt hinausragen. Auf 320px standen Menue-Knopf, Name und
+   * "Anmelden" zusammen 19 Pixel zu breit und schoben die ganze Seite nach
+   * rechts — sichtbar als waagerechtes Scrollen auf *jedem* Bildschirm, denn
+   * die Kopfzeile ist ueberall dieselbe.
+   */
+  flex-wrap: wrap;
 }
 
 /* — Das Menue in der Kopfzeile — */
@@ -256,6 +263,18 @@ a {
 
 .shell-menu-button::-webkit-details-marker {
   display: none;
+}
+
+/*
+ * Unter 360px bleibt nur das Symbol. Drei Elemente nebeneinander — Menue,
+ * Vereinsname, Anmelden — passen dort nicht mehr, und von den dreien ist das
+ * Wort "Menü" das entbehrlichste: der Balkenstapel ist eindeutig, und der
+ * Name des Knopfes steht weiterhin im `aria-label`.
+ */
+@media (max-width: 359px) {
+  .shell-menu-label {
+    display: none;
+  }
 }
 
 .shell-menu[open] .shell-menu-button {

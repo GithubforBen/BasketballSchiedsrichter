@@ -116,7 +116,12 @@ export const Shell = ({
       <details className="shell-menu">
         <summary className="shell-menu-button" aria-label="Menü öffnen">
           <span className="shell-menu-icon" aria-hidden="true" />
-          Menü
+          {/*
+            Auf sehr schmalen Geraeten bleibt nur das Symbol stehen. Der Name
+            des Knopfes geht dabei nicht verloren — er steht im `aria-label`
+            der Zusammenfassung darueber.
+          */}
+          <span className="shell-menu-label">Menü</span>
         </summary>
         <nav className="shell-menu-panel" aria-label="Alle Bereiche">
           <NavList nav={nav} footerNav={footerNav} current={current} />
