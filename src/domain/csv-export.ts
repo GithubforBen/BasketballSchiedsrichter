@@ -13,6 +13,12 @@ import { SLOT_INDEXES } from './types';
  * ignoriert der Import, weil er nur die Breite der Kopfzeile misst und die
  * Lizenz an Position sieben findet.
  *
+ * In den Besetzungsspalten stehen **Kuerzel**, keine Namen. Das Kuerzel haengt
+ * im oeffentlichen Spielplan ohnehin an jedem Spiel (Regel 29) — die Datei
+ * traegt damit nichts aus dem Haus, was nicht schon draussen waere. Fuer den
+ * Zweck reicht es auch: wer die Datei liest, will wissen, ob ein Platz besetzt
+ * ist und wer dort steht, und im Verein ist das Kuerzel genau dafuer da.
+ *
  * Rein und ohne Datenbankbezug: was in der Datei steht, ist hier vollstaendig
  * testbar, das Laden der Zeilen passiert woanders.
  */
@@ -59,20 +65,20 @@ export const GAME_EXPORT_COLUMNS = [
 export const csvField = (value: string): string =>
   /[";\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 
-/** Die Namen der vier Plaetze in Platzreihenfolge, leer wo niemand steht. */
-const slotNames = (
+/** Die Kuerzel der vier Plaetze in Platzreihenfolge, leer wo niemand steht. */
+const slotInitials = (
   entry: GameWithSlots,
-  nameOf: (refereeId: string) => string,
+  initialsOf: (refereeId: string) => string,
 ): readonly string[] =>
   SLOT_INDEXES.map((index) => {
     const assignment = entry.slots.find((slot) => slot.index === index)?.assignment;
-    return assignment ? nameOf(assignment.refereeId) : '';
+    return assignment ? initialsOf(assignment.refereeId) : '';
   });
 
 /** Eine Zeile als Felder — ungetrennt, damit der Test sie einzeln pruefen kann. */
 export const gameExportRow = (
   entry: GameWithSlots,
-  nameOf: (refereeId: string) => string,
+  initialsOf: (refereeId: string) => string,
   timeZone: string,
 ): readonly string[] => [
   dateLabel(entry.game.kickoff, timeZone),
@@ -82,7 +88,7 @@ export const gameExportRow = (
   entry.game.away,
   entry.game.venue,
   entry.game.requiredLicense,
-  ...slotNames(entry, nameOf),
+  ...slotInitials(entry, initialsOf),
 ];
 
 /**
@@ -95,14 +101,14 @@ export const gameExportRow = (
  */
 export const buildGameCsv = (
   entries: readonly GameWithSlots[],
-  nameOf: (refereeId: string) => string,
+  initialsOf: (refereeId: string) => string,
   timeZone: string,
 ): string =>
   BOM +
   [
     GAME_EXPORT_COLUMNS.join(SEPARATOR),
     ...entries.map((entry) =>
-      gameExportRow(entry, nameOf, timeZone).map(csvField).join(SEPARATOR),
+      gameExportRow(entry, initialsOf, timeZone).map(csvField).join(SEPARATOR),
     ),
   ].join(LINE_BREAK) +
   LINE_BREAK;

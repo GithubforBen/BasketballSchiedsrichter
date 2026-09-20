@@ -43,13 +43,13 @@ const entry = (g: Game, assignments: readonly Assignment[] = []): GameWithSlots 
   slots: buildSlots(assignments),
 });
 
-const NAMES: Record<string, string> = {
-  r1: 'Linda Schnorrenberger',
-  r2: 'Jonas Keller',
-  r3: 'Mara Vogt',
-  r4: 'Tim Ahrens',
+const INITIALS: Record<string, string> = {
+  r1: 'LS',
+  r2: 'JK',
+  r3: 'MV',
+  r4: 'TA',
 };
-const nameOf = (id: string): string => NAMES[id] ?? id;
+const initialsOf = (id: string): string => INITIALS[id] ?? id;
 
 describe('GAME_EXPORT_COLUMNS', () => {
   it('beginnt mit den Spalten des Imports', () => {
@@ -69,27 +69,39 @@ describe('GAME_EXPORT_COLUMNS', () => {
 
 describe('gameExportRow', () => {
   it('schreibt Datum und Zeit in Vereinszeit', () => {
-    const row = gameExportRow(entry(game()), nameOf, ZONE);
+    const row = gameExportRow(entry(game()), initialsOf, ZONE);
     expect(row[0]).toBe('19.09.2026');
     expect(row[1]).toBe('10:00');
   });
 
   it('nimmt das Kuerzel des Verbands als Liga', () => {
-    expect(gameExportRow(entry(game()), nameOf, ZONE)[2]).toBe('XU14Bz');
+    expect(gameExportRow(entry(game()), initialsOf, ZONE)[2]).toBe('XU14Bz');
   });
 
   it('nimmt die Liga selbst, wenn es kein Kuerzel gibt', () => {
-    const row = gameExportRow(entry(game({ leagueLabel: '' })), nameOf, ZONE);
+    const row = gameExportRow(entry(game({ leagueLabel: '' })), initialsOf, ZONE);
     expect(row[2]).toBe('U14');
   });
 
-  it('setzt die Namen auf ihren Platz', () => {
+  it('setzt die Kuerzel auf ihren Platz', () => {
     const row = gameExportRow(
       entry(game(), [assignment(0, 'r1'), assignment(1, 'r2'), assignment(2, 'r3')]),
-      nameOf,
+      initialsOf,
       ZONE,
     );
-    expect(row.slice(7)).toEqual(['Linda Schnorrenberger', 'Jonas Keller', 'Mara Vogt', '']);
+    expect(row.slice(7)).toEqual(['LS', 'JK', 'MV', '']);
+  });
+
+  it('schreibt Kuerzel und keine Namen', () => {
+    /*
+     * Der Punkt der Spalten: das Kuerzel haengt im oeffentlichen Spielplan
+     * ohnehin an jedem Spiel, der volle Name nach Regel 29 nirgends. Eine
+     * Datei, die Namen traegt, waere etwas anderes als eine, die Kuerzel
+     * traegt — auch wenn sie gleich aussieht.
+     */
+    const row = gameExportRow(entry(game(), [assignment(0, 'r1')]), initialsOf, ZONE);
+    expect(row[7]).toBe('LS');
+    expect(row.join(';')).not.toContain('Schnorrenberger');
   });
 
   it('laesst freie Plaetze leer statt sie zusammenzuschieben', () => {
@@ -99,8 +111,8 @@ describe('gameExportRow', () => {
      * Schiedsrichterspalten vor und die Datei behauptet eine Besetzung, die es
      * nicht gibt.
      */
-    const row = gameExportRow(entry(game(), [assignment(2, 'r3')]), nameOf, ZONE);
-    expect(row.slice(7)).toEqual(['', '', 'Mara Vogt', '']);
+    const row = gameExportRow(entry(game(), [assignment(2, 'r3')]), initialsOf, ZONE);
+    expect(row.slice(7)).toEqual(['', '', 'MV', '']);
   });
 });
 
@@ -120,18 +132,18 @@ describe('csvField', () => {
 
 describe('buildGameCsv', () => {
   it('stellt der Kopfzeile ein BOM voran, damit Excel UTF-8 erkennt', () => {
-    expect(buildGameCsv([], nameOf, ZONE).startsWith(`${BOM}Datum;`)).toBe(true);
+    expect(buildGameCsv([], initialsOf, ZONE).startsWith(`${BOM}Datum;`)).toBe(true);
   });
 
   it('gibt bei keinem Spiel nur die Kopfzeile aus', () => {
-    const lines = buildGameCsv([], nameOf, ZONE).trimEnd().split('\r\n');
+    const lines = buildGameCsv([], initialsOf, ZONE).trimEnd().split('\r\n');
     expect(lines).toHaveLength(1);
   });
 
   it('behaelt die uebergebene Reihenfolge bei', () => {
     const first = entry(game({ id: 'a', home: 'Erst' }));
     const second = entry(game({ id: 'b', home: 'Zweit', kickoff: new Date('2026-09-19T06:00:00Z') }));
-    const lines = buildGameCsv([first, second], nameOf, ZONE).trimEnd().split('\r\n');
+    const lines = buildGameCsv([first, second], initialsOf, ZONE).trimEnd().split('\r\n');
     expect(lines[1]).toContain('Erst');
     expect(lines[2]).toContain('Zweit');
   });
@@ -144,7 +156,7 @@ describe('buildGameCsv', () => {
      */
     const csv = buildGameCsv(
       [entry(game(), [assignment(0, 'r1'), assignment(3, 'r4')])],
-      nameOf,
+      initialsOf,
       ZONE,
     );
     const result = parseCsv(csv.slice(BOM.length), ['U14']);

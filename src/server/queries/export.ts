@@ -1,7 +1,7 @@
 import { and, asc, gte, inArray, ne } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { withSlots, type GameWithSlots } from '@/domain/schedule';
-import { toAssignment, toGame } from './games';
+import { initialsById, toAssignment, toGame } from './games';
 
 /**
  * Die Zeilen fuer den CSV-Export.
@@ -21,8 +21,14 @@ export const isExportScope = (value: string | undefined): value is ExportScope =
 
 export interface GameExport {
   entries: readonly GameWithSlots[];
-  /** Voller Name je Schiedsrichter-Id — der Adminbereich zeigt Klarnamen. */
-  names: ReadonlyMap<string, string>;
+  /**
+   * Kuerzel je Schiedsrichter-Id.
+   *
+   * Kuerzel und nicht Namen: das Kuerzel steht im oeffentlichen Spielplan
+   * ohnehin an jedem Spiel, die Datei verraet damit nichts, was nicht schon
+   * jeder sehen kann. Regel 29.
+   */
+  initials: ReadonlyMap<string, string>;
 }
 
 /**
@@ -41,7 +47,7 @@ export const gamesForExport = async (scope: ExportScope, now: Date): Promise<Gam
     .where(scope === 'alle' ? notCancelled : and(gte(schema.games.kickoff, now), notCancelled))
     .orderBy(asc(schema.games.kickoff));
 
-  if (rows.length === 0) return { entries: [], names: new Map() };
+  if (rows.length === 0) return { entries: [], initials: new Map() };
 
   const assignmentRows = await db
     .select()
@@ -49,22 +55,8 @@ export const gamesForExport = async (scope: ExportScope, now: Date): Promise<Gam
     .where(inArray(schema.assignments.gameId, rows.map((row) => row.id)));
   const assignments = assignmentRows.map(toAssignment);
 
-  /*
-   * Nur die Namen, die auch vorkommen. Eine Mitgliederliste hat der Verein
-   * woanders; hier wird ein Spielplan ausgegeben, und wer in keinem Spiel
-   * steht, gehoert nicht in die Datei — auch nicht als Nebenwirkung.
-   */
-  const refereeIds = [...new Set(assignments.map((assignment) => assignment.refereeId))];
-  const nameRows =
-    refereeIds.length === 0
-      ? []
-      : await db
-          .select({ id: schema.referees.id, name: schema.referees.name })
-          .from(schema.referees)
-          .where(inArray(schema.referees.id, refereeIds));
-
   return {
     entries: rows.map((row) => withSlots(toGame(row), assignments)),
-    names: new Map(nameRows.map((row) => [row.id, row.name])),
+    initials: await initialsById(),
   };
 };

@@ -94,8 +94,8 @@ const Overview = async ({ searchParams }: PageProps) => {
         </a>
       </div>
       <p className="text-muted" style={{ fontSize: '12px', marginTop: 'calc(-1 * var(--space-2))' }}>
-        Die Datei enthält {GAME_EXPORT_COLUMNS.join('; ')} — mit den vollen Namen der
-        Eingetragenen. Abgesagte Spiele stehen nicht darin.
+        Die Datei enthält {GAME_EXPORT_COLUMNS.join('; ')} — auf den vier Plätzen stehen die
+        Kürzel, nicht die Namen. Abgesagte Spiele stehen nicht darin.
       </p>
 
       {rowsPerDay.length === 0 ? (

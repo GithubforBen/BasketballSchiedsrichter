@@ -226,14 +226,18 @@ sonst gehört es in eine eigene Tabelle dieser Liste.
 
 Der Adminbereich gibt den Spielplan unter „Spielübersicht“ als Datei heraus
 (`/api/export/spielplan`). Sie enthält je Spiel Datum, Zeit, Liga, Heim, Gast,
-Ort, die nötige Lizenz und die **vollen Namen** der vier eingetragenen
-Personen — keine Telefonnummern, keine Kennungen, keine Bestätigungszeitpunkte.
+Ort, die nötige Lizenz und auf den vier Plätzen die **Kürzel** der
+Eingetragenen — keine Namen, keine Telefonnummern, keine Kennungen, keine
+Bestätigungszeitpunkte.
 
-Der Abruf ist auf die Admin-Rolle beschränkt und wird nicht zwischengespeichert.
-Mit dem Herunterladen verlässt die Datei jedoch die Anwendung: wer sie
-weitergibt, übermittelt damit Namen, und dafür gilt dieselbe Zurückhaltung wie
-für jede andere Mitgliederliste. Die Anwendung kann nach dem Speichern nicht
-mehr nachhalten, wo die Datei liegt.
+Kürzel und nicht Namen, weil das Kürzel nach Regel 29 ohnehin im öffentlichen
+Spielplan an jedem Spiel steht: die Datei trägt damit nichts aus dem Haus, was
+nicht schon draußen wäre. Wer den Namen hinter einem Kürzel kennt, wusste ihn
+vorher.
+
+Der Abruf ist trotzdem auf die Admin-Rolle beschränkt und wird nicht
+zwischengespeichert — der vollständige Spielplan auf einmal ist ein Werkzeug
+der Verwaltung.
 
 Abgesagte Spiele stehen nicht darin — die Spalten sagen nichts über den Zustand
 eines Spiels, und eine abgesagte Begegnung sähe in der Datei aus wie eine

@@ -11,11 +11,14 @@ import { gamesForExport, isExportScope } from '@/server/queries/export';
  * und die Seite neu zeichnen, aber keine Datei zum Herunterladen zurueckgeben.
  * Dafuer braucht es eine Antwort mit eigenem Inhaltstyp — also diesen Weg.
  *
- * Der Zugang laeuft ueber `requireAdmin` wie auf jeder Verwaltungsseite: die
- * Datei nennt die vollen Namen aller Eingetragenen, und die sind nach Regel 29
- * nicht oeffentlich. Wer nicht angemeldet ist, landet auf der Anmeldeseite,
- * wer kein Admin ist, bei den offenen Spielen — dasselbe Verhalten wie beim
- * Aufruf der Uebersicht selbst, und damit nichts, was hier neu zu lernen waere.
+ * Der Zugang laeuft ueber `requireAdmin` wie auf jeder Verwaltungsseite. Nicht
+ * wegen des Inhalts — in den Besetzungsspalten stehen Kuerzel, die im
+ * oeffentlichen Spielplan ohnehin an jedem Spiel haengen. Sondern weil der
+ * ganze Spielplan auf einmal, Vergangenheit eingeschlossen, ein Werkzeug der
+ * Verwaltung ist und kein Angebot an jeden Vorbeikommenden. Wer nicht
+ * angemeldet ist, landet auf der Anmeldeseite, wer kein Admin ist, bei den
+ * offenen Spielen — dasselbe Verhalten wie beim Aufruf der Uebersicht selbst,
+ * und damit nichts, was hier neu zu lernen waere.
  */
 
 export const dynamic = 'force-dynamic';
@@ -27,8 +30,8 @@ export const GET = async (request: NextRequest): Promise<Response> => {
   const wanted = request.nextUrl.searchParams.get('zeitraum') ?? undefined;
   const scope = isExportScope(wanted) ? wanted : 'kommende';
 
-  const { entries, names } = await gamesForExport(scope, now);
-  const csv = buildGameCsv(entries, (id) => names.get(id) ?? '', CLUB.timeZone);
+  const { entries, initials } = await gamesForExport(scope, now);
+  const csv = buildGameCsv(entries, (id) => initials.get(id) ?? '', CLUB.timeZone);
 
   return new Response(csv, {
     headers: {
@@ -41,9 +44,9 @@ export const GET = async (request: NextRequest): Promise<Response> => {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="${gameExportFileName(now, CLUB.timeZone)}"`,
       /*
-       * Kein Zwischenspeicher. Die Datei aendert sich mit jeder Eintragung,
-       * und sie enthaelt Namen — sie hat weder im Browser-Cache noch in einem
-       * Zwischenspeicher unterwegs etwas verloren.
+       * Kein Zwischenspeicher. Die Datei aendert sich mit jeder Eintragung —
+       * eine zwischengespeicherte Antwort zeigte eine Besetzung, die es so
+       * nicht mehr gibt.
        */
       'Cache-Control': 'no-store',
     },
