@@ -1,4 +1,4 @@
-import { confirmationState } from './confirmation';
+import { confirmationState, openConfirmations } from './confirmation';
 import { nextPromotionStep, promotionResponseWindowMs } from './escalation';
 import {
   adminAlertIntent,
@@ -12,7 +12,7 @@ import {
 import { notificationOrder, type RotationCandidate } from './rotation';
 import { qualifiedReferees } from './rules';
 import { matchdayLabel, timeLabel } from './schedule';
-import { refereeSlots, substituteSlots, SLOT_LABELS } from './slots';
+import { refereeSlots, SLOT_LABELS } from './slots';
 import { calendarDay, days, describeLeadTime, hours, localHour, weeks } from './time';
 import type { AdminAlertSettings } from './alerts';
 import { REFEREE_SLOT_COUNT, type ClubSettings, type Game, type Referee, type Slot, type SlotIndex } from './types';
@@ -438,7 +438,23 @@ export const dueDigest = (
   return intents;
 };
 
-/** Eine Zeile je Spiel, das Aufmerksamkeit braucht. */
+/**
+ * Eine Zeile je Spiel, das Aufmerksamkeit braucht.
+ *
+ * Zwei Dinge stehen bewusst **nicht** darin:
+ *
+ * - **Der fehlende Ersatz.** Ein Spiel mit zwei Schiedsrichtern ist besetzt;
+ *   ein leerer Ersatzplatz ist ein Wunsch, keine Luecke. Er stand frueher in
+ *   jeder Zeile und war damit die haeufigste Angabe der ganzen Nachricht —
+ *   eine Liste, in der fast jedes Spiel vorkommt, sagt nicht mehr, wo etwas zu
+ *   tun ist. Wer den Ersatz sehen will, sieht ihn in der Uebersicht.
+ * - **Eine Bestaetigung, die noch gar nicht angefragt wurde.** `scheduled`
+ *   heisst: die Frage geht erst zum eingestellten Vorlauf raus. Sie als
+ *   "ausstehend" zu melden, mahnt eine Antwort auf eine Frage an, die dem
+ *   Schiedsrichter nie gestellt wurde — und der Admin kann nichts tun, ausser
+ *   zu warten. Gezaehlt wird deshalb nur, was tatsaechlich unterwegs ist
+ *   (`pending` und `overdue`).
+ */
 const digestLines = (
   entries: readonly ScheduledGame[],
   input: SchedulerInput,
@@ -447,10 +463,7 @@ const digestLines = (
   const lines: string[] = [];
   for (const entry of entries) {
     const missing = refereeSlots(entry.slots).filter((s) => s.assignment === null);
-    const openSubstitutes = substituteSlots(entry.slots).filter((s) => s.assignment === null);
-    const unconfirmed = refereeSlots(entry.slots).filter(
-      (s) => s.assignment !== null && confirmationState(s, entry.game, input.settings, now) !== 'confirmed',
-    );
+    const unconfirmed = openConfirmations(entry.slots, entry.game, input.settings, now);
     if (missing.length === 0 && unconfirmed.length === 0) continue;
 
     const parts: string[] = [];
@@ -458,7 +471,6 @@ const digestLines = (
       parts.push(`${missing.map((s) => SLOT_LABELS[s.index]).join(' und ')} offen`);
     }
     if (unconfirmed.length > 0) parts.push(`${unconfirmed.length}x Bestaetigung ausstehend`);
-    if (openSubstitutes.length > 0) parts.push(`${openSubstitutes.length} Ersatzplatz frei`);
     /*
      * Datum *und* Vorlauf, wie in jeder Nachricht zu einem Spiel: das Datum
      * sagt, welches Spiel gemeint ist, der Vorlauf, wie eilig es ist. Ohne das

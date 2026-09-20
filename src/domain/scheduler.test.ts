@@ -566,6 +566,76 @@ describe('Regel 20 — die Tageszusammenfassung', () => {
   it('geht ab der eingestellten Stunde raus, nicht frueher', () => {
     expect(DIGEST_HOUR).toBe(18);
   });
+
+  /*
+   * Was die Uebersicht **nicht** meldet. Beides stand frueher in jeder Zeile
+   * und hat die Nachricht so weit aufgeblaeht, dass die echten Luecken darin
+   * untergingen.
+   */
+
+  it('schweigt bei einem besetzten Spiel, auch wenn beide Ersatzplaetze frei sind', () => {
+    const besetzt = input({
+      games: [
+        entry({
+          game: makeGame({ kickoff: inDays(10, abends) }),
+          slots: slotsFrom(['a', 'b', null, null], (x) => ({ ...x, confirmedAt: NOW })),
+        }),
+      ],
+      referees: [admin],
+    });
+    expect(dueDigest(besetzt, [admin], abends)).toHaveLength(0);
+  });
+
+  it('nennt den freien Ersatzplatz auch dann nicht, wenn das Spiel ohnehin in der Liste steht', () => {
+    const halb = input({
+      games: [
+        entry({
+          game: makeGame({ kickoff: inDays(10, abends) }),
+          slots: slotsFrom(['a', null, null, null], (x) => ({ ...x, confirmedAt: NOW })),
+        }),
+      ],
+      referees: [admin],
+    });
+    const lines = first(dueDigest(halb, [admin], abends))?.payload['lines'] as
+      | readonly string[]
+      | undefined;
+    expect(lines?.[0]).toContain('Schiedsrichter 2 offen');
+    expect(lines?.[0]).not.toContain('Ersatz');
+  });
+
+  it('meldet keine Bestaetigung, die noch gar nicht angefragt wurde', () => {
+    /*
+     * Anpfiff in zehn Tagen, Vorlauf 72 Stunden: die Frage geht erst in sieben
+     * Tagen raus. Bis dahin ist nichts ausstehend — es ist nur noch nichts
+     * gefragt worden, und der Admin koennte ohnehin nichts tun.
+     */
+    const frueh = input({
+      games: [
+        entry({
+          game: makeGame({ kickoff: inDays(10, abends) }),
+          slots: slotsFrom(['a', 'b', null, null]),
+        }),
+      ],
+      referees: [admin],
+    });
+    expect(dueDigest(frueh, [admin], abends)).toHaveLength(0);
+  });
+
+  it('meldet die Bestaetigung, sobald die Frage tatsaechlich raus ist', () => {
+    const gefragt = input({
+      games: [
+        entry({
+          game: makeGame({ kickoff: inHours(60, abends) }),
+          slots: slotsFrom(['a', 'b', null, null]),
+        }),
+      ],
+      referees: [admin],
+    });
+    const lines = first(dueDigest(gefragt, [admin], abends))?.payload['lines'] as
+      | readonly string[]
+      | undefined;
+    expect(lines?.[0]).toContain('2x Bestaetigung ausstehend');
+  });
 });
 
 describe('Regeln 15 und 32 — die Tagesbilanz der offenen Plaetze', () => {
