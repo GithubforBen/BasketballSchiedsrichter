@@ -13,7 +13,12 @@ import { qualifiedReferees } from '@/domain/rules';
 import { adminGame } from '@/server/queries/admin-view';
 import { loadAllReferees } from '@/server/queries/referees';
 import { loadSettings } from '@/server/queries/settings';
-import { assignRefereeAction, removeFromGameAction, saveGameAction } from './actions';
+import {
+  assignRefereeAction,
+  removeFromGameAction,
+  saveGameAction,
+  saveReleasesAction,
+} from './actions';
 
 /**
  * Spiel bearbeiten.
@@ -106,116 +111,143 @@ const EditGame = async ({ searchParams }: PageProps) => {
       error={single(params.fehler)}
     >
       <div className="split">
-        <form action={saveGameAction}>
-          <input type="hidden" name="spiel" value={detail.game.id} />
+        {/* Beide Formulare teilen sich die linke Spalte — rechts steht die Besetzung. */}
+        <div>
+          <form action={saveGameAction}>
+            <input type="hidden" name="spiel" value={detail.game.id} />
 
-          <div className="form-grid">
-            <Field label="Datum" htmlFor="datum">
-              <Input id="datum" name="datum" type="date" defaultValue={date} required />
-            </Field>
-            <Field label="Uhrzeit (24 Stunden)" htmlFor="zeit">
-              {/* Wie beim Anlegen: `type="time"` folgt der Sprache des Browsers. */}
-              <Input
-                id="zeit"
-                name="zeit"
-                inputMode="numeric"
-                pattern="([01]?[0-9]|2[0-3])[:.][0-5][0-9]"
-                maxLength={5}
-                placeholder="18:30"
-                title="Uhrzeit als HH:MM, zum Beispiel 18:30"
-                defaultValue={time}
-                required
-              />
-            </Field>
-            <Field label="Ort / Halle" htmlFor="ort">
-              <Input id="ort" name="ort" defaultValue={detail.game.venue} required />
-            </Field>
-            <Field label="Nötige Lizenz" htmlFor="lizenz">
-              <select
-                id="lizenz"
-                name="lizenz"
-                className="input"
-                defaultValue={detail.game.requiredLicense}
-                required
-              >
-                {LICENSES.map((license) => (
-                  <option key={license} value={license}>
-                    {licenseRequirementLabel(license)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </div>
-
-          <fieldset style={{ border: 0, padding: 0, margin: 'var(--space-4) 0 0' }}>
-            <legend className="field-label">Grund der Änderung</legend>
-            <div className="seg">
-              <label className="seg-opt">
-                <input type="radio" name="grund" value="moved" defaultChecked />
-                verschoben
-              </label>
-              <label className="seg-opt">
-                <input type="radio" name="grund" value="venue" />
-                Halle geändert
-              </label>
-              <label className="seg-opt">
-                <input type="radio" name="grund" value="cancelled" />
-                abgesagt
-              </label>
-            </div>
-          </fieldset>
-
-          <Note accent>
-            Ändern sich Termin oder Ort, erhalten Schiedsrichter <strong>und</strong> Ersatz eine
-            Nachricht mit dem neuen Termin und der Option abzusagen. Eine Absage öffnet den Platz
-            sofort wieder.
-          </Note>
-
-          <fieldset
-            style={{ border: 0, padding: 0, margin: 'var(--space-6) 0 0', display: 'grid', gap: 'var(--space-3)' }}
-          >
-            <legend className="field-label">Freigaben nur für dieses Spiel</legend>
-            {overrides.map((override) => (
-              <label
-                key={override.name}
-                className="row"
-                style={{
-                  alignItems: 'flex-start',
-                  gap: 'var(--space-3)',
-                  padding: 'var(--space-3)',
-                  border: '2px solid var(--color-divider)',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  name={override.name}
-                  value="an"
-                  defaultChecked={override.checked}
-                  className="check-inline"
+            <div className="form-grid">
+              <Field label="Datum" htmlFor="datum">
+                <Input id="datum" name="datum" type="date" defaultValue={date} required />
+              </Field>
+              <Field label="Uhrzeit (24 Stunden)" htmlFor="zeit">
+                {/* Wie beim Anlegen: `type="time"` folgt der Sprache des Browsers. */}
+                <Input
+                  id="zeit"
+                  name="zeit"
+                  inputMode="numeric"
+                  pattern="([01]?[0-9]|2[0-3])[:.][0-5][0-9]"
+                  maxLength={5}
+                  placeholder="18:30"
+                  title="Uhrzeit als HH:MM, zum Beispiel 18:30"
+                  defaultValue={time}
+                  required
                 />
-                <span style={{ flex: 1 }}>
-                  <span
-                    style={{ display: 'block', fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '14px' }}
-                  >
-                    {override.label}
-                  </span>
-                  <span className="text-muted" style={{ fontSize: '12px' }}>
-                    {override.description}
-                  </span>
-                </span>
-              </label>
-            ))}
-          </fieldset>
+              </Field>
+              <Field label="Ort / Halle" htmlFor="ort">
+                <Input id="ort" name="ort" defaultValue={detail.game.venue} required />
+              </Field>
+              <Field label="Nötige Lizenz" htmlFor="lizenz">
+                <select
+                  id="lizenz"
+                  name="lizenz"
+                  className="input"
+                  defaultValue={detail.game.requiredLicense}
+                  required
+                >
+                  {LICENSES.map((license) => (
+                    <option key={license} value={license}>
+                      {licenseRequirementLabel(license)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
 
-          <div className="row" style={{ marginTop: 'var(--space-6)' }}>
-            <Button type="submit" variant="primary">
-              Speichern &amp; Beteiligte informieren
-            </Button>
-            <Link href="/uebersicht" className="btn btn-secondary">
-              Abbrechen
-            </Link>
-          </div>
-        </form>
+            <fieldset style={{ border: 0, padding: 0, margin: 'var(--space-4) 0 0' }}>
+              <legend className="field-label">Grund der Änderung</legend>
+              <div className="seg">
+                <label className="seg-opt">
+                  <input type="radio" name="grund" value="moved" defaultChecked />
+                  verschoben
+                </label>
+                <label className="seg-opt">
+                  <input type="radio" name="grund" value="venue" />
+                  Halle geändert
+                </label>
+                <label className="seg-opt">
+                  <input type="radio" name="grund" value="cancelled" />
+                  abgesagt
+                </label>
+              </div>
+            </fieldset>
+
+            <Note accent>
+              Ändern sich Termin oder Ort, erhalten Schiedsrichter <strong>und</strong> Ersatz eine
+              Nachricht mit dem neuen Termin und der Option abzusagen. Eine Absage öffnet den Platz
+              sofort wieder.
+            </Note>
+
+            <div className="row" style={{ marginTop: 'var(--space-6)' }}>
+              <Button type="submit" variant="primary">
+                Speichern &amp; Beteiligte informieren
+              </Button>
+              <Link href="/uebersicht" className="btn btn-secondary">
+                Abbrechen
+              </Link>
+            </div>
+          </form>
+
+          {/*
+            * Ein eigenes Formular, bewusst neben und nicht in dem oberen.
+            *
+            * Eine Freigabe verschiebt kein Spiel. Stuende sie im Formular
+            * darueber, ginge sie nur ueber den Knopf "Speichern & Beteiligte
+            * informieren" raus — der schreibt Datum, Uhrzeit und Ort zurueck und
+            * kann dabei eine Verschiebung samt Nachricht an alle ausloesen
+            * (Regel 17). Ein Haken, der eine Frist aufhebt, darf das weder
+            * kosten noch danach aussehen.
+            */}
+          <form action={saveReleasesAction} style={{ marginTop: 'var(--space-8)' }}>
+            <input type="hidden" name="spiel" value={detail.game.id} />
+
+            <fieldset
+              style={{ border: 0, padding: 0, margin: 0, display: 'grid', gap: 'var(--space-3)' }}
+            >
+              <legend className="field-label">Freigaben nur für dieses Spiel</legend>
+              {overrides.map((override) => (
+                <label
+                  key={override.name}
+                  className="row"
+                  style={{
+                    alignItems: 'flex-start',
+                    gap: 'var(--space-3)',
+                    padding: 'var(--space-3)',
+                    border: '2px solid var(--color-divider)',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    name={override.name}
+                    value="an"
+                    defaultChecked={override.checked}
+                    className="check-inline"
+                  />
+                  <span style={{ flex: 1 }}>
+                    <span
+                      style={{ display: 'block', fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '14px' }}
+                    >
+                      {override.label}
+                    </span>
+                    <span className="text-muted" style={{ fontSize: '12px' }}>
+                      {override.description}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+
+            <div className="row" style={{ marginTop: 'var(--space-4)' }}>
+              <Button type="submit" variant="secondary">
+                Freigaben speichern
+              </Button>
+              <span className="text-muted" style={{ fontSize: '12px', flex: 1, minWidth: '200px' }}>
+                Wirkt sofort und nur für dieses Spiel. Es geht keine Nachricht raus — ein Haken
+                allein ändert nichts, gespeichert wird er erst hier.
+              </span>
+            </div>
+          </form>
+        </div>
 
         <aside>
           <h2 className="kicker">Besetzung</h2>

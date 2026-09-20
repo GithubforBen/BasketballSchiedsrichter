@@ -233,9 +233,6 @@ export interface EditGameInput {
   venue: string;
   requiredLicense: License;
   reason: 'moved' | 'venue' | 'cancelled';
-  overrideWithdraw: boolean;
-  overrideSubstituteRequest: boolean;
-  overrideOneGamePerDay: boolean;
 }
 
 /**
@@ -277,9 +274,6 @@ export const editGame = async (
         requiredLicense: input.requiredLicense,
         state: cancelled ? 'cancelled' : notifies ? 'moved' : row.state,
         relocationVersion: version,
-        overrideWithdraw: input.overrideWithdraw,
-        overrideSubstituteRequest: input.overrideSubstituteRequest,
-        overrideOneGamePerDay: input.overrideOneGamePerDay,
       })
       .where(eq(schema.games.id, gameId));
 
@@ -292,11 +286,6 @@ export const editGame = async (
         venueChanged,
         lizenz: input.requiredLicense,
         affected: affected.length,
-        overrides: {
-          withdraw: input.overrideWithdraw,
-          substituteRequest: input.overrideSubstituteRequest,
-          oneGamePerDay: input.overrideOneGamePerDay,
-        },
       },
     });
 
@@ -321,6 +310,86 @@ export const editGame = async (
     };
   }
   return { ok: true, message: 'Gespeichert.' };
+};
+
+/** Die drei Sperren, die ein Admin fuer ein einzelnes Spiel aufheben kann. */
+export interface GameReleases {
+  /** Regel 7: Austragen auch nach der Frist. */
+  withdraw: boolean;
+  /** Regel 8: Ersatz anfordern auch nach der Frist. */
+  substituteRequest: boolean;
+  /** Regel 6: ein zweites Spiel am selben Tag. */
+  oneGamePerDay: boolean;
+}
+
+const RELEASE_LABELS: Readonly<Record<keyof GameReleases, string>> = {
+  withdraw: 'Austragen',
+  substituteRequest: 'Ersatz anfordern',
+  oneGamePerDay: 'zweites Spiel am selben Tag',
+};
+
+/**
+ * Setzt die Freigaben eines Spiels — und sonst nichts.
+ *
+ * Eine eigene Operation und nicht ein Teil von `editGame`, aus einem Grund,
+ * der Geld kostet: `editGame` schreibt das ganze Spiel aus dem Formular
+ * zurueck und vergleicht dabei Termin und Ort mit dem gespeicherten Stand.
+ * Weicht auch nur eine Sekunde ab — das Formular kennt nur Stunden und
+ * Minuten, die Spalte auch Sekunden —, gilt das Spiel als verschoben: der
+ * Zustand springt auf "moved", der Zaehler steigt und **jeder Beteiligte
+ * bekommt eine Nachricht mit Absage-Option** (Regel 17, Regel 33). Ein Haken,
+ * der eine Sperre aufhebt, hat damit nichts zu tun.
+ *
+ * Dazu kommt, was der Admin sieht: der Knopf am Spielformular heisst
+ * "Speichern & Beteiligte informieren". Wer nur eine Frist aufheben will,
+ * drueckt ihn verstaendlicherweise nicht — und wundert sich dann, dass der
+ * gesetzte Haken nichts bewirkt hat. Die Freigaben haben deshalb ihr eigenes
+ * Formular mit einem eigenen Knopf, der nichts verschickt.
+ */
+export const setGameReleases = async (
+  actorId: string,
+  gameId: string,
+  releases: GameReleases,
+): Promise<AdminResult> => {
+  const rows = await db.select().from(schema.games).where(eq(schema.games.id, gameId)).limit(1);
+  const row = rows[0];
+  if (!row) return fail('Dieses Spiel gibt es nicht mehr.');
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.games)
+      .set({
+        overrideWithdraw: releases.withdraw,
+        overrideSubstituteRequest: releases.substituteRequest,
+        overrideOneGamePerDay: releases.oneGamePerDay,
+      })
+      .where(eq(schema.games.id, gameId));
+
+    await writeAudit(tx, {
+      actorId,
+      action: 'game.releases',
+      gameId,
+      detail: { ...releases },
+    });
+  });
+
+  /*
+   * Die Rueckmeldung zaehlt auf, was jetzt gilt, statt nur "Gespeichert" zu
+   * sagen. Der Haken allein ist kein Beleg — er stand auch vorher schon so da,
+   * als er noch nicht gespeichert war.
+   */
+  const active = (Object.keys(RELEASE_LABELS) as readonly (keyof GameReleases)[])
+    .filter((key) => releases[key])
+    .map((key) => RELEASE_LABELS[key]);
+
+  return {
+    ok: true,
+    message:
+      active.length === 0
+        ? 'Freigaben gespeichert — für dieses Spiel gelten wieder alle Fristen.'
+        : `Freigaben gespeichert — für dieses Spiel ist freigegeben: ${active.join(', ')}. ` +
+          'Es wurde niemand benachrichtigt.',
+  };
 };
 
 /**

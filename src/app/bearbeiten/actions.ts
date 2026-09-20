@@ -6,7 +6,7 @@ import { parseTime } from '@/domain/csv';
 import { isLicense } from '@/domain/license';
 import type { License, SlotIndex } from '@/domain/types';
 import { editGameRoute } from '@/routes';
-import { assignReferee, editGame, removeFromGame } from '@/server/admin/games';
+import { assignReferee, editGame, removeFromGame, setGameReleases } from '@/server/admin/games';
 import { requireAdmin } from '@/server/guard';
 
 /** Spiel bearbeiten: verschieben, Halle ändern, absagen, Besetzung entfernen. */
@@ -35,13 +35,38 @@ export const saveGameAction = async (formData: FormData): Promise<void> => {
     venue: read(formData, 'ort'),
     requiredLicense: readLicense(formData),
     reason: reason === 'cancelled' ? 'cancelled' : reason === 'venue' ? 'venue' : 'moved',
-    overrideWithdraw: checked(formData, 'freigabeAustragen'),
-    overrideSubstituteRequest: checked(formData, 'freigabeErsatz'),
-    overrideOneGamePerDay: checked(formData, 'freigabeZweitesSpiel'),
   });
 
   revalidatePath('/bearbeiten');
   revalidatePath('/uebersicht');
+  redirect(editGameRoute(gameId, result));
+};
+
+/**
+ * Die Freigaben fuer dieses eine Spiel — Austragen, Ersatz anfordern, zweites
+ * Spiel am selben Tag.
+ *
+ * Eigene Aktion und eigenes Formular, weil sie mit dem Termin nichts zu tun
+ * haben: `saveGameAction` schreibt Datum, Uhrzeit und Ort zurueck und kann
+ * dabei eine Verschiebung samt Nachricht an alle Beteiligten ausloesen. Eine
+ * aufgehobene Frist darf das nicht kosten.
+ *
+ * `/spiele` wird mit aufgefrischt: dort haengt der Knopf „Ersatz anfordern“
+ * an genau diesem Wert, und der Schiedsrichter soll die Freigabe sehen,
+ * sobald sie gilt.
+ */
+export const saveReleasesAction = async (formData: FormData): Promise<void> => {
+  const user = await requireAdmin();
+  const gameId = read(formData, 'spiel');
+
+  const result = await setGameReleases(user.id, gameId, {
+    withdraw: checked(formData, 'freigabeAustragen'),
+    substituteRequest: checked(formData, 'freigabeErsatz'),
+    oneGamePerDay: checked(formData, 'freigabeZweitesSpiel'),
+  });
+
+  revalidatePath('/bearbeiten');
+  revalidatePath('/spiele');
   redirect(editGameRoute(gameId, result));
 };
 

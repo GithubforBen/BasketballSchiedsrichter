@@ -12,6 +12,7 @@ import {
   importCsv,
   previewCsv,
   removeFromGame,
+  setGameReleases,
 } from './games';
 import {
   createReferee,
@@ -364,9 +365,6 @@ suite('Adminbereich', () => {
       venue,
       requiredLicense: 'E' as const,
       reason: 'moved' as const,
-      overrideWithdraw: false,
-      overrideSubstituteRequest: false,
-      overrideOneGamePerDay: false,
     });
 
     it('Regel 17: benachrichtigt beim Verschieben Schiedsrichter und Ersatz', async () => {
@@ -402,20 +400,9 @@ suite('Adminbereich', () => {
     it('verschickt nichts, wenn sich weder Termin noch Ort ändern', async () => {
       const gameId = await newGame();
       await claimNextSlot(gameId, a);
-      const result = await editGame(admin, gameId, {
-        ...editInput(30, 'Testhalle'),
-        overrideWithdraw: true,
-      });
+      const result = await editGame(admin, gameId, editInput(30, 'Testhalle'));
       expect(result.message).toBe('Gespeichert.');
       expect((await outbox(gameId)).filter((row) => row.kind === 'relocation')).toHaveLength(0);
-    });
-
-    it('setzt die Freigaben, die der Admin pro Spiel erteilt', async () => {
-      const gameId = await newGame();
-      await editGame(admin, gameId, { ...editInput(30, 'Testhalle'), overrideWithdraw: true });
-      const rows = await sql<{ override_withdraw: boolean }[]>`
-        SELECT override_withdraw FROM games WHERE id = ${gameId}`;
-      expect(rows[0]?.override_withdraw).toBe(true);
     });
 
     it('sagt ein Spiel ab und informiert die Beteiligten', async () => {
@@ -428,6 +415,108 @@ suite('Adminbereich', () => {
       });
       expect(result.message).toContain('abgesagt');
       expect(await auditActions(gameId)).toContain('game.cancel');
+    });
+  });
+
+  describe('Freigaben pro Spiel', () => {
+    const releases = async (gameId: string) =>
+      (
+        await sql<
+          {
+            override_withdraw: boolean;
+            override_substitute_request: boolean;
+            override_one_game_per_day: boolean;
+            state: string;
+            relocation_version: number;
+            kickoff: Date;
+          }[]
+        >`SELECT override_withdraw, override_substitute_request, override_one_game_per_day,
+                 state, relocation_version, kickoff FROM games WHERE id = ${gameId}`
+      )[0];
+
+    it('hebt die Sperre für Ersatz anfordern auf — Regel 8', async () => {
+      const gameId = await newGame();
+      const result = await setGameReleases(admin, gameId, {
+        withdraw: false,
+        substituteRequest: true,
+        oneGamePerDay: false,
+      });
+      expect(result.ok).toBe(true);
+      expect((await releases(gameId))?.override_substitute_request).toBe(true);
+    });
+
+    it('nennt in der Rückmeldung, was jetzt gilt — der Haken allein ist kein Beleg', async () => {
+      const gameId = await newGame();
+      const result = await setGameReleases(admin, gameId, {
+        withdraw: false,
+        substituteRequest: true,
+        oneGamePerDay: false,
+      });
+      expect(result.message).toContain('Ersatz anfordern');
+      expect(result.message).toContain('niemand benachrichtigt');
+    });
+
+    it('nimmt eine Freigabe auch wieder zurück', async () => {
+      const gameId = await newGame();
+      const alle = { withdraw: true, substituteRequest: true, oneGamePerDay: true };
+      await setGameReleases(admin, gameId, alle);
+      const result = await setGameReleases(admin, gameId, {
+        withdraw: false,
+        substituteRequest: false,
+        oneGamePerDay: false,
+      });
+      expect(result.message).toContain('wieder alle Fristen');
+      const row = await releases(gameId);
+      expect([
+        row?.override_withdraw,
+        row?.override_substitute_request,
+        row?.override_one_game_per_day,
+      ]).toEqual([false, false, false]);
+    });
+
+    it('verschiebt das Spiel nicht und schickt niemandem etwas — Regeln 17 und 33', async () => {
+      /*
+       * Der eigentliche Grund für die getrennte Operation: über `editGame`
+       * ging derselbe Haken nur zusammen mit Datum, Uhrzeit und Ort raus.
+       * Wich der gespeicherte Anpfiff um Sekunden vom Formular ab — die
+       * Spalte kennt Sekunden, das Eingabefeld nicht —, galt das Spiel als
+       * verschoben und jeder Beteiligte bekam eine Nachricht.
+       */
+      const gameId = await newGame();
+      await claimNextSlot(gameId, a);
+      const vorher = await releases(gameId);
+      const vorherigeNachrichten = (await outbox(gameId)).length;
+
+      await setGameReleases(admin, gameId, {
+        withdraw: false,
+        substituteRequest: true,
+        oneGamePerDay: false,
+      });
+
+      const nachher = await releases(gameId);
+      expect(nachher?.state).toBe(vorher?.state);
+      expect(nachher?.relocation_version).toBe(vorher?.relocation_version);
+      expect(nachher?.kickoff.getTime()).toBe(vorher?.kickoff.getTime());
+      expect(await outbox(gameId)).toHaveLength(vorherigeNachrichten);
+    });
+
+    it('schreibt die Freigaben ins Prüfprotokoll', async () => {
+      const gameId = await newGame();
+      await setGameReleases(admin, gameId, {
+        withdraw: true,
+        substituteRequest: false,
+        oneGamePerDay: false,
+      });
+      expect(await auditActions(gameId)).toContain('game.releases');
+    });
+
+    it('meldet ein Spiel, das es nicht mehr gibt', async () => {
+      const result = await setGameReleases(admin, 'gibt-es-nicht', {
+        withdraw: true,
+        substituteRequest: true,
+        oneGamePerDay: true,
+      });
+      expect(result.ok).toBe(false);
     });
   });
 
