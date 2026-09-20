@@ -90,7 +90,6 @@ suite('Datenschutz', () => {
     it('nimmt auch den vergangenen Einsatz mit — genau das heisst Löschen', async () => {
       const vergangen = await makeGame(-240);
       await assign(vergangen, 0, person);
-      await sql`UPDATE assignments SET played_as_referee = true WHERE referee_id = ${person}`;
 
       await deleteReferee(admin, person);
       expect(await count('assignments', `WHERE game_id = '${vergangen}'`)).toBe(0);

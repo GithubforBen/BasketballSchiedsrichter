@@ -49,7 +49,7 @@ export const myGames = async (
       slotIndex,
       role: SLOT_LABELS[slotIndex],
       confirmation: confirmationState(slot, game, settings, now),
-      countsForStats: countsAsRefereed(slotIndex, assignment),
+      countsForStats: countsAsRefereed(slotIndex),
     };
   });
 
@@ -82,9 +82,7 @@ export const monthlyCounts = async (
   for (const row of rows) {
     const game = toGame(row.game);
     if (game.kickoff > now || game.state === 'cancelled') continue;
-    if (!countsAsRefereed(row.assignment.slotIndex as SlotIndex, toAssignment(row.assignment))) {
-      continue;
-    }
+    if (!countsAsRefereed(row.assignment.slotIndex as SlotIndex)) continue;
     const key = monthKey(game.kickoff);
     counted.set(key, (counted.get(key) ?? 0) + 1);
   }
@@ -138,7 +136,7 @@ export const seasonRanking = async (
     const counted =
       game.kickoff <= now &&
       game.state !== 'cancelled' &&
-      countsAsRefereed(row.assignment.slotIndex as SlotIndex, toAssignment(row.assignment));
+      countsAsRefereed(row.assignment.slotIndex as SlotIndex);
     counts.set(row.referee.id, { name: entry.name, count: entry.count + (counted ? 1 : 0) });
   }
 

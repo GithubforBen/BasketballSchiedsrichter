@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { inDays, makeAssignment, NOW } from './__fixtures__/build';
+import { inDays, NOW } from './__fixtures__/build';
 import {
   buildRanking,
   countRefereedGames,
   countsAsRefereed,
-  needsPlayedDecision,
   ownRank,
   type CountableEntry,
 } from './stats';
@@ -12,52 +11,53 @@ import {
 const past = inDays(-1);
 const future = inDays(1);
 
-describe('Regel 25/26 — nur echte Einsaetze als Schiedsrichter zaehlen', () => {
+describe('Regeln 25-27 — gezaehlt wird der Platz zum Anpfiff', () => {
   it('zaehlt einen Schiedsrichter-Platz', () => {
-    expect(countsAsRefereed(0, makeAssignment(0, 'r-jk'))).toBe(true);
-    expect(countsAsRefereed(1, makeAssignment(1, 'r-jk'))).toBe(true);
+    expect(countsAsRefereed(0)).toBe(true);
+    expect(countsAsRefereed(1)).toBe(true);
   });
 
-  it('zaehlt einen Ersatzplatz ohne Einsatz nicht', () => {
-    expect(countsAsRefereed(2, makeAssignment(2, 'r-jk'))).toBe(false);
-    expect(countsAsRefereed(3, makeAssignment(3, 'r-jk'))).toBe(false);
+  it('zaehlt einen Ersatzplatz nicht', () => {
+    expect(countsAsRefereed(2)).toBe(false);
+    expect(countsAsRefereed(3)).toBe(false);
   });
 
-  it('zaehlt einen Ersatz mit Einsatz', () => {
-    expect(countsAsRefereed(2, makeAssignment(2, 'r-jk', { playedAsReferee: true }))).toBe(true);
+  it('zaehlt automatisch, sobald jemand auf einem Schiedsrichter-Platz steht', () => {
+    /*
+     * Wer nachgerueckt oder uebernommen hat, steht danach auf Platz 0 oder 1.
+     * Damit zaehlt sein Einsatz, ohne dass jemand etwas nachtragen muss —
+     * genau das war der Sinn der Abschaffung von "Spiele nachpflegen".
+     */
+    expect(countsAsRefereed(0)).toBe(true);
+  });
+
+  it('kennt keine Ausnahme mehr, die den Platz ueberstimmt', () => {
+    /*
+     * Frueher konnte der Admin je Eintragung ein "hat doch gepfiffen" setzen.
+     * Der Wert haengt jetzt allein am Platz — eine Korrektur laeuft ueber die
+     * Besetzung des Spiels, die auch nach dem Anpfiff aenderbar ist.
+     */
+    const zaehlt = ([0, 1] as const).map((index) => countsAsRefereed(index));
+    const zaehltNicht = ([2, 3] as const).map((index) => countsAsRefereed(index));
+    expect(zaehlt).toEqual([true, true]);
+    expect(zaehltNicht).toEqual([false, false]);
   });
 
   it('zaehlt kommende Spiele nicht mit — eine Eintragung ist noch kein Einsatz', () => {
     const entries: CountableEntry[] = [
-      { slotIndex: 0, assignment: makeAssignment(0, 'r-jk'), kickoff: future },
-      { slotIndex: 0, assignment: makeAssignment(0, 'r-jk'), kickoff: past },
+      { slotIndex: 0, kickoff: future },
+      { slotIndex: 0, kickoff: past },
     ];
     expect(countRefereedGames(entries, NOW)).toBe(1);
   });
-});
 
-describe('Regel 27 — Nachruecken zaehlt automatisch, der Admin kann korrigieren', () => {
-  it('zaehlt automatisch, sobald jemand auf einem Schiedsrichter-Platz steht', () => {
-    // Nach dem Nachruecken sitzt die Person auf Platz 0 — ohne dass jemand
-    // etwas eintragen muss.
-    expect(countsAsRefereed(0, makeAssignment(0, 'r-tf'))).toBe(true);
-  });
-
-  it('laesst die Admin-Korrektur den Platz ueberstimmen', () => {
-    expect(countsAsRefereed(0, makeAssignment(0, 'r-jk', { playedAsReferee: false }))).toBe(false);
-    expect(countsAsRefereed(3, makeAssignment(3, 'r-jk', { playedAsReferee: true }))).toBe(true);
-  });
-
-  it('meldet, wo der Admin nachpflegen muss', () => {
+  it('zaehlt einen vergangenen Ersatzplatz nicht mit', () => {
     const entries: CountableEntry[] = [
-      { slotIndex: 2, assignment: makeAssignment(2, 'r-jk'), kickoff: past },
-      { slotIndex: 2, assignment: makeAssignment(2, 'r-lb', { playedAsReferee: false }), kickoff: past },
-      { slotIndex: 0, assignment: makeAssignment(0, 'r-tf'), kickoff: past },
-      { slotIndex: 2, assignment: makeAssignment(2, 'r-ay'), kickoff: future },
+      { slotIndex: 2, kickoff: past },
+      { slotIndex: 3, kickoff: past },
+      { slotIndex: 1, kickoff: past },
     ];
-    const open = needsPlayedDecision(entries, NOW);
-    expect(open).toHaveLength(1);
-    expect(open[0]?.assignment.refereeId).toBe('r-jk');
+    expect(countRefereedGames(entries, NOW)).toBe(1);
   });
 });
 

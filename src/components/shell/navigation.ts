@@ -3,7 +3,7 @@ import type { NavGroup, NavTarget } from './nav';
 /**
  * Die Navigation je Rolle.
  *
- * Gruppiert statt aufgereiht. Der Adminbereich hat elf Ziele; als eine Liste
+ * Gruppiert statt aufgereiht. Der Adminbereich hat zehn Ziele; als eine Liste
  * standen "Offene Spiele & Meldungen" (was der Verein noch besetzen muss) und
  * "Offene Spiele" (wo ich mich selbst eintrage) unmittelbar untereinander und
  * waren am Namen kaum zu unterscheiden. Die Gruppen sagen, aus welcher Rolle
@@ -59,7 +59,6 @@ export const ADMIN_NAV: readonly NavGroup[] = [
       { href: '/uebersicht', label: 'Spielübersicht', short: 'Spiele' },
       { href: '/meldungen', label: 'Offene Spiele & Meldungen', short: 'Meldungen' },
       { href: '/anlegen', label: 'Spiele anlegen', short: 'Neu' },
-      { href: '/nachpflegen', label: 'Spiele nachpflegen', short: 'Nachpflegen' },
     ],
   },
   {

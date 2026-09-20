@@ -141,6 +141,17 @@ export const gameExportRoute = (zeitraum: 'kommende' | 'alle'): Route =>
   withQuery('/api/export/spielplan', { zeitraum });
 
 /**
+ * Die Spielübersicht mit oder ohne vergangene Spiele.
+ *
+ * Der Zeitraum steht in der Adresse und nicht in einem Zustand im Browser:
+ * so überlebt er das Neuladen, lässt sich verlinken, und der CSV-Export
+ * daneben kann denselben Wert übernehmen — was angezeigt wird, wird
+ * exportiert.
+ */
+export const overviewRoute = (zeitraum: 'kommende' | 'alle'): Route =>
+  withQuery('/uebersicht', zeitraum === 'alle' ? { zeitraum } : {});
+
+/**
  * Die Kalenderdatei der eigenen Einsätze.
  *
  * Anders als beim CSV-Export steht hier kein fertiger Link, sondern nur der

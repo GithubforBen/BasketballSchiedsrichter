@@ -59,7 +59,7 @@ const rulesFor = (settings: ClubSettings): readonly { title: string; body: strin
   },
   {
     title: 'Ersatz anfordern',
-    body: `Bis ${settings.substituteRequestDeadlineDays} Tage vor Anpfiff kannst du Ersatz anfordern; alle Qualifizierten erhalten eine Nachricht. Danach ist die Funktion gesperrt, der Admin kann sie freigeben.`,
+    body: `Bis ${settings.substituteRequestDeadlineDays} Tage vor Anpfiff kannst du dein Spiel abgeben: der vorderste eingetragene Ersatz wird gefragt, ob er übernimmt. Sagt er zu, tauscht ihr die Plätze. Sagt er ab, ist er aus dem Spiel — offensichtlich kann er an dem Termin nicht — und der nächste Ersatz rückt nach und wird gefragt. Ohne eingetragenen Ersatz geht es nicht; danach ist die Funktion gesperrt, der Admin kann sie freigeben.`,
   },
   {
     title: 'Pflichtbestätigung',

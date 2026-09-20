@@ -210,8 +210,6 @@ export const assignments = pgTable(
     claimedAt: timestamp('claimed_at', { withTimezone: true }).notNull().defaultNow(),
     /** Pflichtbestaetigung. Regeln 10-12. */
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
-    /** Tatsaechlicher Einsatz. null = noch nicht entschieden. Regeln 25-27. */
-    playedAsReferee: boolean('played_as_referee'),
     /**
      * Bis zu welcher Verschiebung diese Person zugesagt hat. Regel 17.
      * Liegt der Zaehler des Spiels darueber, steht die Rueckmeldung noch aus
@@ -244,6 +242,25 @@ export const promotionOffers = pgTable(
     refereeId: text('referee_id')
       .notNull()
       .references(() => referees.id, { onDelete: 'cascade' }),
+    /**
+     * Der Anlass der Anfrage — und damit, was eine Absage bedeutet.
+     *
+     * - `vacancy`  Ein Schiedsrichter-Platz ist frei geworden, die Kaskade
+     *   fragt der Reihe nach (Regeln 13-16). Wer absagt, bleibt Ersatz.
+     * - `handover` Jemand gibt das Spiel ab ("Ersatz anfordern", Regel 8).
+     *   Wer absagt, steht offensichtlich nicht zur Verfuegung und wird vom
+     *   Ersatzplatz genommen; der naechste rueckt nach und wird gefragt.
+     */
+    kind: text('kind', { enum: ['vacancy', 'handover'] }).notNull().default('vacancy'),
+    /**
+     * Wer den Platz raeumt, sobald angenommen wird. `null` heisst: der Platz
+     * ist schon leer — der Admin hat ihn geraeumt oder jemand ist ausgetreten.
+     */
+    replacesRefereeId: text('replaces_referee_id').references(() => referees.id, {
+      onDelete: 'set null',
+    }),
+    /** Wer die Anfrage ausgeloest hat. Bei der Kaskade niemand. */
+    requestedBy: text('requested_by').references(() => referees.id, { onDelete: 'set null' }),
     respondBy: timestamp('respond_by', { withTimezone: true }).notNull(),
     outcome: text('outcome', { enum: ['pending', 'accepted', 'declined', 'expired'] })
       .notNull()

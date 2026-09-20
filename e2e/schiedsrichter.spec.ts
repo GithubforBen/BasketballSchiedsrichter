@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import {
   answerLinkFor,
   createGame,
@@ -6,6 +6,8 @@ import {
   dropGame,
   initialsOf,
   markRelocated,
+  occupantsOf,
+  pendingOfferFor,
   placeReferee,
   reminderCount,
   resetAssignments,
@@ -425,5 +427,115 @@ test.describe('Der Antwortlink aus der Nachricht', () => {
     await expect(
       page.getByRole('heading', { name: 'Dieser Link führt nicht weiter', level: 1 }),
     ).toBeVisible();
+  });
+});
+
+test.describe('Regel 8 — das Spiel abgeben', () => {
+  test.beforeEach(async () => {
+    await resetAssignments();
+  });
+
+  /*
+   * Auf einem Spieltag stehen mehrere Partien, und jede trägt einen Knopf
+   * „Ersatz anfordern“. Gemeint ist immer die Karte, auf der man selbst
+   * eingetragen ist — `.slot-mine` gibt es genau dort.
+   */
+  const eigeneKarte = (page: Page) =>
+    page.locator('article.game').filter({ has: page.locator('.slot-mine') });
+
+  /*
+   * Der ganze Weg in einem Test, weil er als Ganzes gilt: Jonas gibt ab, Lena
+   * sitzt auf der Bank und bekommt den Link, sie sagt zu — danach steht sie
+   * auf seinem Platz und er ist raus.
+   */
+  test('fragt den Ersatz und tauscht bei einer Zusage die Plätze', async ({ page }) => {
+    const game = (await upcomingGameIds())[0] ?? '';
+    await placeReferee(game, 0, SEED.jonas.id);
+    await placeReferee(game, 1, SEED.nele.id);
+    await placeReferee(game, 2, SEED.lena.id);
+
+    await loginAs(page, SEED.jonas.phone);
+    await page.goto(`/spiele?tag=${await dayKeyOfGame(game)}`);
+
+    const knopf = eigeneKarte(page).getByRole('button', { name: 'Ersatz anfordern' });
+    await expect(knopf).toBeEnabled();
+    await knopf.click();
+    await expect(formSuccess(page)).toBeVisible();
+
+    const offer = await pendingOfferFor(game);
+    expect(offer?.refereeId).toBe(SEED.lena.id);
+
+    /* Bis zur Antwort bleibt alles, wie es war. */
+    expect(await occupantsOf(game)).toEqual([
+      `0:${SEED.jonas.id}`,
+      `1:${SEED.nele.id}`,
+      `2:${SEED.lena.id}`,
+    ]);
+
+    await page.context().clearCookies();
+    await page.goto(await answerLinkFor('promotion', game, SEED.lena.id, offer?.id ?? ''));
+    await page.getByRole('button', { name: 'Ja, ich übernehme' }).click();
+    /*
+     * Erst die Quittung abwarten, dann in die Datenbank sehen. Ohne diese
+     * Zeile liest der Test den Stand, bevor die Server-Aktion ihn geschrieben
+     * hat — und scheitert je nach Laufzeit mal so, mal so.
+     */
+    await expect(page.getByText(/nachgerückt|stehst jetzt/)).toBeVisible();
+
+    expect(await occupantsOf(game)).toEqual([`0:${SEED.lena.id}`, `1:${SEED.nele.id}`]);
+  });
+
+  test('nimmt den Absagenden von der Bank und fragt den nächsten', async ({ page }) => {
+    const game = (await upcomingGameIds())[0] ?? '';
+    await placeReferee(game, 0, SEED.jonas.id);
+    await placeReferee(game, 2, SEED.lena.id);
+    await placeReferee(game, 3, SEED.nele.id);
+
+    await loginAs(page, SEED.jonas.phone);
+    await page.goto(`/spiele?tag=${await dayKeyOfGame(game)}`);
+    await eigeneKarte(page).getByRole('button', { name: 'Ersatz anfordern' }).click();
+    await expect(formSuccess(page)).toBeVisible();
+
+    const erste = await pendingOfferFor(game);
+    expect(erste?.refereeId).toBe(SEED.lena.id);
+
+    await page.context().clearCookies();
+    await page.goto(await answerLinkFor('promotion', game, SEED.lena.id, erste?.id ?? ''));
+    await page.getByRole('button', { name: 'Nein, ich kann nicht' }).click();
+    await expect(page.getByText(/aus diesem Spiel raus/)).toBeVisible();
+
+    /* Lena ist raus, Nele rückt von Ersatz 2 auf Ersatz 1 — und ist gefragt. */
+    expect(await occupantsOf(game)).toEqual([`0:${SEED.jonas.id}`, `2:${SEED.nele.id}`]);
+    const zweite = await pendingOfferFor(game);
+    expect(zweite?.refereeId).toBe(SEED.nele.id);
+    expect(zweite?.substituteSlot).toBe(2);
+  });
+
+  test('sperrt den Knopf ohne Ersatz und nennt den Grund', async ({ page }) => {
+    const game = (await upcomingGameIds())[0] ?? '';
+    await placeReferee(game, 0, SEED.jonas.id);
+
+    await loginAs(page, SEED.jonas.phone);
+    await page.goto(`/spiele?tag=${await dayKeyOfGame(game)}`);
+
+    const karte = eigeneKarte(page);
+    await expect(karte.getByRole('button', { name: 'Ersatz anfordern' })).toBeDisabled();
+    await expect(karte.getByText(/kein Ersatz eingetragen/)).toBeVisible();
+  });
+
+  test('lädt niemanden mehr ein, sich zusätzlich als Ersatz einzutragen', async ({ page }) => {
+    /*
+     * Die alte Bedeutung des Knopfes: er schrieb den freien Ersatzplatz aus.
+     * Sie ist weg, und der Hinweistext darf sie nicht mehr versprechen.
+     */
+    const game = (await upcomingGameIds())[0] ?? '';
+    await placeReferee(game, 0, SEED.jonas.id);
+    await placeReferee(game, 2, SEED.lena.id);
+
+    await loginAs(page, SEED.jonas.phone);
+    await page.goto(`/spiele?tag=${await dayKeyOfGame(game)}`);
+
+    await expect(eigeneKarte(page).getByText(/Ersatz 1 wird gefragt/)).toBeVisible();
+    await expect(page.getByText(/geht an alle mit Qualifikation/)).toHaveCount(0);
   });
 });

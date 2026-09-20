@@ -9,6 +9,9 @@ import { matchTitle } from '@/domain/schedule';
 import { describeLeadTime } from '@/domain/time';
 import { leagueDisplay } from '@/domain/league';
 import { requireAdmin } from '@/server/guard';
+import { gamesWithPendingRequest } from '@/server/queries/games';
+import { loadReferee } from '@/server/queries/referees';
+import { substituteRequestView } from '@/domain/slot-actions';
 import { qualifiedReferees } from '@/domain/rules';
 import { adminGame } from '@/server/queries/admin-view';
 import { loadAllReferees } from '@/server/queries/referees';
@@ -16,6 +19,7 @@ import { loadSettings } from '@/server/queries/settings';
 import {
   assignRefereeAction,
   removeFromGameAction,
+  requestSubstituteAction,
   saveGameAction,
   saveReleasesAction,
 } from './actions';
@@ -77,6 +81,30 @@ const EditGame = async ({ searchParams }: PageProps) => {
     detail.game.leagueId,
     detail.game.requiredLicense,
   ).filter((referee) => !taken.has(referee.id));
+
+  /*
+   * Regel 8: der Knopf "Ersatz anfordern" aus Sicht des Admins.
+   *
+   * Dieselbe Entscheidung wie beim Schiedsrichter, nur mit dem Admin als
+   * Ausloeser — die Regel-Engine erkennt ihn an seiner Rolle und gibt ihm den
+   * ersten leeren Schiedsrichter-Platz als Ziel.
+   */
+  const [pendingRequests, me] = await Promise.all([
+    gamesWithPendingRequest(now),
+    loadReferee(user.id),
+  ]);
+  if (!me) throw new Error(`Konto ${user.id} nicht gefunden`);
+
+  const substituteRequest = substituteRequestView({
+    game: detail.game,
+    slots: detail.entrySlots,
+    referee: me,
+    sameDayAssignments: [],
+    settings,
+    now,
+    timeZone: CLUB.timeZone,
+    pendingRequest: pendingRequests.has(detail.game.id),
+  });
 
   const { date, time } = localParts(detail.game.kickoff);
   const overrides = [
@@ -313,6 +341,29 @@ const EditGame = async ({ searchParams }: PageProps) => {
               </li>
             ))}
           </ul>
+          {/*
+            Regel 8: den geraeumten Platz abgeben.
+            Er steht unter der Besetzung, weil er nur dort Sinn ergibt — erst
+            traegt der Admin jemanden aus, dann fragt er den Ersatz.
+          */}
+          <div className="stack" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
+            {substituteRequest.possible ? (
+              <form action={requestSubstituteAction}>
+                <input type="hidden" name="spiel" value={detail.game.id} />
+                <Button type="submit" variant="secondary" block>
+                  {substituteRequest.label}
+                </Button>
+              </form>
+            ) : (
+              <Button variant="secondary" disabled block>
+                {substituteRequest.label}
+              </Button>
+            )}
+            <span className="text-muted" style={{ fontSize: '11px' }}>
+              {substituteRequest.note}
+            </span>
+          </div>
+
           <p className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-3)' }}>
             Eintragen benachrichtigt die Person — sie erfährt sonst nicht, dass sie eingeteilt
             ist. Zur Auswahl steht, wer die Qualifikation {detail.game.leagueId} und mindestens

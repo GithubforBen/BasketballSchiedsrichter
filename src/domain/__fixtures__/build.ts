@@ -65,7 +65,6 @@ export const makeAssignment = (
   refereeId,
   claimedAt: new Date(NOW.getTime() - 90 * 24 * 60 * 60 * 1000),
   confirmedAt: null,
-  playedAsReferee: null,
   ...overrides,
 });
 

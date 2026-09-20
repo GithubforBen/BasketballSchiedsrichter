@@ -1,4 +1,11 @@
-import { canClaimSlot, canRequestSubstitute, canWithdraw, type ClaimContext } from './rules';
+import {
+  canClaimSlot,
+  canRequestSubstitute,
+  canWithdraw,
+  handoverSlot,
+  nextSubstituteToAsk,
+  type ClaimContext,
+} from './rules';
 import { isAssigned, nextFreeSlot, SLOT_LABELS, SLOT_LABELS_SHORT } from './slots';
 import type { Slot, SlotIndex } from './types';
 
@@ -39,6 +46,8 @@ export interface SlotView {
 
 export interface SlotViewContext extends Omit<ClaimContext, 'slotIndex'> {
   slots: readonly Slot[];
+  /** Ob fuer dieses Spiel schon eine Ersatz-Anfrage laeuft. Regel 8. */
+  pendingRequest?: boolean;
 }
 
 export const slotViews = (ctx: SlotViewContext): readonly SlotView[] => {
@@ -105,7 +114,14 @@ export interface SubstituteRequestView {
   note: string;
 }
 
-/** Der Knopf „Ersatz anfordern“ samt Begruendung. Regel 8. */
+/**
+ * Der Knopf „Ersatz anfordern“ samt Begruendung. Regel 8.
+ *
+ * Der Hinweistext nennt **den Namen des Platzes, der gefragt wird**, und sagt,
+ * was eine Zusage bedeutet. Frueher stand hier „die Nachricht geht an alle mit
+ * Qualifikation U14“ — das war die alte Bedeutung des Knopfes und waere jetzt
+ * schlicht falsch: es geht genau eine Nachricht an genau eine Person.
+ */
 export const substituteRequestView = (ctx: SlotViewContext): SubstituteRequestView => {
   const decision = canRequestSubstitute({
     game: ctx.game,
@@ -113,12 +129,22 @@ export const substituteRequestView = (ctx: SlotViewContext): SubstituteRequestVi
     referee: ctx.referee,
     settings: ctx.settings,
     now: ctx.now,
+    pendingRequest: ctx.pendingRequest ?? false,
   });
-  return decision.allowed
-    ? {
-        possible: true,
-        label: 'Ersatz anfordern',
-        note: `Die Nachricht geht an alle mit Qualifikation ${ctx.game.leagueId}.`,
-      }
-    : { possible: false, label: 'Ersatz anfordern', note: decision.message };
+
+  if (!decision.allowed) {
+    return { possible: false, label: 'Ersatz anfordern', note: decision.message };
+  }
+
+  const target = handoverSlot(ctx.slots, ctx.referee);
+  const substitute = nextSubstituteToAsk(ctx.slots);
+  return {
+    possible: true,
+    label: 'Ersatz anfordern',
+    note:
+      substitute && target
+        ? `${SLOT_LABELS[substitute.index]} wird gefragt, ob er ${SLOT_LABELS[target.index]} übernimmt. ` +
+          'Sagt er zu, tauscht ihr die Plätze; sagt er ab, wird der nächste gefragt.'
+        : 'Der vorderste Ersatz wird gefragt, ob er übernimmt.',
+  };
 };

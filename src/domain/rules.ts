@@ -1,5 +1,12 @@
 import { licenseCovers } from './license';
-import { isAssigned, nextFreeSlot, slotOf, substituteSlots, SLOT_LABELS } from './slots';
+import {
+  isAssigned,
+  nextFreeSlot,
+  refereeSlots,
+  slotOf,
+  substituteSlots,
+  SLOT_LABELS,
+} from './slots';
 import { calendarDay, days, hasPassed, withinLeadTime } from './time';
 import {
   allow,
@@ -189,32 +196,95 @@ export const canWithdraw = (ctx: WithdrawContext): Decision => {
 export interface SubstituteRequestContext {
   game: Game;
   slots: readonly Slot[];
+  /** Wer den Knopf drueckt — ein eingeteilter Schiedsrichter oder ein Admin. */
   referee: Referee;
   settings: ClubSettings;
   now: Date;
+  /**
+   * Ob fuer dieses Spiel schon eine Anfrage laeuft.
+   *
+   * Zwei gleichzeitige Anfragen an denselben Ersatz waeren eine Zusage zu
+   * viel: beide koennten angenommen werden, und einer der beiden Plaetze
+   * waere danach doppelt belegt. Die laufende Anfrage hat deshalb Vorrang,
+   * bis sie beantwortet ist oder ihre Frist verstreicht.
+   */
+  pendingRequest?: boolean;
 }
 
 /**
- * Regel 8: Ersatz anfordern, solange man selbst eingetragen ist und die Frist laeuft.
+ * Der Platz, der abgegeben werden soll.
  *
- * Zusaetzlich pruefen wir, ob ueberhaupt ein Ersatzplatz frei ist. Ohne freien
- * Platz haette die Anfrage keinen Adressaten und wuerde nur Nachrichtenkosten
- * erzeugen (Regel 33).
+ * Zwei Wege fuehren hierher, und beide enden am selben Punkt — ein
+ * Schiedsrichter-Platz, den ein Ersatz uebernehmen soll:
+ *
+ * - **Der Schiedsrichter selbst.** Er steht auf Schiri 1 oder Schiri 2 und
+ *   kann nicht; abgegeben wird *sein* Platz, und er raeumt ihn erst, wenn
+ *   jemand zugesagt hat. Bis dahin bleibt er verantwortlich — sonst stuende
+ *   das Spiel zwischendurch ohne Besetzung da.
+ * - **Der Admin.** Er hat den Platz vorher geraeumt; abgegeben wird der erste
+ *   leere Schiedsrichter-Platz, und es raeumt niemand mehr etwas.
+ *
+ * Ein Admin, der selbst eingeteilt ist, geht den ersten Weg: er gibt seinen
+ * eigenen Platz ab wie jeder andere.
+ */
+export const handoverSlot = (
+  slots: readonly Slot[],
+  referee: Referee,
+): Slot | null => {
+  const own = refereeSlots(slots).find((slot) => slot.assignment?.refereeId === referee.id);
+  if (own) return own;
+  if (referee.role !== 'admin') return null;
+  return refereeSlots(slots).find((slot) => slot.assignment === null) ?? null;
+};
+
+/** Der Ersatz, der als naechstes gefragt wird: der vorderste besetzte Ersatzplatz. */
+export const nextSubstituteToAsk = (slots: readonly Slot[]): Slot | null =>
+  substituteSlots(slots).find((slot) => slot.assignment !== null) ?? null;
+
+/**
+ * Regel 8: Ersatz anfordern — das Spiel abgeben.
+ *
+ * Was der Knopf tut, hat sich geaendert, und der alte Name traegt das neue
+ * Verhalten nur knapp. Frueher rief er weitere Leute auf, sich als Ersatz
+ * **einzutragen**, solange ein Ersatzplatz frei war. Das half dem, der nicht
+ * konnte, genau gar nicht: er stand weiterhin auf seinem Platz, und die Bank
+ * wurde nur laenger.
+ *
+ * Jetzt fragt er den vordersten eingetragenen Ersatz, ob er das Spiel
+ * **uebernimmt**. Sagt der zu, tauschen die beiden die Plaetze — der
+ * Anfragende ist raus. Sagt er ab, ist er offensichtlich nicht verfuegbar und
+ * verlaesst die Bank; der naechste rueckt auf und wird gefragt.
+ *
+ * Daraus folgt die wichtigste Vorbedingung, und sie ist die Umkehrung der
+ * alten: es muss ein Ersatz **da** sein. Eine leere Bank hat niemanden, den
+ * man fragen koennte.
  */
 export const canRequestSubstitute = (ctx: SubstituteRequestContext): Decision => {
   const guard = gameIsOpenForChanges(ctx);
   if (!guard.allowed) return guard;
 
-  if (!isAssigned(ctx.slots, ctx.referee.id)) {
+  const target = handoverSlot(ctx.slots, ctx.referee);
+  if (!target) {
     return deny(
       'not-assigned',
-      'Ersatz kannst du nur anfordern, wenn du selbst für dieses Spiel eingetragen bist.',
+      ctx.referee.role === 'admin'
+        ? 'Dafür muss ein Schiedsrichter-Platz frei sein. Trage zuerst jemanden aus — oder der Eingeteilte fordert selbst Ersatz an.'
+        : 'Ersatz kannst du nur anfordern, wenn du selbst als Schiri 1 oder Schiri 2 eingetragen bist.',
     );
   }
 
-  const free = substituteSlots(ctx.slots).some((s) => s.assignment === null);
-  if (!free) {
-    return deny('no-open-substitute-slot', 'Beide Ersatzplätze sind schon besetzt.');
+  if (!nextSubstituteToAsk(ctx.slots)) {
+    return deny(
+      'no-substitute-available',
+      'Für dieses Spiel ist kein Ersatz eingetragen, der übernehmen könnte.',
+    );
+  }
+
+  if (ctx.pendingRequest) {
+    return deny(
+      'request-running',
+      'Für dieses Spiel läuft schon eine Anfrage. Erst wenn sie beantwortet ist oder ihre Frist abläuft, geht die nächste raus.',
+    );
   }
 
   if (ctx.game.overrides.substituteRequest) return allow();

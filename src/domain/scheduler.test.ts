@@ -6,6 +6,7 @@ import {
   dueAdminOpenSlots,
   dueConfirmationAlerts,
   dueConfirmations,
+  continueHandover,
   dueDigest,
   duePersonalReminders,
   nudgeRound,
@@ -220,9 +221,12 @@ describe('Regeln 13 bis 15 — die Nachrueck-Kaskade laeuft von allein weiter', 
   const offer = (over: Partial<PromotionOfferRecord> = {}): PromotionOfferRecord => ({
     id: 'o1',
     gameId: 'g1',
+    kind: 'vacancy',
     targetSlot: 0,
     substituteSlot: 2,
     refereeId: 'r-tf',
+    replacesRefereeId: null,
+    requestedBy: null,
     respondBy: inHours(5),
     outcome: 'pending',
     ...over,
@@ -734,5 +738,89 @@ describe('Der Gesamtplan bleibt bei doppeltem Lauf derselbe', () => {
       referees: [jk, admin],
     });
     expect(planNotifications(abgesagt, NOW).intents).toEqual([]);
+  });
+});
+
+describe('Regel 8 — eine Abgabe-Kette bleibt nicht an einer ausbleibenden Antwort haengen', () => {
+  /*
+   * Eine Absage nimmt den Gefragten sofort von der Bank und fragt den
+   * naechsten — das passiert beim Antworten und nicht hier. Dieser Lauf
+   * kuemmert sich um den Fall, dass gar keine Antwort kommt: sonst wartet der
+   * Abgebende bis zum Anpfiff auf jemanden, der nie zusagt.
+   */
+  const abgabe = (over: Partial<PromotionOfferRecord> = {}): PromotionOfferRecord => ({
+    id: 'h1',
+    gameId: 'g1',
+    kind: 'handover',
+    targetSlot: 0,
+    substituteSlot: 2,
+    refereeId: 'r-tf',
+    replacesRefereeId: 'r-jk',
+    requestedBy: 'r-jk',
+    respondBy: inHours(-1),
+    outcome: 'expired',
+    ...over,
+  });
+
+  /* Der Abgebende steht noch auf Platz 0, die Bank ist doppelt besetzt. */
+  const besetzt: readonly Slot[] = slotsFrom(['r-jk', 'r-ms', 'r-tf', 'r-ay']);
+
+  it('fragt nach Ablauf der Frist den naechsten Ersatz', () => {
+    const offers = continueHandover(entry({ slots: besetzt, offers: [abgabe()] }), settings(), NOW);
+    expect(offers).toHaveLength(1);
+    expect(offers[0]).toMatchObject({
+      kind: 'handover',
+      targetSlot: 0,
+      substituteSlot: 3,
+      refereeId: 'r-ay',
+      replacesRefereeId: 'r-jk',
+    });
+  });
+
+  it('wartet, solange die Frist noch laeuft', () => {
+    const laufend = abgabe({ respondBy: inHours(5), outcome: 'pending' });
+    expect(continueHandover(entry({ slots: besetzt, offers: [laufend] }), settings(), NOW)).toEqual(
+      [],
+    );
+  });
+
+  it('hoert auf, wenn die Bank durch ist', () => {
+    const beide = [abgabe(), abgabe({ id: 'h2', substituteSlot: 3, refereeId: 'r-ay' })];
+    expect(continueHandover(entry({ slots: besetzt, offers: beide }), settings(), NOW)).toEqual([]);
+  });
+
+  it('hoert auf, sobald jemand zugesagt hat', () => {
+    const angenommen = abgabe({ outcome: 'accepted' });
+    expect(
+      continueHandover(entry({ slots: besetzt, offers: [angenommen] }), settings(), NOW),
+    ).toEqual([]);
+  });
+
+  it('laesst die Kette fallen, wenn der Abgebende gar nicht mehr dasteht', () => {
+    /*
+     * Hat er sich inzwischen selbst ausgetragen oder jemand anderes den Platz
+     * besetzt, ist die Frage gegenstandslos — und die Kaskade nach Regel 13
+     * uebernimmt.
+     */
+    const anderer: readonly Slot[] = slotsFrom(['r-ms', 'r-ms2', 'r-tf', 'r-ay']);
+    expect(
+      continueHandover(entry({ slots: anderer, offers: [abgabe()] }), settings(), NOW),
+    ).toEqual([]);
+  });
+
+  it('ruehrt eine gewoehnliche Nachrueck-Anfrage nicht an', () => {
+    const kaskade = abgabe({ kind: 'vacancy', replacesRefereeId: null, requestedBy: null });
+    expect(
+      continueHandover(entry({ slots: besetzt, offers: [kaskade] }), settings(), NOW),
+    ).toEqual([]);
+  });
+
+  it('schweigt nach dem Anpfiff', () => {
+    const vorbei = entry({
+      game: makeGame({ kickoff: inHours(-1) }),
+      slots: besetzt,
+      offers: [abgabe()],
+    });
+    expect(continueHandover(vorbei, settings(), NOW)).toEqual([]);
   });
 });

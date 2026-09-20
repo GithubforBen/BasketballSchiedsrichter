@@ -35,7 +35,6 @@ const assignment = (slotIndex: 0 | 1 | 2 | 3, refereeId: string): Assignment => 
   refereeId,
   claimedAt: new Date('2026-09-01T10:00:00Z'),
   confirmedAt: null,
-  playedAsReferee: null,
 });
 
 const entry = (g: Game, assignments: readonly Assignment[] = []): GameWithSlots => ({

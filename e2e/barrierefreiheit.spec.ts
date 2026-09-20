@@ -83,7 +83,7 @@ test.describe('Bildschirme der Admins', () => {
     '/anlegen',
     '/schiris',
     '/einstellungen',
-    '/nachpflegen',
+    '/nachrichten',
   ]) {
     test(`${path} erfüllt WCAG 2.1 AA`, async ({ page }) => {
       await loginAs(page, SEED.nele.phone);

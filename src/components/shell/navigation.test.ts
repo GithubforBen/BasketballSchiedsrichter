@@ -21,9 +21,9 @@ import {
  * auf einem der beiden Wege zu erreichen.**
  *
  * Der Anlass ist kein erfundener. Die Tab-Leiste traegt vier Ziele, die
- * Admin-Navigation hat elf; solange die Leiste der einzige Weg am Telefon war,
- * fehlten dort sieben davon — Einstellungen, Nachrichten-Protokoll,
- * Nachpflegen und der gesamte eigene Bereich, also auch der eigene Kalender.
+ * Admin-Navigation hat zehn; solange die Leiste der einzige Weg am Telefon
+ * war, fehlten dort sechs davon — Einstellungen, Nachrichten-Protokoll und
+ * der gesamte eigene Bereich, also auch der eigene Kalender.
  */
 
 /** Was am Rechner in der Seitenleiste steht — samt ihrer Fusszeile. */
@@ -88,7 +88,6 @@ describe('Die Navigation des Adminbereichs', () => {
         '/uebersicht',
         '/meldungen',
         '/anlegen',
-        '/nachpflegen',
         '/schiris',
         '/nachrichten',
         '/einstellungen',

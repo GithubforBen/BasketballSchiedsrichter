@@ -239,11 +239,43 @@ test.describe('Adminbereich', () => {
     await expect(page.getByText(/lässt sich nicht abschalten/)).toBeVisible();
   });
 
-  test('führt Spiele zum Nachpflegen auf', async ({ page }) => {
+  test('blendet vergangene Spiele auf Wunsch in die Übersicht ein', async ({ page }) => {
+    /*
+     * "Spiele nachpflegen" gibt es nicht mehr. Wer eine Besetzung im
+     * Nachhinein korrigieren will, blendet die vergangenen Spiele hier ein
+     * und bearbeitet sie wie jedes andere.
+     */
     await loginAs(page, SEED.nele.phone);
-    await page.goto('/nachpflegen');
-    await expect(page.getByRole('heading', { name: /nachpflegen/, level: 1 })).toBeVisible();
-    await expect(page.getByText(/für die Abrechnung maßgeblich/)).toBeVisible();
+    await page.goto('/uebersicht');
+
+    await page.getByRole('link', { name: /Vergangene Spiele auch anzeigen/ }).click();
+    await expect(page).toHaveURL(/zeitraum=alle/);
+    await expect(page.getByRole('link', { name: /Nur kommende Spiele/ })).toBeVisible();
+    await expect(page.getByText(/samt der vergangenen/)).toBeVisible();
+  });
+
+  test('der CSV-Export folgt dem eingestellten Zeitraum', async ({ page }) => {
+    await loginAs(page, SEED.nele.phone);
+    await page.goto('/uebersicht');
+    await expect(page.getByRole('link', { name: 'Als CSV exportieren' })).toHaveAttribute(
+      'href',
+      /zeitraum=kommende/,
+    );
+
+    await page.goto('/uebersicht?zeitraum=alle');
+    await expect(page.getByRole('link', { name: 'Als CSV exportieren' })).toHaveAttribute(
+      'href',
+      /zeitraum=alle/,
+    );
+  });
+
+  test('den Bildschirm „Spiele nachpflegen“ gibt es nicht mehr', async ({ page }) => {
+    await loginAs(page, SEED.nele.phone);
+    await page.goto('/uebersicht');
+    await expect(page.getByRole('link', { name: /nachpflegen/i })).toHaveCount(0);
+
+    const antwort = await page.request.get('/nachpflegen');
+    expect(antwort.status()).toBe(404);
   });
 
   test('zeigt eine verschobene Partie im Schiedsrichter-Bereich als Rückfrage', async ({ page }) => {
@@ -260,7 +292,7 @@ test.describe('Adminbereich', () => {
     // Sechs Seitenaufbauten in einem Test — in dieser Umgebung dauert das.
     test.slow();
     await loginAs(page, SEED.nele.phone);
-    for (const path of ['/uebersicht', '/meldungen', '/anlegen', '/schiris', '/einstellungen', '/nachpflegen']) {
+    for (const path of ['/uebersicht', '/uebersicht?zeitraum=alle', '/meldungen', '/anlegen', '/schiris', '/einstellungen']) {
       await page.goto(path);
       await expectNoHorizontalScroll(page, path);
     }
@@ -277,7 +309,7 @@ test.describe('Adminbereich', () => {
     test.slow();
     await loginAs(page, SEED.nele.phone);
     await page.setViewportSize({ width: 320, height: 568 });
-    for (const path of ['/uebersicht', '/meldungen', '/anlegen', '/schiris', '/einstellungen', '/nachpflegen']) {
+    for (const path of ['/uebersicht', '/uebersicht?zeitraum=alle', '/meldungen', '/anlegen', '/schiris', '/einstellungen']) {
       await page.goto(path);
       await expectNoHorizontalScroll(page, path);
     }

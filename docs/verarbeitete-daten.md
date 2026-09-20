@@ -80,23 +80,33 @@ Passwort nicht zurückrechnen.
 | `referee_id`              | Verweis auf die Person                            | mittelbar |
 | `claimed_at`              | wann eingetragen                                  | mittelbar |
 | `confirmed_at`            | wann bestätigt                                    | mittelbar |
-| `played_as_referee`       | ob tatsächlich gepfiffen (Regel 27)               | mittelbar |
 | `acknowledged_relocation` | bis zu welcher Verlegung zurückgemeldet wurde     | mittelbar |
 
-`played_as_referee` ist die Grundlage der Abrechnung — deshalb wird es
-nachgepflegt und nicht geraten.
+Grundlage der Abrechnung ist der **Platz zum Anpfiff**: wer auf Schiri 1 oder
+Schiri 2 steht, hat gepfiffen. Ein eigenes Feld dafür gibt es nicht mehr —
+`played_as_referee` und der Bildschirm „Spiele nachpflegen“ sind entfallen.
+Stimmt die Besetzung ausnahmsweise nicht, ändert der Admin sie am Spiel selbst,
+das auch nach dem Anpfiff bearbeitbar bleibt.
 
-## `promotion_offers` — Nachrück-Anfragen
+## `promotion_offers` — Anfragen an den Ersatz
 
-| Feld          | Inhalt                                              | PB        |
-| ------------- | --------------------------------------------------- | --------- |
-| `id`          | Kennung der Anfrage                                 | mittelbar |
-| `game_id`     | Verweis auf das Spiel                               | nein      |
-| `referee_id`  | wer gefragt wurde                                   | mittelbar |
-| `target_slot` | um welchen frei gewordenen Platz es geht            | mittelbar |
-| `respond_by`  | Antwortfrist                                        | mittelbar |
-| `outcome`     | `pending`, `accepted`, `declined` oder `expired`    | mittelbar |
-| `created_at`  | wann gefragt                                        | mittelbar |
+| Feld                  | Inhalt                                           | PB        |
+| --------------------- | ------------------------------------------------ | --------- |
+| `id`                  | Kennung der Anfrage                              | mittelbar |
+| `game_id`             | Verweis auf das Spiel                            | nein      |
+| `kind`                | `vacancy` (Platz frei geworden) oder `handover` (jemand gibt ab) | nein |
+| `referee_id`          | wer gefragt wurde                                | mittelbar |
+| `target_slot`         | um welchen Schiedsrichter-Platz es geht          | mittelbar |
+| `substitute_slot`     | von welchem Ersatzplatz aus                      | mittelbar |
+| `replaces_referee_id` | wer den Platz räumt, wenn zugesagt wird          | mittelbar |
+| `requested_by`        | wer die Anfrage ausgelöst hat                    | mittelbar |
+| `respond_by`          | Antwortfrist                                     | mittelbar |
+| `outcome`             | `pending`, `accepted`, `declined` oder `expired` | mittelbar |
+| `created_at`          | wann gefragt                                     | mittelbar |
+
+`kind` entscheidet, was eine Absage bedeutet: bei `vacancy` bleibt die Person
+Ersatz, bei `handover` wird sie aus dem Spiel genommen — sie hat gerade gesagt,
+dass sie an diesem Termin nicht kann.
 
 ## `login_tokens` — Anmeldelinks und -codes
 

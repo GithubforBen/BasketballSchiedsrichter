@@ -4,7 +4,6 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ensureLeagues } from '../../../test/ligen';
 import { CSV_COLUMNS } from '@/domain/csv';
 import { claimNextSlot } from '../assignments';
-import { setPlayedAsReferee } from './appearances';
 import {
   assignReferee,
   createGame,
@@ -894,40 +893,39 @@ suite('Adminbereich', () => {
     });
   });
 
-  describe('Spiele nachpflegen', () => {
-    it('Regel 27: trägt den Einsatz eines Ersatzes nach', async () => {
-      const gameId = await newGame();
-      await claimNextSlot(gameId, a);
-      await claimNextSlot(gameId, b);
-      await claimNextSlot(gameId, c);
+  describe('Vergangene Spiele bleiben aenderbar', () => {
+    /*
+     * "Spiele nachpflegen" ist weg. Gezaehlt wird, wer zum Anpfiff auf Schiri
+     * 1 oder Schiri 2 steht — und wenn das ausnahmsweise nicht stimmt, aendert
+     * der Admin die Besetzung des vergangenen Spiels. Das muss also gehen.
+     */
+    const pastGame = async () => {
+      const gameId = `${prefix}-past-${randomUUID().slice(0, 8)}`;
+      const kickoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      await sql`INSERT INTO games (id, kickoff, league_id, home, away, venue)
+                VALUES (${gameId}, ${kickoff}, 'U14', 'Heim', 'Gast', 'Halle')`;
+      return gameId;
+    };
 
-      const result = await setPlayedAsReferee(admin, gameId, 2, true);
-      expect(result.ok).toBe(true);
-      expect(await auditActions(gameId)).toContain('appearance.set');
+    it('teilt auch nach dem Anpfiff noch jemanden ein', async () => {
+      const gameId = await pastGame();
+      const result = await assignReferee(admin, gameId, 0, a);
+      expect(result.ok, result.message).toBe(true);
 
-      const rows = await sql<{ played_as_referee: boolean }[]>`
-        SELECT played_as_referee FROM assignments
-        WHERE game_id = ${gameId} AND slot_index = 2`;
-      expect(rows[0]?.played_as_referee).toBe(true);
+      const rows = await sql<{ referee_id: string }[]>`
+        SELECT referee_id FROM assignments WHERE game_id = ${gameId} AND slot_index = 0`;
+      expect(rows[0]?.referee_id).toBe(a);
     });
 
-    it('lässt sich auch wieder zurücknehmen', async () => {
-      const gameId = await newGame();
-      await claimNextSlot(gameId, a);
-      await claimNextSlot(gameId, b);
-      await claimNextSlot(gameId, c);
+    it('nimmt auch nach dem Anpfiff jemanden wieder heraus', async () => {
+      const gameId = await pastGame();
+      await assignReferee(admin, gameId, 0, a);
+      const result = await removeFromGame(admin, gameId, 0);
+      expect(result.ok, result.message).toBe(true);
 
-      await setPlayedAsReferee(admin, gameId, 2, true);
-      await setPlayedAsReferee(admin, gameId, 2, false);
-      const rows = await sql<{ played_as_referee: boolean }[]>`
-        SELECT played_as_referee FROM assignments
-        WHERE game_id = ${gameId} AND slot_index = 2`;
-      expect(rows[0]?.played_as_referee).toBe(false);
-    });
-
-    it('meldet einen leeren Platz', async () => {
-      const gameId = await newGame();
-      expect(await setPlayedAsReferee(admin, gameId, 3, true)).toMatchObject({ ok: false });
+      const rows = await sql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM assignments WHERE game_id = ${gameId}`;
+      expect(rows[0]?.n).toBe(0);
     });
   });
 });

@@ -14,7 +14,7 @@ import { slotOf } from '@/domain/slots';
 import { slotViews, substituteRequestView } from '@/domain/slot-actions';
 import { describeHours, describeHoursDative, describeLeadTime } from '@/domain/time';
 import type { Game } from '@/domain/types';
-import { initialsById } from '@/server/queries/games';
+import { gamesWithPendingRequest, initialsById } from '@/server/queries/games';
 import { loadReferee } from '@/server/queries/referees';
 import { pendingRelocations, upcomingGamesWithSlots } from '@/server/queries/referee-view';
 import { loadSettings } from '@/server/queries/settings';
@@ -44,12 +44,13 @@ const OpenGames = async ({ searchParams }: PageProps) => {
   const user = await requireUser(now);
   const params = await searchParams;
 
-  const [referee, settings, entries, initials, relocations] = await Promise.all([
+  const [referee, settings, entries, initials, relocations, pendingRequests] = await Promise.all([
     loadReferee(user.id),
     loadSettings(),
     upcomingGamesWithSlots(now),
     initialsById(),
     pendingRelocations(user.id, now),
+    gamesWithPendingRequest(now),
   ]);
   if (!referee) throw new Error(`Konto ${user.id} nicht gefunden`);
 
@@ -180,6 +181,7 @@ const OpenGames = async ({ searchParams }: PageProps) => {
             settings,
             now,
             timeZone: CLUB.timeZone,
+            pendingRequest: pendingRequests.has(entry.game.id),
           };
           const own = slotOf(entry.slots, referee.id);
           const confirmation = own ? confirmationState(own, entry.game, settings, now) : null;

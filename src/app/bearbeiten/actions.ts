@@ -8,6 +8,7 @@ import type { License, SlotIndex } from '@/domain/types';
 import { editGameRoute } from '@/routes';
 import { assignReferee, editGame, removeFromGame, setGameReleases } from '@/server/admin/games';
 import { requireAdmin } from '@/server/guard';
+import { requestSubstitute } from '@/server/assignments';
 
 /** Spiel bearbeiten: verschieben, Halle ändern, absagen, Besetzung entfernen. */
 
@@ -96,5 +97,23 @@ export const removeFromGameAction = async (formData: FormData): Promise<void> =>
 
   const result = await removeFromGame(user.id, gameId, slot as SlotIndex);
   revalidatePath('/bearbeiten');
+  redirect(editGameRoute(gameId, result));
+};
+
+/**
+ * Regel 8 aus Sicht des Admins: den geraeumten Platz an den Ersatz abgeben.
+ *
+ * Derselbe Vorgang wie beim Schiedsrichter, nur mit anderem Ausloeser. Der
+ * Admin traegt zuerst jemanden aus — dann steht der Platz leer — und fragt
+ * anschliessend den vordersten Ersatz, ob er uebernimmt.
+ */
+export const requestSubstituteAction = async (formData: FormData): Promise<void> => {
+  const user = await requireAdmin();
+  const gameId = read(formData, 'spiel');
+
+  const result = await requestSubstitute(gameId, user.id);
+  revalidatePath('/bearbeiten');
+  revalidatePath('/uebersicht');
+  revalidatePath('/spiele');
   redirect(editGameRoute(gameId, result));
 };

@@ -1,4 +1,4 @@
-import { and, asc, gte, inArray, lte, ne } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, lte, ne } from 'drizzle-orm';
 import { CLUB } from '@/config/club';
 import { db, schema } from '@/db';
 import { groupByMatchday, withSlots, type Matchday } from '@/domain/schedule';
@@ -39,7 +39,6 @@ export const toAssignment = (row: AssignmentRow): Assignment => ({
   refereeId: row.refereeId,
   claimedAt: row.claimedAt,
   confirmedAt: row.confirmedAt,
-  playedAsReferee: row.playedAsReferee,
 });
 
 export interface UpcomingPage {
@@ -135,4 +134,21 @@ export const initialsById = async (): Promise<ReadonlyMap<string, string>> => {
     .select({ id: schema.referees.id, initials: schema.referees.initials })
     .from(schema.referees);
   return new Map(rows.map((row) => [row.id, row.initials]));
+};
+
+/**
+ * Spiele, fuer die gerade eine Ersatz-Anfrage laeuft. Regel 8.
+ *
+ * Die Oberflaeche braucht das, um den Knopf zu sperren, solange jemand noch
+ * antworten kann — sonst gingen zwei Anfragen an denselben Ersatz, und beide
+ * koennten angenommen werden.
+ */
+export const gamesWithPendingRequest = async (now: Date): Promise<ReadonlySet<string>> => {
+  const rows = await db
+    .select({ gameId: schema.promotionOffers.gameId })
+    .from(schema.promotionOffers)
+    .where(
+      and(eq(schema.promotionOffers.outcome, 'pending'), gt(schema.promotionOffers.respondBy, now)),
+    );
+  return new Set(rows.map((row) => row.gameId));
 };

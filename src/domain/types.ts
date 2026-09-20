@@ -108,11 +108,6 @@ export interface Assignment {
   claimedAt: Date;
   /** Zeitpunkt der Pflichtbestaetigung, null solange offen. Regeln 10-12. */
   confirmedAt: Date | null;
-  /**
-   * Ob die Person tatsaechlich als Schiedsrichter auf dem Feld stand.
-   * null = noch nicht entschieden. Regeln 25-27.
-   */
-  playedAsReferee: boolean | null;
 }
 
 /** Ein Platz mit seiner aktuellen Belegung. `assignment` ist null, wenn frei. */
@@ -220,7 +215,10 @@ export type DenialReason =
   | 'withdraw-deadline-passed'
   | 'substitute-request-deadline-passed'
   | 'not-assigned'
-  | 'no-open-substitute-slot';
+  /* Regel 8: die Bank ist leer — es gibt niemanden zu fragen. */
+  | 'no-substitute-available'
+  /* Regel 8: eine Anfrage laeuft schon; eine zweite waere eine Zusage zu viel. */
+  | 'request-running';
 
 export const allow = (): Decision => ({ allowed: true });
 

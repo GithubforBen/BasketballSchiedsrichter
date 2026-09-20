@@ -12,7 +12,7 @@ import {
 import { notificationOrder, type RotationCandidate } from './rotation';
 import { qualifiedReferees } from './rules';
 import { matchdayLabel, timeLabel } from './schedule';
-import { refereeSlots, SLOT_LABELS } from './slots';
+import { refereeSlots, substituteSlots, SLOT_LABELS } from './slots';
 import { calendarDay, days, describeLeadTime, hours, localHour, weeks } from './time';
 import type { AdminAlertSettings } from './alerts';
 import { REFEREE_SLOT_COUNT, type ClubSettings, type Game, type Referee, type Slot, type SlotIndex } from './types';
@@ -35,9 +35,14 @@ import { REFEREE_SLOT_COUNT, type ClubSettings, type Game, type Referee, type Sl
 export interface PromotionOfferRecord {
   id: string;
   gameId: string;
+  /** `vacancy` = Kaskade nach einem Austritt, `handover` = Abgabe (Regel 8). */
+  kind: 'vacancy' | 'handover';
   targetSlot: SlotIndex;
   substituteSlot: SlotIndex;
   refereeId: string;
+  /** Wer den Platz raeumt, wenn angenommen wird — nur bei einer Abgabe. */
+  replacesRefereeId: string | null;
+  requestedBy: string | null;
   respondBy: Date;
   outcome: 'pending' | 'accepted' | 'declined' | 'expired';
 }
@@ -52,9 +57,12 @@ export interface ScheduledGame {
 /** Eine Anfrage, die neu gestellt werden soll. Die Id vergibt erst die Ablage. */
 export interface NewPromotionOffer {
   gameId: string;
+  kind: 'vacancy' | 'handover';
   targetSlot: SlotIndex;
   substituteSlot: SlotIndex;
   refereeId: string;
+  replacesRefereeId: string | null;
+  requestedBy: string | null;
   respondBy: Date;
 }
 
@@ -292,14 +300,70 @@ export const planPromotions = (
     newOffers: [
       {
         gameId: game.id,
+        kind: 'vacancy',
         targetSlot: step.targetSlot,
         substituteSlot: step.substitute.index,
         refereeId: assignment.refereeId,
+        replacesRefereeId: null,
+        requestedBy: null,
         respondBy: new Date(now.getTime() + promotionResponseWindowMs(game, settings, now)),
       },
     ],
     announce: false,
   };
+};
+
+/**
+ * Regel 8: eine Abgabe-Kette, deren Frist verstrichen ist, laeuft weiter.
+ *
+ * Eine Absage nimmt den Gefragten von der Bank und fragt sofort den naechsten
+ * — das passiert in dem Augenblick, in dem er antwortet. Wer gar nicht
+ * antwortet, hat aber nichts gesagt: er bleibt Ersatz, und trotzdem darf die
+ * Kette nicht an ihm haengenbleiben. Sonst wartet der Abgebende auf eine
+ * Antwort, die nie kommt, bis das Spiel angepfiffen wird.
+ *
+ * Gefragt wird deshalb der naechste Ersatzplatz, den diese Kette noch nicht
+ * gefragt hat. Ist die Bank durch, endet sie: der Abgebende behaelt den Platz
+ * und weiss nun, dass er sich selbst kuemmern muss.
+ */
+export const continueHandover = (
+  entry: ScheduledGame,
+  settings: ClubSettings,
+  now: Date,
+): readonly NewPromotionOffer[] => {
+  const { game, slots, offers } = entry;
+  if (game.state === 'cancelled' || now.getTime() >= game.kickoff.getTime()) return [];
+
+  const handovers = offers.filter((o) => o.kind === 'handover');
+  if (handovers.length === 0) return [];
+  if (handovers.some((o) => o.outcome === 'pending' && now.getTime() < o.respondBy.getTime())) {
+    return [];
+  }
+  if (handovers.some((o) => o.outcome === 'accepted')) return [];
+
+  /* Die juengste Kette gibt Ziel und Abgebenden vor. */
+  const latest = handovers.reduce((a, b) => (a.respondBy >= b.respondBy ? a : b));
+  const occupant = slots[latest.targetSlot]?.assignment?.refereeId ?? null;
+  if (occupant !== (latest.replacesRefereeId ?? null)) return [];
+
+  const asked = new Set(handovers.map((o) => o.refereeId));
+  const next = substituteSlots(slots).find(
+    (slot) => slot.assignment !== null && !asked.has(slot.assignment.refereeId),
+  );
+  if (!next?.assignment) return [];
+
+  return [
+    {
+      gameId: game.id,
+      kind: 'handover',
+      targetSlot: latest.targetSlot,
+      substituteSlot: next.index,
+      refereeId: next.assignment.refereeId,
+      replacesRefereeId: latest.replacesRefereeId,
+      requestedBy: latest.requestedBy,
+      respondBy: new Date(now.getTime() + promotionResponseWindowMs(game, settings, now)),
+    },
+  ];
 };
 
 /**
@@ -511,6 +575,7 @@ export const planNotifications = (input: SchedulerInput, now: Date): Notificatio
     const promotion = planPromotions(entry, input.settings, now);
     expiredOfferIds.push(...promotion.expiredOfferIds);
     newOffers.push(...promotion.newOffers);
+    newOffers.push(...continueHandover(entry, input.settings, now));
 
     if (promotion.announce) {
       const announcement = openSlotAnnouncement(

@@ -196,6 +196,13 @@ export const promotionOfferIntent = (
   refereeId: string,
   targetSlot: number,
   respondBy: Date,
+  /*
+   * Der Anlass steht mit in der Nachricht, weil er den Text aendert: bei einer
+   * Abgabe wird gefragt, ob jemand das Spiel *uebernimmt*, bei der Kaskade, ob
+   * er auf einen frei gewordenen Platz *nachrueckt*. Wer das verwechselt,
+   * antwortet auf eine andere Frage als die gestellte.
+   */
+  kind: 'vacancy' | 'handover' = 'vacancy',
 ): NotificationIntent => ({
   kind: 'promotion-offer',
   recipientIds: [refereeId],
@@ -207,7 +214,7 @@ export const promotionOfferIntent = (
    * eindeutige Antwortlink haengt an ihr, und ein Schluessel ist zum Zerlegen
    * da schlecht geeignet — er ist ein Text, dessen Aufbau sich aendern darf.
    */
-  payload: { offerId, targetSlot, respondBy: respondBy.toISOString() },
+  payload: { offerId, targetSlot, respondBy: respondBy.toISOString(), kind },
 });
 
 export const relocationIntent = (
