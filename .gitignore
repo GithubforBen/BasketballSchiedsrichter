@@ -20,3 +20,8 @@ playwright/.cache/
 # Datenbanksicherungen des Compose-Verbunds. Sie enthalten Namen und
 # Telefonnummern und gehoeren niemals in die Versionsverwaltung.
 sicherungen/
+
+# Oertliche Compose-Ergaenzung. Sie beschreibt, was an *dieser* Maschine
+# anders ist — etwa ein abgeschalteter Cloudflare-Tunnel in der Entwicklung —
+# und gilt darum nur hier.
+docker-compose.override.yml

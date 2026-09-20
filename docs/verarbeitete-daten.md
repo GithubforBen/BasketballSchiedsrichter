@@ -222,6 +222,27 @@ sonst gehört es in eine eigene Tabelle dieser Liste.
 
 ---
 
+## CSV-Export des Spielplans
+
+Der Adminbereich gibt den Spielplan unter „Spielübersicht“ als Datei heraus
+(`/api/export/spielplan`). Sie enthält je Spiel Datum, Zeit, Liga, Heim, Gast,
+Ort, die nötige Lizenz und auf den vier Plätzen die **Kürzel** der
+Eingetragenen — keine Namen, keine Telefonnummern, keine Kennungen, keine
+Bestätigungszeitpunkte.
+
+Kürzel und nicht Namen, weil das Kürzel nach Regel 29 ohnehin im öffentlichen
+Spielplan an jedem Spiel steht: die Datei trägt damit nichts aus dem Haus, was
+nicht schon draußen wäre. Wer den Namen hinter einem Kürzel kennt, wusste ihn
+vorher.
+
+Der Abruf ist trotzdem auf die Admin-Rolle beschränkt und wird nicht
+zwischengespeichert — der vollständige Spielplan auf einmal ist ein Werkzeug
+der Verwaltung.
+
+Abgesagte Spiele stehen nicht darin — die Spalten sagen nichts über den Zustand
+eines Spiels, und eine abgesagte Begegnung sähe in der Datei aus wie eine
+angesetzte.
+
 ## Was **nicht** verarbeitet wird
 
 - keine Geburtsdaten, Adressen, E-Mail-Adressen der Mitglieder, Bankverbindungen
