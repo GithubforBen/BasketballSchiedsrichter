@@ -455,6 +455,32 @@ suite('Adminbereich', () => {
       expect(result.message).toContain('niemand benachrichtigt');
     });
 
+    it('laesst das zweite Spiel am Tag unangetastet, wenn die Regel aus ist', async () => {
+      /*
+       * Ist "ein Spiel pro Tag" abgeschaltet, steht der Haken nicht im
+       * Formular und kommt als `null` an. Wer dann nur die Austragefrist
+       * freigibt, darf die gespeicherte Ausnahme nicht nebenbei loeschen —
+       * sie gilt wieder, sobald der Verein die Regel einschaltet.
+       */
+      const gameId = await newGame();
+      await setGameReleases(admin, gameId, {
+        withdraw: false,
+        substituteRequest: false,
+        oneGamePerDay: true,
+      });
+      const result = await setGameReleases(admin, gameId, {
+        withdraw: true,
+        substituteRequest: false,
+        oneGamePerDay: null,
+      });
+      const row = await releases(gameId);
+      expect(row?.override_withdraw).toBe(true);
+      expect(row?.override_one_game_per_day).toBe(true);
+      /* Die Rueckmeldung nennt nur, was ueber das Formular gesetzt wurde. */
+      expect(result.message).toContain('Austragen');
+      expect(result.message).not.toContain('zweites Spiel');
+    });
+
     it('nimmt eine Freigabe auch wieder zurück', async () => {
       const gameId = await newGame();
       const alle = { withdraw: true, substituteRequest: true, oneGamePerDay: true };

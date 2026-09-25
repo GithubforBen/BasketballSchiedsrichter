@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ensureLeagues } from '../../../test/ligen';
-import { upcomingMatchdays } from './games';
+import { gamesWithSlotsByIds, pastMatchdays, upcomingMatchdays } from './games';
 
 /**
  * Das seitenweise Laden des oeffentlichen Spielplans.
@@ -88,5 +88,77 @@ suite('Spielplan seitenweise', () => {
     const page = await upcomingMatchdays(new Date(), 5);
     const keys = page.matchdays.map((day) => day.key);
     expect([...keys].sort()).toEqual(keys);
+  });
+});
+
+/**
+ * Die vergangenen Spieltage fuer die Spieluebersicht der Angemeldeten.
+ *
+ * Wer zurueckblickt, sucht fast immer das letzte Wochenende — deshalb steht
+ * der juengste Spieltag vorn, und innerhalb eines Tages bleibt die Reihenfolge
+ * des Anpfiffs.
+ */
+suite('Vergangene Spieltage', () => {
+  let sql: ReturnType<typeof postgres>;
+  const prefix = `rueck-test-${randomUUID().slice(0, 8)}`;
+  const ids: Record<string, string> = {};
+
+  const at = (days: number, hour: number) => {
+    const date = new Date();
+    date.setUTCDate(date.getUTCDate() + days);
+    date.setUTCHours(hour, 0, 0, 0);
+    return date;
+  };
+
+  const addGame = async (name: string, kickoff: Date, state = 'scheduled') => {
+    const id = randomUUID();
+    ids[name] = id;
+    await sql`INSERT INTO games (id, kickoff, league_id, league_label, home, away, venue, state)
+              VALUES (${id}, ${kickoff}, 'U14', 'XU14Bz',
+                      ${`${prefix}-${name}`}, ${`${prefix}-gast`}, 'Halle', ${state})`;
+  };
+
+  beforeAll(async () => {
+    sql = postgres(url ?? '', { max: 5 });
+    await ensureLeagues(sql);
+    await sql`DELETE FROM games`;
+
+    await addGame('vorgestern-frueh', at(-3, 9));
+    await addGame('vorgestern-spaet', at(-3, 15));
+    await addGame('gestern', at(-1, 10));
+    await addGame('vor-fuenf-tagen', at(-5, 10));
+    await addGame('abgesagt', at(-2, 10), 'cancelled');
+    await addGame('morgen', at(1, 10));
+  });
+
+  afterAll(async () => {
+    if (!sql) return;
+    await sql`DELETE FROM games WHERE home LIKE ${`${prefix}%`}`;
+    await sql.end();
+  });
+
+  it('stellt den juengsten Spieltag nach vorn', async () => {
+    const days = await pastMatchdays(new Date());
+    expect(days.map((day) => day.games.map((entry) => entry.game.home))).toEqual([
+      [`${prefix}-gestern`],
+      [`${prefix}-vorgestern-frueh`, `${prefix}-vorgestern-spaet`],
+      [`${prefix}-vor-fuenf-tagen`],
+    ]);
+  });
+
+  it('laesst abgesagte und kommende Spiele draussen', async () => {
+    const homes = (await pastMatchdays(new Date())).flatMap((day) =>
+      day.games.map((entry) => entry.game.home),
+    );
+    expect(homes).not.toContain(`${prefix}-abgesagt`);
+    expect(homes).not.toContain(`${prefix}-morgen`);
+  });
+
+  it('laedt fuer den Kalender genau die verlangten Spiele samt allen vier Plaetzen', async () => {
+    const wanted = [ids['gestern'] ?? '', ids['morgen'] ?? ''];
+    const games = await gamesWithSlotsByIds(wanted);
+    expect([...games.keys()].sort()).toEqual([...wanted].sort());
+    expect(games.get(ids['morgen'] ?? '')?.slots).toHaveLength(4);
+    expect((await gamesWithSlotsByIds([])).size).toBe(0);
   });
 });

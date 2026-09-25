@@ -5,21 +5,47 @@ import { PublicMatchday } from '@/components/schedule/PublicMatchday';
 import { FOOTER_NAV, navForViewer } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
-import { initialsById, upcomingMatchdays } from '@/server/queries/games';
+import { scheduleRoute } from '@/routes';
+import {
+  initialsById,
+  namesById,
+  pastMatchdays,
+  upcomingMatchdays,
+} from '@/server/queries/games';
 import { currentUser } from '@/server/viewer';
 
 /**
- * Die oeffentliche Spieltagsansicht.
+ * Der Spielplan — oeffentlich, oder als Spieluebersicht der Schiedsrichter.
  *
- * Ohne Login sichtbar und bewusst ohne personenbezogene Daten ausser dem
- * Kuerzel (Regel 29). Serverseitig gerendert: die Seite ist die Visitenkarte
- * des Vereins und soll ohne Umweg da sein.
+ * **Ohne Anmeldung** ist das die oeffentliche Spieltagsansicht: bewusst ohne
+ * personenbezogene Daten ausser dem Kuerzel (Regel 29). Serverseitig
+ * gerendert: die Seite ist die Visitenkarte des Vereins und soll ohne Umweg
+ * da sein.
+ *
+ * **Ein angemeldeter Schiedsrichter** sieht an derselben Stelle die
+ * Spieluebersicht: dieselben Spiele, aber mit vollen Namen, und auf Wunsch
+ * mit den vergangenen Spieltagen. Der Name ist innerhalb der Abteilung keine
+ * vertrauliche Angabe — das Ziel ist, dass niemand die Kuerzel aller anderen
+ * kennen muss. Verwaltet wird hier nichts; eintragen geht unter "Offene
+ * Spiele", abgeben unter "Kalender & Verlauf".
+ *
+ * **Ein Admin** sieht weiterhin die oeffentliche Ansicht, mit Kuerzeln. Er hat
+ * seine eigene Spieluebersicht mit Namen und Bearbeiten-Knopf; hier soll er
+ * sehen koennen, was die Oeffentlichkeit sieht.
  */
 
-export const metadata: Metadata = {
-  title: `Spielplan · ${CLUB.name}`,
-  description: 'Kommende Spiele und ihre Schiedsrichter-Besetzung.',
-};
+/*
+ * Der Titel folgt der Seite: angemeldete Schiedsrichter sehen die
+ * Spieluebersicht, und der Reiter soll nicht "Spielplan" sagen, waehrend die
+ * Ueberschrift "Spielübersicht" sagt.
+ */
+export const generateMetadata = async (): Promise<Metadata> =>
+  (await currentUser())?.role === 'referee'
+    ? { title: `Spielübersicht · ${CLUB.appName}` }
+    : {
+        title: `Spielplan · ${CLUB.name}`,
+        description: 'Kommende Spiele und ihre Schiedsrichter-Besetzung.',
+      };
 
 export const dynamic = 'force-dynamic';
 
@@ -68,10 +94,20 @@ const PublicSchedule = async ({ searchParams }: PageProps) => {
     ? Math.min(MAX_MATCHDAYS, Math.max(PAGE_SIZE, requested))
     : PAGE_SIZE;
 
-  const [{ matchdays, total }, initials, user] = await Promise.all([
+  const user = await currentUser(now);
+  const asReferee = user?.role === 'referee';
+  /* Die Vergangenheit gibt es nur in der Spieluebersicht der Angemeldeten. */
+  const withPast = asReferee && single(params.vergangene) === 'an';
+
+  const [{ matchdays, total }, labels, past] = await Promise.all([
     upcomingMatchdays(now, shown),
-    initialsById(),
-    currentUser(now),
+    /*
+     * Hier faellt die Entscheidung, ob Namen die Seite verlassen — an einer
+     * Stelle und nirgends sonst. Die Komponente darunter zeigt, was sie
+     * bekommt.
+     */
+    asReferee ? namesById() : initialsById(),
+    withPast ? pastMatchdays(now) : Promise.resolve([]),
   ]);
   const remaining = total - matchdays.length;
 
@@ -87,12 +123,31 @@ const PublicSchedule = async ({ searchParams }: PageProps) => {
     >
       <div className="page-head">
         <div className="page-head-text">
-          <div className="kicker kicker-accent">Öffentlich</div>
-          <h1>Spielplan</h1>
-          <p className="lead text-muted">
-            Zwei gleichwertige Schiedsrichter pro Spiel, zwei Ersatzplätze. Ohne Anmeldung
-            erscheinen Schiedsrichter nur als Kürzel — kein Name, keine Telefonnummer.
-          </p>
+          {asReferee ? (
+            <>
+              <div className="kicker kicker-accent">Alle Spiele</div>
+              <h1>Spielübersicht</h1>
+              <p className="lead text-muted">
+                Alle kommenden Spiele mit ihrer Besetzung, mit vollen Namen. Eintragen kannst du
+                dich unter „Offene Spiele“; deine eigenen Spiele gibst du unter „Kalender &amp;
+                Verlauf“ ab.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="kicker kicker-accent">Öffentlich</div>
+              <h1>Spielplan</h1>
+              <p className="lead text-muted">
+                Zwei gleichwertige Schiedsrichter pro Spiel, zwei Ersatzplätze. Ohne Anmeldung
+                erscheinen Schiedsrichter nur als Kürzel — kein Name, keine Telefonnummer.
+                {user ? (
+                  <> So sieht der Spielplan ohne Anmeldung aus.</>
+                ) : (
+                  <> Angemeldet siehst du die vollen Namen.</>
+                )}
+              </p>
+            </>
+          )}
         </div>
         <ul className="legend">
           <li>
@@ -113,6 +168,55 @@ const PublicSchedule = async ({ searchParams }: PageProps) => {
         </ul>
       </div>
 
+      {asReferee ? (
+        <>
+          {/*
+            Ein Verweis und kein aufklappbarer Block: die vergangenen Spiele
+            werden erst geladen, wenn jemand sie sehen will. Eine ganze Saison
+            im Voraus mitzuschicken, nur damit sie zugeklappt im Telefon liegt,
+            waere genau das Gewicht, das der Spielplan mit seinen Spieltagen in
+            Portionen vermeidet.
+          */}
+          <div className="row" style={{ marginTop: 'var(--space-4)' }}>
+            <Link
+              href={scheduleRoute({
+                ...(Number.isFinite(requested) ? { spieltage: shown } : {}),
+                vergangene: !withPast,
+              })}
+              className={`btn ${withPast ? 'btn-secondary' : 'btn-ghost'}`}
+              scroll={false}
+              aria-expanded={withPast}
+            >
+              {withPast ? 'Vergangene Spiele ausblenden' : 'Vergangene Spiele anzeigen'}
+            </Link>
+          </div>
+
+          {withPast ? (
+            <section aria-labelledby="vergangene-spiele">
+              <h2 id="vergangene-spiele" className="kicker" style={{ marginTop: 'var(--space-6)' }}>
+                Vergangene Spiele · neueste zuerst
+              </h2>
+              {past.length === 0 ? (
+                <Note>Noch keine vergangenen Spiele.</Note>
+              ) : (
+                past.map((matchday) => (
+                  <PublicMatchday
+                    key={matchday.key}
+                    matchday={matchday}
+                    timeZone={CLUB.timeZone}
+                    labels={labels}
+                    display="names"
+                  />
+                ))
+              )}
+              <h2 className="kicker" style={{ marginTop: 'var(--space-8)' }}>
+                Kommende Spiele
+              </h2>
+            </section>
+          ) : null}
+        </>
+      ) : null}
+
       {matchdays.length === 0 ? (
         <Note>Zurzeit sind keine kommenden Spiele eingetragen.</Note>
       ) : (
@@ -122,7 +226,8 @@ const PublicSchedule = async ({ searchParams }: PageProps) => {
               key={matchday.key}
               matchday={matchday}
               timeZone={CLUB.timeZone}
-              initials={initials}
+              labels={labels}
+              display={asReferee ? 'names' : 'initials'}
             />
           ))}
 
@@ -134,7 +239,7 @@ const PublicSchedule = async ({ searchParams }: PageProps) => {
           {remaining > 0 ? (
             <div className="load-more">
               <Link
-                href={`/?spieltage=${shown + PAGE_SIZE}`}
+                href={scheduleRoute({ spieltage: shown + PAGE_SIZE, vergangene: withPast })}
                 className="btn btn-secondary"
                 scroll={false}
               >

@@ -1,22 +1,23 @@
 import { Button, Status, Tag } from '@/components/primitives';
 import { CONFIRMATION_LABELS, type ConfirmationState } from '@/domain/confirmation';
 import { matchTitle, timeLabel } from '@/domain/schedule';
-import type { SlotView, SubstituteRequestView } from '@/domain/slot-actions';
+import type { SlotView } from '@/domain/slot-actions';
 import type { StatusView } from '@/domain/status';
 import type { Game } from '@/domain/types';
 import { leagueDisplay } from '@/domain/league';
-import {
-  claimAction,
-  confirmAction,
-  requestSubstituteAction,
-  withdrawAction,
-} from '@/app/spiele/actions';
+import { claimAction, confirmAction, withdrawAction } from '@/app/spiele/actions';
 
 /**
  * Ein Spiel mit seiner Besetzung, aus Sicht einer angemeldeten Person.
  *
  * Die Entscheidungen — wer darf was, und warum nicht — sind bereits in der
  * Regel-Engine gefallen. Hier wird nur noch dargestellt.
+ *
+ * "Ersatz anfordern" steht hier nicht mehr. Die Seite ist der Ort, an dem man
+ * sich **einträgt**; ein Spiel abgeben ist eine Frage an die eigenen Spiele
+ * und steht deshalb in "Kalender & Verlauf". Austragen bleibt an beiden
+ * Stellen — es ist das Gegenstueck zum Eintragen und gehoert an denselben
+ * Platz.
  */
 
 export interface GameEntryProps {
@@ -25,9 +26,8 @@ export interface GameEntryProps {
   timeZone: string;
   status: StatusView;
   slots: readonly SlotView[];
-  substituteRequest: SubstituteRequestView;
-  /** Kuerzel je Person, fuer die Besetzungszeilen. */
-  initials: ReadonlyMap<string, string>;
+  /** Voller Name je Person, fuer die Besetzungszeilen — die Seite ist nur angemeldet erreichbar. */
+  names: ReadonlyMap<string, string>;
   /** Hinweis zur Qualifikation und zur Reihenfolge der Plaetze. */
   /** Warum sich diese Person hier eintragen kann — oder warum nicht. */
   eligibilityNote: string;
@@ -52,8 +52,7 @@ export const GameEntry = ({
   timeZone,
   status,
   slots,
-  substituteRequest,
-  initials,
+  names,
   eligibilityNote,
   eligible,
   leadNote,
@@ -133,7 +132,7 @@ export const GameEntry = ({
             {slot.isMine
               ? 'du'
               : slot.occupantId
-                ? (initials.get(slot.occupantId) ?? '—')
+                ? (names.get(slot.occupantId) ?? '—')
                 : 'frei'}
           </span>
 
@@ -160,24 +159,6 @@ export const GameEntry = ({
           {slot.reason ? <span className="slot-reason">{slot.reason}</span> : null}
         </div>
       ))}
-
-      <div className="row" style={{ marginTop: 'var(--space-2)' }}>
-        {substituteRequest.possible ? (
-          <form action={requestSubstituteAction}>
-            <HiddenFields game={game.id} day={day} />
-            <Button type="submit" variant="secondary">
-              {substituteRequest.label}
-            </Button>
-          </form>
-        ) : (
-          <Button variant="secondary" disabled>
-            {substituteRequest.label}
-          </Button>
-        )}
-        <span className="text-muted" style={{ fontSize: '11px', flex: 1, minWidth: '200px' }}>
-          {substituteRequest.note}
-        </span>
-      </div>
     </div>
   </article>
 );

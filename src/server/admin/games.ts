@@ -318,8 +318,14 @@ export interface GameReleases {
   withdraw: boolean;
   /** Regel 8: Ersatz anfordern auch nach der Frist. */
   substituteRequest: boolean;
-  /** Regel 6: ein zweites Spiel am selben Tag. */
-  oneGamePerDay: boolean;
+  /**
+   * Regel 6: ein zweites Spiel am selben Tag.
+   *
+   * `null` heisst "nicht angefasst": ist die Regel im Verein abgeschaltet,
+   * steht der Haken gar nicht im Formular, und der gespeicherte Wert bleibt,
+   * wie er ist — bis die Regel wieder gilt.
+   */
+  oneGamePerDay: boolean | null;
 }
 
 const RELEASE_LABELS: Readonly<Record<keyof GameReleases, string>> = {
@@ -361,7 +367,9 @@ export const setGameReleases = async (
       .set({
         overrideWithdraw: releases.withdraw,
         overrideSubstituteRequest: releases.substituteRequest,
-        overrideOneGamePerDay: releases.oneGamePerDay,
+        ...(releases.oneGamePerDay === null
+          ? {}
+          : { overrideOneGamePerDay: releases.oneGamePerDay }),
       })
       .where(eq(schema.games.id, gameId));
 
@@ -379,7 +387,7 @@ export const setGameReleases = async (
    * als er noch nicht gespeichert war.
    */
   const active = (Object.keys(RELEASE_LABELS) as readonly (keyof GameReleases)[])
-    .filter((key) => releases[key])
+    .filter((key) => releases[key] === true)
     .map((key) => RELEASE_LABELS[key]);
 
   return {

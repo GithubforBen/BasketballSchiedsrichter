@@ -5,7 +5,6 @@ import { redirect } from 'next/navigation';
 import {
   claimNextSlot,
   confirmAssignment,
-  requestSubstitute,
   respondToRelocation,
   withdraw,
   type ActionResult,
@@ -28,6 +27,8 @@ const read = (formData: FormData, key: string): string => {
 
 const finish = (result: ActionResult, day: string): never => {
   revalidatePath('/spiele');
+  /* Austragen aendert auch die eigene Liste — sie soll beim naechsten Blick stimmen. */
+  revalidatePath('/kalender');
   redirect(openGamesResultRoute(day, result));
 };
 
@@ -44,11 +45,6 @@ export const withdrawAction = async (formData: FormData): Promise<void> => {
 export const confirmAction = async (formData: FormData): Promise<void> => {
   const user = await requireUser();
   finish(await confirmAssignment(read(formData, 'spiel'), user.id), read(formData, 'tag'));
-};
-
-export const requestSubstituteAction = async (formData: FormData): Promise<void> => {
-  const user = await requireUser();
-  finish(await requestSubstitute(read(formData, 'spiel'), user.id), read(formData, 'tag'));
 };
 
 export const keepAfterRelocationAction = async (formData: FormData): Promise<void> => {

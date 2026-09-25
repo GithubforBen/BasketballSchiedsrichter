@@ -10,6 +10,7 @@ import {
   placeReferee,
   resetAssignments,
   resetSettings,
+  setOneGamePerDay,
   setQualificationDirect,
   upcomingGameIds,
   withdrawDeadline,
@@ -181,6 +182,25 @@ test.describe('Adminbereich', () => {
     await page.getByRole('button', { name: 'Eintragen' }).first().click();
     await expect(formSuccess(page)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Austragen' }).first()).toBeEnabled();
+  });
+
+  test('bietet „zweites Spiel am selben Tag“ nur an, wenn die Regel gilt', async ({ page }) => {
+    /*
+     * Ist „ein Spiel pro Tag“ im Verein aus, darf ohnehin jeder mehrere
+     * Spiele am Tag pfeifen — eine Ausnahme davon waere ein Haken ohne
+     * Wirkung.
+     */
+    const game = (await upcomingGameIds())[0] ?? '';
+    await loginAs(page, SEED.nele.phone);
+
+    await setOneGamePerDay(false);
+    await page.goto(`/bearbeiten?spiel=${game}`);
+    await expect(page.getByLabel(/Austragen für dieses Spiel freigeben/)).toBeVisible();
+    await expect(page.getByLabel(/Zweites Spiel am selben Tag/)).toHaveCount(0);
+
+    await setOneGamePerDay(true);
+    await page.goto(`/bearbeiten?spiel=${game}`);
+    await expect(page.getByLabel(/Zweites Spiel am selben Tag/)).toBeVisible();
   });
 
   test('erteilt und entzieht eine Qualifikation', async ({ page }) => {

@@ -120,12 +120,23 @@ const EditGame = async ({ searchParams }: PageProps) => {
       description: `Überschreibt die Sperre ${settings.substituteRequestDeadlineDays} Tage vor Anpfiff.`,
       checked: detail.game.overrides.substituteRequest,
     },
-    {
-      name: 'freigabeZweitesSpiel',
-      label: 'Zweites Spiel am selben Tag erlauben',
-      description: 'Überschreibt die Regel „ein Spiel pro Tag“.',
-      checked: detail.game.overrides.oneGamePerDay,
-    },
+    /*
+     * Nur, wenn die Regel im Verein ueberhaupt gilt. Ist "ein Spiel pro Tag"
+     * in den Einstellungen abgeschaltet, darf ohnehin jeder mehrere Spiele am
+     * Tag pfeifen — eine Ausnahme von einer Regel, die nicht gilt, ist ein
+     * Haken ohne Wirkung, und wer ihn setzt, glaubt etwas bewirkt zu haben.
+     * Der gespeicherte Wert bleibt dabei unangetastet (`saveReleasesAction`).
+     */
+    ...(settings.oneGamePerDay
+      ? [
+          {
+            name: 'freigabeZweitesSpiel',
+            label: 'Zweites Spiel am selben Tag erlauben',
+            description: 'Überschreibt die Regel „ein Spiel pro Tag“.',
+            checked: detail.game.overrides.oneGamePerDay,
+          },
+        ]
+      : []),
   ];
 
   return (

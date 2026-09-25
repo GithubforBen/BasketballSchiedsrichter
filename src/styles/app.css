@@ -774,6 +774,17 @@ a {
   min-width: 820px;
 }
 
+/*
+ * Die Schiedsrichter als Namen, einer je Zeile — in der Spieluebersicht der
+ * Angemeldeten. Zwei Namen nebeneinander braechen mitten im Namen um.
+ */
+.referee-names {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
 /* Die Verwaltungsuebersicht: zwei Spalten mehr, dazu der Bearbeiten-Knopf. */
 .table-schedule-admin {
   min-width: 1040px;
@@ -1251,6 +1262,44 @@ a {
  * ausserhalb des Bildes. Die Null als Minimum bricht diese Kette: die Spur
  * folgt dem Fenster, der Rahmen schneidet wieder ab.
  */
+/*
+ * Austragen und Ersatz anfordern an den eigenen Spielen. Am Rechner steht das
+ * in einer eigenen Tabellenzeile unter dem Spiel, ueber die ganze Breite —
+ * in einer siebten Spalte waeren die Begruendungen auf ein paar Worte je
+ * Zeile zusammengedrueckt worden.
+ */
+.own-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-6);
+  margin-top: var(--space-2);
+}
+
+.own-action {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.own-action-note {
+  flex: 1 1 180px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Die Aktionszeile gehoert zum Spiel darueber: keine Trennlinie dazwischen. */
+.table tr.row-with-actions > td {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.table tr.row-actions > td {
+  padding-top: 0;
+}
+
 .calendar-grid {
   display: grid;
   gap: var(--space-8);

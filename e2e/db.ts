@@ -271,7 +271,13 @@ export const hasQualification = async (refereeId: string, leagueId: string): Pro
 /** Setzt eine Einstellung zurück. */
 export const resetSettings = async (): Promise<void> => {
   await sql`UPDATE settings SET withdraw_deadline_days = 21, substitute_request_deadline_days = 3,
-            confirmation_lead_hours = 72, reminder_limit = 10 WHERE id = 1`;
+            confirmation_lead_hours = 72, reminder_limit = 10, one_game_per_day = true
+            WHERE id = 1`;
+};
+
+/** Schaltet Regel 6 — ein Spiel pro Tag — im Verein an oder aus. */
+export const setOneGamePerDay = async (on: boolean): Promise<void> => {
+  await sql`UPDATE settings SET one_game_per_day = ${on} WHERE id = 1`;
 };
 
 /** Die Austragefrist aus den Einstellungen. */

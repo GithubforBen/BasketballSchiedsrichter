@@ -55,11 +55,11 @@ const rulesFor = (settings: ClubSettings): readonly { title: string; body: strin
     : []),
   {
     title: 'Austragen',
-    body: `Bis ${settings.withdrawDeadlineDays} Tage vor Anpfiff trägst du dich selbst wieder aus. Danach nur über den Admin — er kann die Frist für ein einzelnes Spiel freigeben.`,
+    body: `Bis ${settings.withdrawDeadlineDays} Tage vor Anpfiff trägst du dich selbst wieder aus — unter „Offene Spiele“ oder bei deinen eigenen Spielen unter „Kalender & Verlauf“. Danach nur über den Admin — er kann die Frist für ein einzelnes Spiel freigeben.`,
   },
   {
     title: 'Ersatz anfordern',
-    body: `Bis ${settings.substituteRequestDeadlineDays} Tage vor Anpfiff kannst du dein Spiel abgeben: der vorderste eingetragene Ersatz wird gefragt, ob er übernimmt. Sagt er zu, tauscht ihr die Plätze. Sagt er ab, ist er aus dem Spiel — offensichtlich kann er an dem Termin nicht — und der nächste Ersatz rückt nach und wird gefragt. Ohne eingetragenen Ersatz geht es nicht; danach ist die Funktion gesperrt, der Admin kann sie freigeben.`,
+    body: `Bis ${settings.substituteRequestDeadlineDays} Tage vor Anpfiff kannst du dein Spiel als Schiedsrichter 1 oder 2 abgeben — unter „Kalender & Verlauf“, bei deinen eigenen Spielen. Der vorderste eingetragene Ersatz wird gefragt, ob er übernimmt. Sagt er zu, tauscht ihr die Plätze. Sagt er ab, ist er aus dem Spiel — offensichtlich kann er an dem Termin nicht — und der nächste Ersatz rückt nach und wird gefragt. Ohne eingetragenen Ersatz geht es nicht; danach ist die Funktion gesperrt, der Admin kann sie freigeben.`,
   },
   {
     title: 'Pflichtbestätigung',
@@ -87,7 +87,7 @@ const rulesFor = (settings: ClubSettings): readonly { title: string; body: strin
   },
   {
     title: 'Sichtbarkeit',
-    body: 'Ohne Anmeldung ist nur das Kürzel sichtbar — kein Name, keine Telefonnummer. Name, Kürzel, Telefonnummer, Lizenz und Qualifikationen ändert ausschließlich der Admin.',
+    body: 'Ohne Anmeldung ist nur das Kürzel sichtbar — kein Name, keine Telefonnummer. Angemeldet siehst du in der Spielübersicht, auch bei vergangenen Spielen, und unter „Offene Spiele“ die vollen Namen aller Eingeteilten. Telefonnummern sehen nur die Admins. Name, Kürzel, Telefonnummer, Lizenz und Qualifikationen ändert ausschließlich der Admin.',
   },
 ];
 

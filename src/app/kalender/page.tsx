@@ -1,13 +1,19 @@
 import type { Metadata } from 'next';
+import { Fragment } from 'react';
 import { CalendarExport, type CalendarExportGame } from '@/components/calendar/CalendarExport';
+import { OwnGameActions, type OwnGameActionsProps } from '@/components/calendar/OwnGameActions';
 import { Note, Panel, TableWrap } from '@/components/primitives';
 import { FOOTER_NAV, navFor } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
 import { CONFIRMATION_LABELS, type ConfirmationState } from '@/domain/confirmation';
 import { dateLabel, matchdayLabel, matchTitle, timeLabel } from '@/domain/schedule';
+import { slotViews, substituteRequestView } from '@/domain/slot-actions';
+import { slotKind } from '@/domain/slots';
 import { ownRank } from '@/domain/stats';
 import { requireUser } from '@/server/guard';
+import { gamesWithPendingRequest, gamesWithSlotsByIds } from '@/server/queries/games';
+import { loadReferee } from '@/server/queries/referees';
 import { monthlyCounts, myGames, seasonRanking } from '@/server/queries/referee-view';
 import { loadSettings } from '@/server/queries/settings';
 
@@ -21,6 +27,11 @@ import { loadSettings } from '@/server/queries/settings';
  * derselbe Wechsel wie im oeffentlichen Spielplan (`.only-narrow`/`.only-wide`).
  * Sechs Spalten sind auf einem Telefon keine Tabelle mehr, sondern ein Streifen,
  * an dem man waagerecht entlangschiebt.
+ *
+ * An jedem kommenden Spiel stehen **Austragen** und — auf einem
+ * Schiedsrichter-Platz — **Ersatz anfordern**. Das ist der Ort dafuer: es
+ * sind die eigenen Spiele, und wer eines abgeben will, sucht es hier und
+ * nicht zwischen allen Spielen eines Spieltags.
  */
 
 export const metadata: Metadata = { title: `Kalender & Verlauf · ${CLUB.appName}` };
@@ -47,16 +58,70 @@ const CONFIRMATION_TONES: Readonly<Record<ConfirmationState, string>> = {
   'not-required': 'var(--color-divider)',
 };
 
-const Calendar = async () => {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+const single = (value: string | string[] | undefined): string | undefined =>
+  Array.isArray(value) ? value[0] : value;
+
+const Calendar = async ({ searchParams }: PageProps) => {
   const now = new Date();
   const user = await requireUser(now);
+  const params = await searchParams;
   const settings = await loadSettings();
 
-  const [{ upcoming, past }, months, ranking] = await Promise.all([
+  const [{ upcoming, past }, months, ranking, referee, pendingRequests] = await Promise.all([
     myGames(user.id, settings, now),
     monthlyCounts(user.id, now),
     seasonRanking(user.id, now),
+    loadReferee(user.id),
+    gamesWithPendingRequest(now),
   ]);
+  if (!referee) throw new Error(`Konto ${user.id} nicht gefunden`);
+
+  /*
+   * Ob Austragen und Ersatz anfordern gehen, haengt an allen vier Plaetzen
+   * eines Spiels — ob noch ein Ersatz da ist, ob schon eine Anfrage laeuft.
+   * Die eigene Liste kennt nur den eigenen Platz; die Besetzung kommt deshalb
+   * hier dazu, fuer genau diese Spiele.
+   */
+  const fullGames = await gamesWithSlotsByIds(upcoming.map((entry) => entry.game.id));
+  const actions = new Map<string, OwnGameActionsProps>();
+  for (const entry of upcoming) {
+    const full = fullGames.get(entry.game.id);
+    if (!full) continue;
+    const context = {
+      game: full.game,
+      slots: full.slots,
+      referee,
+      /* Fuer Austragen und Abgeben ohne Belang — Regel 6 betrifft nur das Eintragen. */
+      sameDayAssignments: [],
+      settings,
+      now,
+      timeZone: CLUB.timeZone,
+      pendingRequest: pendingRequests.has(entry.game.id),
+    };
+    const own = slotViews(context).find((slot) => slot.isMine);
+    const request =
+      slotKind(entry.slotIndex) === 'referee' ? substituteRequestView(context) : null;
+    actions.set(entry.game.id, {
+      gameId: entry.game.id,
+      withdraw: {
+        possible: own?.action === 'withdraw',
+        note: own?.reason ?? '',
+      },
+      substituteRequest: request ? { possible: request.possible, note: request.note } : null,
+    });
+  }
+
+  const ownActions = (gameId: string) => {
+    const own = actions.get(gameId);
+    return own ? <OwnGameActions {...own} /> : null;
+  };
+
+  const hint = single(params.hinweis);
+  const error = single(params.fehler);
 
   /*
    * Die Auswahlliste fuer die Kalenderdatei. Voreingestellt sind die Spiele,
@@ -97,6 +162,13 @@ const Calendar = async () => {
         </div>
       </div>
 
+      {error ? (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {hint ? <p className="form-success">{hint}</p> : null}
+
       <div className="calendar-grid">
         <div>
           <h2 className="kicker">Nächste Spiele</h2>
@@ -120,20 +192,32 @@ const Calendar = async () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {upcoming.map((entry) => (
-                      <tr key={entry.game.id}>
-                        <td style={{ whiteSpace: 'nowrap' }}>
-                          {dateLabel(entry.game.kickoff, CLUB.timeZone)}
-                        </td>
-                        <td>{timeLabel(entry.game.kickoff, CLUB.timeZone)}</td>
-                        <td>{matchTitle(entry.game)}</td>
-                        <td className="text-muted">{entry.game.venue}</td>
-                        <td>{entry.role}</td>
-                        <td style={{ color: CONFIRMATION_COLORS[entry.confirmation] }}>
-                          {CONFIRMATION_LABELS[entry.confirmation]}
-                        </td>
-                      </tr>
-                    ))}
+                    {upcoming.map((entry) => {
+                      const own = actions.get(entry.game.id);
+                      return (
+                        <Fragment key={entry.game.id}>
+                          <tr className={own ? 'row-with-actions' : undefined}>
+                            <td style={{ whiteSpace: 'nowrap' }}>
+                              {dateLabel(entry.game.kickoff, CLUB.timeZone)}
+                            </td>
+                            <td>{timeLabel(entry.game.kickoff, CLUB.timeZone)}</td>
+                            <td>{matchTitle(entry.game)}</td>
+                            <td className="text-muted">{entry.game.venue}</td>
+                            <td>{entry.role}</td>
+                            <td style={{ color: CONFIRMATION_COLORS[entry.confirmation] }}>
+                              {CONFIRMATION_LABELS[entry.confirmation]}
+                            </td>
+                          </tr>
+                          {own ? (
+                            <tr className="row-actions">
+                              <td colSpan={6}>
+                                <OwnGameActions {...own} />
+                              </td>
+                            </tr>
+                          ) : null}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </TableWrap>
               </div>
@@ -159,6 +243,7 @@ const Calendar = async () => {
                           {CONFIRMATION_LABELS[entry.confirmation]}
                         </span>
                       </div>
+                      {ownActions(entry.game.id)}
                     </div>
                   </li>
                 ))}

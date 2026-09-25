@@ -107,7 +107,7 @@ const Settings = async ({ searchParams }: PageProps) => {
         <Switch
           name="einSpielProTag"
           label="Max. 1 Spiel pro Tag und Schiedsrichter"
-          description="Ersatz-Eintragungen am gleichen Tag zählen mit. Der Admin kann es pro Spiel freigeben."
+          description="Ersatz-Eintragungen am gleichen Tag zählen mit. Der Admin kann es pro Spiel freigeben — ist die Regel aus, gibt es diese Freigabe am Spiel nicht."
           checked={settings.oneGamePerDay}
         />
         <Switch

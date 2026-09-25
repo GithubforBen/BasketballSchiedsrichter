@@ -111,6 +111,18 @@ describe('Die Navigation der Schiedsrichter', () => {
     ]);
   });
 
+  it('nennt die Startseite Spielübersicht — angemeldet ist sie keine oeffentliche Ansicht', () => {
+    /*
+     * Fuer einen angemeldeten Schiedsrichter zeigt `/` die Spiele mit vollen
+     * Namen. "Öffentliche Ansicht" stuende dann ueber einer Seite, die gerade
+     * nicht zeigt, was die Oeffentlichkeit sieht.
+     */
+    expect(navItems(REFEREE_NAV).find((t) => t.href === '/')?.label).toBe('Spielübersicht');
+    /* Der Admin sieht unter `/` weiterhin die oeffentliche Ansicht. */
+    expect(navItems(ADMIN_NAV).find((t) => t.href === '/')?.label).toBe('Öffentliche Ansicht');
+    expect(navItems(PUBLIC_NAV).find((t) => t.href === '/')?.label).toBe('Öffentliche Ansicht');
+  });
+
   it('zeigt keinen Verwaltungsweg', () => {
     const ziele = navItems(REFEREE_NAV).map((t) => t.href);
     for (const verwaltung of ['/uebersicht', '/schiris', '/einstellungen', '/nachrichten']) {

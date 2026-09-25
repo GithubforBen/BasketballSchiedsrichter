@@ -1,7 +1,7 @@
-import { and, asc, eq, gt, gte, inArray, lte, ne } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, inArray, lt, lte, ne } from 'drizzle-orm';
 import { CLUB } from '@/config/club';
 import { db, schema } from '@/db';
-import { groupByMatchday, withSlots, type Matchday } from '@/domain/schedule';
+import { groupByMatchday, withSlots, type GameWithSlots, type Matchday } from '@/domain/schedule';
 import { calendarDay } from '@/domain/time';
 import type { Assignment, Game, SlotIndex } from '@/domain/types';
 
@@ -126,6 +126,74 @@ export const upcomingMatchdays = async (now: Date, limit?: number): Promise<Upco
     ),
     total: days.length,
   };
+};
+
+/**
+ * Die vergangenen Spieltage, der juengste zuerst.
+ *
+ * Fuer die Spieluebersicht der Angemeldeten, dort hinter einem Klick. Die
+ * Reihenfolge ist die umgekehrte des Spielplans: wer zurueckblickt, sucht
+ * fast immer das letzte Wochenende und nicht den Saisonauftakt. Innerhalb
+ * eines Tages bleiben die Spiele nach Anpfiff sortiert.
+ *
+ * Abgesagte Spiele bleiben draussen, wie in der Vorschau.
+ */
+export const pastMatchdays = async (now: Date): Promise<readonly Matchday[]> => {
+  const rows = await db
+    .select()
+    .from(schema.games)
+    .where(and(lt(schema.games.kickoff, now), ne(schema.games.state, 'cancelled')))
+    .orderBy(asc(schema.games.kickoff));
+  if (rows.length === 0) return [];
+
+  const assignmentRows = await db
+    .select()
+    .from(schema.assignments)
+    .where(inArray(schema.assignments.gameId, rows.map((row) => row.id)));
+  const assignments = assignmentRows.map(toAssignment);
+
+  return [
+    ...groupByMatchday(
+      rows.map((row) => withSlots(toGame(row), assignments)),
+      CLUB.timeZone,
+    ),
+  ].reverse();
+};
+
+/**
+ * Bestimmte Spiele mit ihrer vollstaendigen Besetzung.
+ *
+ * Fuer "Kalender & Verlauf": dort stehen die eigenen Spiele, und ob man sich
+ * austragen oder das Spiel abgeben kann, haengt an allen vier Plaetzen —
+ * nicht nur am eigenen.
+ */
+export const gamesWithSlotsByIds = async (
+  gameIds: readonly string[],
+): Promise<ReadonlyMap<string, GameWithSlots>> => {
+  if (gameIds.length === 0) return new Map();
+  const [rows, assignmentRows] = await Promise.all([
+    db.select().from(schema.games).where(inArray(schema.games.id, [...gameIds])),
+    db.select().from(schema.assignments).where(inArray(schema.assignments.gameId, [...gameIds])),
+  ]);
+  const assignments = assignmentRows.map(toAssignment);
+  return new Map(rows.map((row) => [row.id, withSlots(toGame(row), assignments)]));
+};
+
+/**
+ * Volle Namen aller Personen, nach Id — nur fuer Angemeldete.
+ *
+ * Der Name ist innerhalb der Abteilung keine vertrauliche Angabe: wer
+ * angemeldet ist, soll nicht erst die Kuerzel aller anderen auswendig kennen
+ * muessen. Ohne Anmeldung bleibt es beim Kuerzel (Regel 29) — deshalb gibt es
+ * zwei Funktionen und nicht eine mit Schalter: eine Seite, die ohne Anmeldung
+ * erreichbar ist, soll diese hier gar nicht erst aufrufen koennen, ohne dass
+ * es beim Lesen auffaellt.
+ */
+export const namesById = async (): Promise<ReadonlyMap<string, string>> => {
+  const rows = await db
+    .select({ id: schema.referees.id, name: schema.referees.name })
+    .from(schema.referees);
+  return new Map(rows.map((row) => [row.id, row.name]));
 };
 
 /** Kuerzel aller Personen, nach Id. Mehr braucht die oeffentliche Ansicht nicht. */

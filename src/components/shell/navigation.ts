@@ -11,8 +11,16 @@ import type { NavGroup, NavTarget } from './nav';
  * beiden, und ohne ihn ist er nicht zu sehen.
  */
 
-/** Die oeffentliche Ansicht — sie steht in jeder Rolle zuoberst. */
+/** Die oeffentliche Ansicht — ohne Anmeldung und fuer Admins zuoberst. */
 const PUBLIC_ENTRY: NavTarget = { href: '/', label: 'Öffentliche Ansicht', short: 'Spielplan' };
+
+/**
+ * Dieselbe Adresse fuer angemeldete Schiedsrichter — dort ist sie die
+ * Spieluebersicht mit vollen Namen. Der Admin behaelt "Öffentliche Ansicht":
+ * fuer ihn zeigt `/` weiterhin, was die Oeffentlichkeit sieht, und seine
+ * Spieluebersicht ist `/uebersicht`.
+ */
+const OVERVIEW_ENTRY: NavTarget = { href: '/', label: 'Spielübersicht', short: 'Spiele' };
 
 /** Was jeder Angemeldete fuer sich selbst tut. */
 const OWN_AREA: readonly NavTarget[] = [
@@ -32,7 +40,7 @@ export const FOOTER_NAV: readonly NavTarget[] = [
 
 /** Navigation fuer angemeldete Schiedsrichter. */
 export const REFEREE_NAV: readonly NavGroup[] = [
-  { label: null, items: [PUBLIC_ENTRY] },
+  { label: null, items: [OVERVIEW_ENTRY] },
   { label: 'Mein Bereich', items: OWN_AREA },
 ];
 

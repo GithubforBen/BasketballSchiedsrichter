@@ -9,6 +9,7 @@ import { editGameRoute } from '@/routes';
 import { assignReferee, editGame, removeFromGame, setGameReleases } from '@/server/admin/games';
 import { requireAdmin } from '@/server/guard';
 import { requestSubstitute } from '@/server/assignments';
+import { loadSettings } from '@/server/queries/settings';
 
 /** Spiel bearbeiten: verschieben, Halle ändern, absagen, Besetzung entfernen. */
 
@@ -59,11 +60,18 @@ export const saveGameAction = async (formData: FormData): Promise<void> => {
 export const saveReleasesAction = async (formData: FormData): Promise<void> => {
   const user = await requireAdmin();
   const gameId = read(formData, 'spiel');
+  const settings = await loadSettings();
 
   const result = await setGameReleases(user.id, gameId, {
     withdraw: checked(formData, 'freigabeAustragen'),
     substituteRequest: checked(formData, 'freigabeErsatz'),
-    oneGamePerDay: checked(formData, 'freigabeZweitesSpiel'),
+    /*
+     * Ist die Regel abgeschaltet, steht der Haken nicht im Formular. Ein
+     * fehlendes Feld hiesse sonst "aus" — und wer nur die Austragefrist
+     * freigibt, loeschte damit nebenbei eine Ausnahme, die wieder gebraucht
+     * wird, sobald der Verein die Regel einschaltet.
+     */
+    oneGamePerDay: settings.oneGamePerDay ? checked(formData, 'freigabeZweitesSpiel') : null,
   });
 
   revalidatePath('/bearbeiten');

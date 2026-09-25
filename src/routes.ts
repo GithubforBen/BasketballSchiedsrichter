@@ -65,6 +65,24 @@ export const messageLogRoute = (filter: {
     vor: filter.before,
   });
 
+/**
+ * Der Spielplan auf der Startseite.
+ *
+ * `spieltage` ist die Zahl der geladenen Spieltage, `vergangene` blendet —
+ * nur fuer angemeldete Schiedsrichter — die vergangenen Spiele ein. Beides
+ * steht in der Adresse, damit ein Klick auf "Weitere Spieltage" die
+ * aufgeklappte Vergangenheit nicht wieder zuklappt und umgekehrt.
+ */
+export const scheduleRoute = (query: { spieltage?: number; vergangene?: boolean }): Route =>
+  withQuery('/', {
+    spieltage: query.spieltage === undefined ? undefined : String(query.spieltage),
+    vergangene: query.vergangene ? 'an' : undefined,
+  });
+
+/** Kalender & Verlauf mit einer Rückmeldung zur zuletzt ausgeführten Aktion. */
+export const calendarResultRoute = (result: { ok: boolean; message: string }): Route =>
+  withQuery('/kalender', { [result.ok ? 'hinweis' : 'fehler']: result.message });
+
 /** Ein bestimmter Spieltag in „Offene Spiele“. */
 export const openGamesRoute = (day?: string): Route => withQuery('/spiele', { tag: day });
 
