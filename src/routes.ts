@@ -140,6 +140,14 @@ export const adminResultRoute = (
   result: { ok: boolean; message: string },
 ): Route => withQuery(path, { [result.ok ? 'hinweis' : 'fehler']: result.message });
 
+/**
+ * Meldungen mit offener Rückfrage: „N Schiedsrichter werden angeschrieben …“.
+ * Das Spiel steht in der Adresse, damit die Rückfrage auch ein Neuladen
+ * übersteht — wie bei der Kostenrückfrage im Profil.
+ */
+export const alertReminderConfirmRoute = (gameId: string): Route =>
+  withQuery('/meldungen', { erinnern: gameId });
+
 /** Ein bestimmtes Spiel im Bearbeiten-Bildschirm. */
 export const editGameRoute = (gameId: string, result?: { ok: boolean; message: string }): Route =>
   withQuery('/bearbeiten', {

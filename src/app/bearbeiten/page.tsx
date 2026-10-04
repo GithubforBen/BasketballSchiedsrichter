@@ -379,8 +379,8 @@ const EditGame = async ({ searchParams }: PageProps) => {
             Eintragen benachrichtigt die Person — sie erfährt sonst nicht, dass sie eingeteilt
             ist. Zur Auswahl steht, wer die Qualifikation {detail.game.leagueId} und mindestens
             Lizenz {detail.game.requiredLicense} hat. Entfernen wirft die Person aus dem Spiel und
-            informiert sie ebenfalls; auf einem Schiedsrichter-Platz wird danach zuerst der Ersatz
-            gefragt, ob er nachrückt.
+            informiert sie ebenfalls. Auf einem Schiedsrichter-Platz wird der Ersatz danach nicht
+            von selbst gefragt — erst, wenn du „Ersatz anfordern“ drückst.
           </p>
         </aside>
       </div>

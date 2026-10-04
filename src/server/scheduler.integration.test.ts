@@ -230,9 +230,38 @@ suite('Nachrichtenlauf', () => {
       expect(all[1]?.referee_id).toBe(spare);
     });
 
+    it('schreibt ein frisch angelegtes Spiel nicht aus — Anlegen benachrichtigt niemanden', async () => {
+      const game = await makeGame(70);
+      await assign(game, 1, r2);
+
+      await runScheduler();
+      expect(
+        (await outbox(game)).filter((r) => r.kind === 'open-slot-announcement'),
+      ).toHaveLength(0);
+    });
+
+    it('fragt den Ersatz nicht von selbst, wenn der Admin den Platz geraeumt hat', async () => {
+      const game = await makeGame(70);
+      await assign(game, 1, r2);
+      await assign(game, 2, sub);
+      await sql`UPDATE games SET vacancy_version = 1, manual_vacancy_version = 1
+        WHERE id = ${game}`;
+
+      await runScheduler();
+      expect(await offers(game)).toHaveLength(0);
+      expect((await outbox(game)).filter((r) => r.kind === 'promotion-offer')).toHaveLength(0);
+
+      /* Tritt danach jemand selbst aus, ist die juengste Luecke nicht mehr die des Admins. */
+      await sql`UPDATE games SET vacancy_version = 2 WHERE id = ${game}`;
+      await runScheduler();
+      expect(await offers(game)).toHaveLength(1);
+    });
+
     it('schreibt aus, wenn kein Ersatz mehr uebrig ist', async () => {
       const game = await makeGame(70);
       await assign(game, 1, r2);
+      /* Eine Luecke, die *entstanden* ist — jemand ist ausgetreten. */
+      await sql`UPDATE games SET vacancy_version = 1 WHERE id = ${game}`;
 
       await runScheduler();
       const announcements = (await outbox(game)).filter(
@@ -246,8 +275,10 @@ suite('Nachrichtenlauf', () => {
     it('gibt einer zweiten Luecke desselben Spiels eine eigene Ausschreibung', async () => {
       const game = await makeGame(70);
       await assign(game, 1, r2);
+      await sql`UPDATE games SET vacancy_version = 1 WHERE id = ${game}`;
       await runScheduler();
       const first = (await outbox(game)).filter((r) => r.kind === 'open-slot-announcement');
+      expect(first.length).toBeGreaterThan(0);
 
       // Der Platz wird besetzt und wieder frei — eine neue Luecke.
       await assign(game, 0, r1);

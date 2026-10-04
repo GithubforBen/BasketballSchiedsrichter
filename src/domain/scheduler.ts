@@ -245,6 +245,16 @@ export const dueConfirmationAlerts = (
   return intents;
 };
 
+/**
+ * Ob die juengste Luecke vom Admin stammt und deshalb auf ihn wartet. Regel 13.
+ *
+ * `manualVacancyVersion` haelt den Zaehlerstand fest, bei dem der Admin
+ * geraeumt hat. Tritt danach jemand selbst aus, steigt `vacancyVersion` daran
+ * vorbei — und die Kaskade laeuft wieder von allein.
+ */
+export const vacancyAwaitsAdmin = (game: Game): boolean =>
+  game.manualVacancyVersion !== null && game.manualVacancyVersion === game.vacancyVersion;
+
 interface PromotionPlan {
   expiredOfferIds: readonly string[];
   newOffers: readonly NewPromotionOffer[];
@@ -291,6 +301,16 @@ export const planPromotions = (
 
   if (step.kind === 'idle') return { expiredOfferIds, newOffers: [], announce: false };
   if (step.kind === 'announce') return { expiredOfferIds, newOffers: [], announce: true };
+
+  /*
+   * Hat der Admin die juengste Luecke gerissen, fragt der Lauf den Ersatz
+   * nicht von selbst. Der Admin sieht die Besetzung vor sich und entscheidet
+   * mit „Ersatz anfordern“, ob der Ersatz nachruecken soll oder ob er den
+   * Platz anders besetzt — eine Anfrage, die schon unterwegs ist, wenn er
+   * noch ueberlegt, nimmt ihm das ab. Ist niemand mehr zu fragen, greift
+   * weiter oben die Ausschreibung wie sonst auch.
+   */
+  if (vacancyAwaitsAdmin(game)) return { expiredOfferIds, newOffers: [], announce: false };
 
   const assignment = step.substitute.assignment;
   if (!assignment) return { expiredOfferIds, newOffers: [], announce: false };
@@ -395,6 +415,17 @@ export const openSlotAnnouncement = (
 
   const round = nudgeRound(game.kickoff, now);
   if (round > 0 && !settings.autoNudge) return null;
+
+  /*
+   * Ein Spiel anzulegen benachrichtigt niemanden. Solange an ihm noch kein
+   * Platz frei *geworden* ist, war die Luecke von Anfang an da — der Admin
+   * hat sie selbst angelegt und weiss davon. Die erste Ausschreibung und jede
+   * Stufe, die beim Anlegen schon erreicht war, bleiben deshalb aus. Was
+   * danach erreicht wird, geht raus wie bisher (und nur mit eingeschalteter
+   * automatischer Nachfrage, siehe oben). Wer vorher erinnern will, tut es von
+   * Hand unter „Meldungen“.
+   */
+  if (game.vacancyVersion === 0 && round <= nudgeRound(game.kickoff, game.createdAt)) return null;
 
   const assigned = new Set(
     slots.flatMap((s) => (s.assignment ? [s.assignment.refereeId] : [])),

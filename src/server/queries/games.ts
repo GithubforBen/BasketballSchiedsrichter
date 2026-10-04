@@ -26,6 +26,8 @@ export const toGame = (row: GameRow): Game => ({
   requiredLicense: row.requiredLicense,
   state: row.state,
   vacancyVersion: row.vacancyVersion,
+  manualVacancyVersion: row.manualVacancyVersion,
+  createdAt: row.createdAt,
   overrides: {
     withdraw: row.overrideWithdraw,
     substituteRequest: row.overrideSubstituteRequest,

@@ -81,6 +81,23 @@ export interface Game {
    * aus und bliebe stumm. Regeln 15 und 32.
    */
   vacancyVersion: number;
+  /**
+   * Der Stand von `vacancyVersion`, als zuletzt ein Admin einen
+   * Schiedsrichter-Platz geraeumt hat — `null`, wenn das nie vorkam.
+   *
+   * Stimmt er mit `vacancyVersion` ueberein, hat der Admin die juengste Luecke
+   * gerissen. Dann wird der Ersatz nicht automatisch gefragt: der Admin
+   * entscheidet mit „Ersatz anfordern“, ob und wann. Tritt danach jemand
+   * selbst aus, steigt `vacancyVersion`, und die Kaskade laeuft wieder von
+   * allein. Regel 13.
+   */
+  manualVacancyVersion: number | null;
+  /**
+   * Wann das Spiel angelegt wurde. Was an Ausschreibungs-Stufen beim Anlegen
+   * schon erreicht war, geht nicht raus — das Anlegen selbst benachrichtigt
+   * niemanden. Regel 32.
+   */
+  createdAt: Date;
   /** Freigaben, die der Admin pro Spiel setzt. Regeln 6, 7, 8. */
   overrides: GameOverrides;
 }

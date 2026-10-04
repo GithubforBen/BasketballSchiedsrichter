@@ -177,7 +177,9 @@ const Settings = async ({ searchParams }: PageProps) => {
           wie eilig der nächste Fall ist. Zehn Lücken ergeben so eine Nachricht und nicht zehn.
           Steht die Ausschreibung auf „aus“, erfährt niemand von einer Lücke — sie steht dann nur
           in der Übersicht und in den Meldungen. Die Nachrück-Anfragen an Ersatzleute laufen
-          unabhängig davon weiter.
+          unabhängig davon weiter. Ein neu angelegtes Spiel wird nicht ausgeschrieben: die
+          Nachricht geht erst raus, wenn ein Platz wieder frei wird oder die automatische
+          Nachfrage ihre nächste Stufe erreicht. Vorher erinnerst du von Hand unter „Meldungen“.
         </p>
 
         <h2 className="kicker" style={{ marginTop: 'var(--space-6)' }}>

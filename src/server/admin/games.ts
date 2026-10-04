@@ -7,15 +7,19 @@ import { countByKey, dedupe, parseCsv, type CsvParseResult, type CsvRow } from '
 import { nextPromotionStep } from '@/domain/escalation';
 import { leagueFromLabel } from '@/domain/league';
 import { qualifiedReferees } from '@/domain/rules';
-import { assignmentIntent, relocationIntent } from '@/domain/notifications';
-import { buildSlots, slotKind, SLOT_LABELS } from '@/domain/slots';
+import {
+  assignmentIntent,
+  manualOpenSlotReminderIntent,
+  relocationIntent,
+} from '@/domain/notifications';
+import { buildSlots, refereeSlots, slotKind, SLOT_LABELS } from '@/domain/slots';
 import { localToUtc } from '@/domain/time';
 import type { License, SlotIndex } from '@/domain/types';
 import { isUniqueViolation } from '../assignments';
 import { toAssignment, toGame } from '../queries/games';
 import { loadAllReferees } from '../queries/referees';
 import { loadSettings } from '../queries/settings';
-import { enqueue } from '../outbox';
+import { dispatchOutbox, enqueue } from '../outbox';
 
 /**
  * Spielverwaltung im Adminbereich.
@@ -479,8 +483,14 @@ export const assignReferee = async (
 };
 
 /**
- * Wirft eine Person aus einem Spiel. Regel 13: auf einem Schiedsrichter-Platz
- * beginnt damit die Nachrueck-Kaskade.
+ * Wirft eine Person aus einem Spiel.
+ *
+ * Auf einem Schiedsrichter-Platz begann damit frueher die Nachrueck-Kaskade
+ * (Regel 13): der naechste Lauf fragte den Ersatz, ohne dass der Admin etwas
+ * davon in der Hand hatte. Jetzt wartet die Luecke auf ihn — er sieht die
+ * Besetzung vor sich und drueckt „Ersatz anfordern“, wenn der Ersatz
+ * nachruecken soll, oder traegt selbst jemanden ein. Steht kein Ersatz bereit,
+ * wird der Platz ausgeschrieben wie bisher.
  */
 export const removeFromGame = async (
   actorId: string,
@@ -510,11 +520,18 @@ export const removeFromGame = async (
    * Zaehler steckt im Idempotenzschluessel der Ausschreibung — ohne ihn saehe
    * die zweite Ausschreibung desselben Spiels wie eine Wiederholung aus und
    * bliebe stumm.
+   *
+   * Daneben wird derselbe Stand als "vom Admin geraeumt" vermerkt. Beide
+   * Spalten bekommen in einer Anweisung denselben Wert; solange sie
+   * uebereinstimmen, fragt der Zeitplan den Ersatz nicht von selbst.
    */
   if (slotKind(slotIndex) === 'referee') {
     await db
       .update(schema.games)
-      .set({ vacancyVersion: sqlRaw`${schema.games.vacancyVersion} + 1` })
+      .set({
+        vacancyVersion: sqlRaw`${schema.games.vacancyVersion} + 1`,
+        manualVacancyVersion: sqlRaw`${schema.games.vacancyVersion} + 1`,
+      })
       .where(eq(schema.games.id, gameId));
   }
 
@@ -538,7 +555,9 @@ export const removeFromGame = async (
   if (step.kind === 'offer') {
     return {
       ok: true,
-      message: `${label} entfernt. Der Ersatz wird gefragt, ob er nachrückt.`,
+      message:
+        `${label} entfernt. Der Ersatz wird nicht von selbst gefragt — ` +
+        'drücke „Ersatz anfordern“, wenn er nachrücken soll.',
     };
   }
   if (step.kind === 'announce') {
@@ -576,4 +595,110 @@ export const nudgeOpenGames = async (actorId: string): Promise<AdminResult> => {
         ok: true,
         message: `Erinnerung für ${open.length} offene Spiele vorgemerkt — alle Qualifizierten werden angeschrieben.`,
       };
+};
+
+/**
+ * Wer eine Erinnerung an ein offenes Spiel bekaeme.
+ *
+ * Alle aktiven Schiedsrichter, die das Spiel pfeifen *koennen* — Qualifikation
+ * fuer die Liga und mindestens die verlangte Lizenz (Regel 4) — und noch nicht
+ * darin stehen. Wer sich nicht eintragen kann, dem hilft die Nachricht nicht,
+ * und sie kostet trotzdem (Regel 33).
+ *
+ * Eigene Funktion, weil zwei Stellen dieselbe Zahl brauchen: die Rueckfrage
+ * vor dem Versand nennt sie, und der Versand muss genau diese Leute
+ * anschreiben. Zaehlten beide fuer sich, staende in der Rueckfrage irgendwann
+ * eine andere Zahl, als danach rausgeht.
+ */
+export const openGameReminderRecipients = async (
+  gameId: string,
+  now: Date = new Date(),
+): Promise<
+  | { readonly ok: true; readonly recipientIds: readonly string[] }
+  | { readonly ok: false; readonly message: string }
+> => {
+  const [gameRows, referees, assignmentRows] = await Promise.all([
+    db.select().from(schema.games).where(eq(schema.games.id, gameId)).limit(1),
+    loadAllReferees(),
+    db.select().from(schema.assignments).where(eq(schema.assignments.gameId, gameId)),
+  ]);
+  const gameRow = gameRows[0];
+  if (!gameRow) return { ok: false, message: 'Dieses Spiel gibt es nicht mehr.' };
+  const game = toGame(gameRow);
+  if (game.state === 'cancelled') return { ok: false, message: 'Das Spiel wurde abgesagt.' };
+  if (game.kickoff.getTime() <= now.getTime()) {
+    return { ok: false, message: 'Der Anpfiff liegt bereits in der Vergangenheit.' };
+  }
+
+  const slots = buildSlots(assignmentRows.map(toAssignment));
+  if (refereeSlots(slots).every((slot) => slot.assignment !== null)) {
+    return { ok: false, message: 'Bei diesem Spiel sind beide Schiedsrichter-Plätze besetzt.' };
+  }
+
+  const assigned = new Set(assignmentRows.map((row) => row.refereeId));
+  return {
+    ok: true,
+    recipientIds: qualifiedReferees(referees, game.leagueId, game.requiredLicense)
+      .filter((referee) => !assigned.has(referee.id))
+      .map((referee) => referee.id),
+  };
+};
+
+/**
+ * Erinnerung an **ein** offenes Spiel, von Hand ausgeloest. Regel 32.
+ *
+ * Der Knopf unter „Meldungen“ hat frueher nur einen Eintrag ins Pruefprotokoll
+ * geschrieben und „vorgemerkt“ gemeldet — verschickt wurde nichts. Jetzt geht
+ * die Nachricht wirklich raus, und zwar sofort: wer den Knopf drueckt und die
+ * Rueckfrage bestaetigt, will nicht auf den naechsten Lauf warten, um im
+ * Protokoll zu sehen, ob es geklappt hat.
+ *
+ * Die Einstellung „Offene Plätze ausschreiben an“ gilt hier nicht. Sie regelt,
+ * was die Anwendung von sich aus verschickt; das hier hat ein Mensch
+ * entschieden, mit der Zahl der Empfaenger vor Augen.
+ */
+export const remindOpenGame = async (actorId: string, gameId: string): Promise<AdminResult> => {
+  const now = new Date();
+  const recipients = await openGameReminderRecipients(gameId, now);
+  if (!recipients.ok) return fail(recipients.message);
+  if (recipients.recipientIds.length === 0) {
+    return fail('Für dieses Spiel gibt es niemanden, der angeschrieben werden könnte.');
+  }
+
+  /* Die Minute des Knopfdrucks — ein Doppelklick geht damit nur einmal raus. */
+  const intent = manualOpenSlotReminderIntent(
+    gameId,
+    recipients.recipientIds,
+    now.toISOString().slice(0, 16),
+  );
+
+  const queued = await db.transaction(async (tx) => {
+    const rows = await enqueue(tx, intent);
+    await writeAudit(tx, {
+      actorId,
+      action: 'game.remind',
+      gameId,
+      detail: { recipients: recipients.recipientIds.length, queued: rows },
+    });
+    return rows;
+  });
+
+  if (queued === 0) {
+    return { ok: true, message: 'Diese Erinnerung ist gerade eben schon rausgegangen.' };
+  }
+  const { sent } = await dispatchOutbox({ onlyKey: intent.key, now });
+
+  /*
+   * Gemeldet wird, was wirklich rausging — nicht, was geplant war. Greift eine
+   * Obergrenze oder scheitert eine Zustellung, holt der naechste Lauf den Rest
+   * nach, und genau das soll hier stehen.
+   */
+  return {
+    ok: true,
+    message:
+      sent === queued
+        ? `Erinnerung an ${queued} Schiedsrichter verschickt.`
+        : `Erinnerung an ${queued} Schiedsrichter angelegt, ${sent} davon sofort verschickt — ` +
+          'der Rest folgt mit dem nächsten Lauf.',
+  };
 };

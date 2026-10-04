@@ -51,6 +51,8 @@ export const makeGame = (overrides: Partial<Game> = {}): Game => ({
   requiredLicense: 'E',
   state: 'scheduled',
   vacancyVersion: 0,
+  manualVacancyVersion: null,
+  createdAt: new Date(NOW.getTime() - 90 * 24 * 60 * 60 * 1000),
   overrides: { withdraw: false, substituteRequest: false, oneGamePerDay: false },
   ...overrides,
 });

@@ -25,6 +25,8 @@ const game = (overrides: Partial<Game> = {}): Game => ({
   requiredLicense: 'E',
   state: 'scheduled',
   vacancyVersion: 0,
+  manualVacancyVersion: null,
+  createdAt: new Date('2026-06-01T08:00:00Z'),
   overrides: { withdraw: false, substituteRequest: false, oneGamePerDay: false },
   ...overrides,
 });

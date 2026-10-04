@@ -83,9 +83,31 @@ test.describe('Adminbereich', () => {
     await page.goto('/meldungen');
 
     await expect(page.locator('.alert').first()).toBeVisible();
-    await page.getByRole('button', { name: /Erinnerung senden|Ersatz anfordern|nachfassen/ }).first().click();
-    await expect(formSuccess(page)).toBeVisible();
-    expect(await auditCount('game.nudge')).toBeGreaterThan(0);
+    // „Ersatz anfordern“ steht hier nicht mehr: es fragt einen eingetragenen
+    // Ersatz, und die Meldung „Ersatz fehlt“ sagt gerade, dass keiner da ist.
+    await expect(page.getByRole('button', { name: 'Ersatz anfordern' })).toHaveCount(0);
+
+    // Erst die Rückfrage mit der Zahl der Empfänger, dann der Versand.
+    const before = await auditCount('game.remind');
+    await page.getByRole('link', { name: 'Erinnerung senden' }).first().click();
+    await expect(page.locator('.banner')).toContainText(/angeschrieben/);
+    expect(await auditCount('game.remind')).toBe(before);
+
+    await page.locator('.banner').getByRole('button', { name: /^Ja, / }).click();
+    await expect(formSuccess(page)).toContainText(/verschickt/);
+    expect(await auditCount('game.remind')).toBe(before + 1);
+  });
+
+  test('bricht die Erinnerung ab, ohne etwas zu verschicken', async ({ page }) => {
+    await loginAs(page, SEED.nele.phone);
+    await page.goto('/meldungen');
+
+    const before = await auditCount('game.remind');
+    await page.getByRole('link', { name: 'Erinnerung senden' }).first().click();
+    await page.locator('.banner').getByRole('link', { name: 'Abbrechen' }).click();
+
+    await expect(page.locator('.banner')).toHaveCount(0);
+    expect(await auditCount('game.remind')).toBe(before);
   });
 
   test('legt ein Spiel an', async ({ page }) => {
@@ -147,7 +169,7 @@ test.describe('Adminbereich', () => {
     await expect(formSuccess(page)).toContainText(/2 Beteiligte/);
   });
 
-  test('entfernt jemanden aus einem Spiel und fragt den Ersatz', async ({ page }) => {
+  test('entfernt jemanden aus einem Spiel, ohne den Ersatz von selbst zu fragen', async ({ page }) => {
     const game = (await upcomingGameIds())[0] ?? '';
     await placeReferee(game, 0, SEED.jonas.id);
     await placeReferee(game, 2, SEED.lena.id);
@@ -156,7 +178,7 @@ test.describe('Adminbereich', () => {
     await page.goto(`/bearbeiten?spiel=${game}`);
     await page.getByRole('button', { name: 'Entfernen' }).first().click();
 
-    await expect(formSuccess(page)).toContainText(/nachrückt/);
+    await expect(formSuccess(page)).toContainText(/Ersatz anfordern/);
     expect(await auditCount('assignment.remove')).toBeGreaterThan(0);
   });
 

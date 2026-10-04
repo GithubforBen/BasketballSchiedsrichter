@@ -135,6 +135,30 @@ export const openSlotAnnouncementIntent = (
 });
 
 /**
+ * Die Erinnerung, die ein Admin unter „Meldungen“ von Hand ausloest.
+ *
+ * Dieselbe Nachricht wie die Ausschreibung — gleicher Wortlaut, gleiche
+ * Vorlage —, aber mit eigenem Schluessel: sie ist keine Stufe des Zeitplans
+ * und darf dessen Stufen weder verbrauchen noch von ihnen verschluckt werden.
+ *
+ * `stamp` ist die Minute des Knopfdrucks. Ein Doppelklick ergibt damit
+ * denselben Schluessel und geht einmal raus; wer in einer Stunde noch einmal
+ * erinnert, meint es so und bekommt eine neue Nachricht.
+ */
+export const manualOpenSlotReminderIntent = (
+  gameId: string,
+  recipientIds: readonly string[],
+  stamp: string,
+): NotificationIntent => ({
+  kind: 'open-slot-announcement',
+  recipientIds,
+  gameId,
+  key: `open-slot:${gameId}:manual:${stamp}`,
+  expectsReply: false,
+  payload: { manual: true },
+});
+
+/**
  * Die Tagesbilanz der offenen Plaetze fuer die Admins. Regeln 15 und 32.
  *
  * Sie ist bewusst **keine** Nachricht je Spiel: ein Admin, der zehn Luecken

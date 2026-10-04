@@ -10,6 +10,8 @@ import {
   editGame,
   importCsv,
   previewCsv,
+  openGameReminderRecipients,
+  remindOpenGame,
   removeFromGame,
   setGameReleases,
 } from './games';
@@ -596,7 +598,7 @@ suite('Adminbereich', () => {
   });
 
   describe('Besetzung entfernen', () => {
-    it('Regel 13: auf einem Schiedsrichter-Platz wird zuerst der Ersatz gefragt', async () => {
+    it('Regel 13: der Ersatz wird nicht von selbst gefragt — erst auf Knopfdruck', async () => {
       const gameId = await newGame();
       await claimNextSlot(gameId, a);
       await claimNextSlot(gameId, b);
@@ -604,8 +606,30 @@ suite('Adminbereich', () => {
 
       const result = await removeFromGame(admin, gameId, 0);
       expect(result.ok).toBe(true);
-      expect(result.message).toContain('nachrückt');
+      expect(result.message).toContain('Ersatz anfordern');
       expect(await auditActions(gameId)).toContain('assignment.remove');
+
+      /*
+       * Die Luecke ist als "vom Admin geraeumt" vermerkt: beide Zaehler stehen
+       * auf demselben Stand, und daran erkennt der Zeitplan, dass er wartet.
+       */
+      const [row] = await sql<{ vacancy_version: number; manual_vacancy_version: number | null }[]>`
+        SELECT vacancy_version, manual_vacancy_version FROM games WHERE id = ${gameId}`;
+      expect(row?.vacancy_version).toBe(1);
+      expect(row?.manual_vacancy_version).toBe(1);
+    });
+
+    it('ein geraeumter Ersatzplatz ist keine Luecke und vermerkt nichts', async () => {
+      const gameId = await newGame();
+      await claimNextSlot(gameId, a);
+      await claimNextSlot(gameId, b);
+      await claimNextSlot(gameId, c);
+
+      await removeFromGame(admin, gameId, 2);
+      const [row] = await sql<{ vacancy_version: number; manual_vacancy_version: number | null }[]>`
+        SELECT vacancy_version, manual_vacancy_version FROM games WHERE id = ${gameId}`;
+      expect(row?.vacancy_version).toBe(0);
+      expect(row?.manual_vacancy_version).toBeNull();
     });
 
     it('ohne Ersatz wird der Platz ausgeschrieben', async () => {
@@ -620,6 +644,74 @@ suite('Adminbereich', () => {
     it('meldet einen leeren Platz, statt stillschweigend nichts zu tun', async () => {
       const gameId = await newGame();
       expect(await removeFromGame(admin, gameId, 3)).toMatchObject({ ok: false });
+    });
+  });
+
+  describe('Erinnerung an ein offenes Spiel — Regel 32', () => {
+    const reminders = async (gameId: string) =>
+      sql<{ recipient_id: string; state: string }[]>`
+        SELECT recipient_id, state FROM notification_outbox
+        WHERE game_id = ${gameId} AND kind = 'open-slot-announcement'`;
+
+    it('das Anlegen selbst schreibt niemanden an', async () => {
+      const gameId = await newGame();
+      expect(await outbox(gameId)).toHaveLength(0);
+    });
+
+    it('schreibt alle an, die das Spiel pfeifen koennen und noch nicht darin stehen', async () => {
+      const gameId = await newGame();
+      await claimNextSlot(gameId, a);
+
+      const result = await remindOpenGame(admin, gameId);
+      expect(result.ok, result.message).toBe(true);
+      expect(result.message).toContain('verschickt');
+
+      const rows = await reminders(gameId);
+      const recipients = rows.map((row) => row.recipient_id);
+      expect(recipients).toEqual(expect.arrayContaining([b, c]));
+      expect(recipients).not.toContain(a);
+      /* Nicht "vorgemerkt": die Nachricht ist wirklich rausgegangen. */
+      expect(rows.every((row) => row.state === 'sent')).toBe(true);
+      expect(await auditActions(gameId)).toContain('game.remind');
+    });
+
+    it('die Rueckfrage nennt genau die Zahl, die danach rausgeht', async () => {
+      const gameId = await newGame();
+      await claimNextSlot(gameId, a);
+
+      const asked = await openGameReminderRecipients(gameId);
+      expect(asked.ok).toBe(true);
+      await remindOpenGame(admin, gameId);
+      expect(await reminders(gameId)).toHaveLength(asked.ok ? asked.recipientIds.length : -1);
+    });
+
+    it('ein Doppelklick verschickt nicht doppelt', async () => {
+      const gameId = await newGame();
+      await remindOpenGame(admin, gameId);
+      const once = (await reminders(gameId)).length;
+      await remindOpenGame(admin, gameId);
+      /*
+       * Faellt der zweite Aufruf in eine neue Minute, ist er eine neue
+       * Erinnerung — mehr als das Doppelte darf es trotzdem nie werden, und
+       * innerhalb derselben Minute bleibt es bei einer.
+       */
+      const twice = (await reminders(gameId)).length;
+      expect([once, once * 2]).toContain(twice);
+    });
+
+    it('lehnt ab, wenn beide Schiedsrichter-Plaetze besetzt sind', async () => {
+      const gameId = await newGame();
+      await claimNextSlot(gameId, a);
+      await claimNextSlot(gameId, b);
+
+      const result = await remindOpenGame(admin, gameId);
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('besetzt');
+      expect(await reminders(gameId)).toHaveLength(0);
+    });
+
+    it('lehnt ein Spiel ab, das es nicht gibt', async () => {
+      expect(await remindOpenGame(admin, 'gibt-es-nicht')).toMatchObject({ ok: false });
     });
   });
 

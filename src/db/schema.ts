@@ -166,6 +166,14 @@ export const games = pgTable(
      * als Doppelung der ersten verworfen wird. Regeln 15 und 32.
      */
     vacancyVersion: integer('vacancy_version').notNull().default(0),
+    /**
+     * Der Stand von `vacancyVersion`, als zuletzt ein **Admin** einen
+     * Schiedsrichter-Platz geraeumt hat. Stimmen beide ueberein, stammt die
+     * juengste Luecke von ihm — dann fragt der Zeitplan den Ersatz nicht von
+     * selbst, sondern erst, wenn der Admin „Ersatz anfordern“ drueckt. Regel 13.
+     * NULL heisst: kein Admin hat an diesem Spiel je einen Platz geraeumt.
+     */
+    manualVacancyVersion: integer('manual_vacancy_version'),
     /** Admin-Freigaben pro Spiel. Regeln 6, 7, 8. */
     overrideWithdraw: boolean('override_withdraw').notNull().default(false),
     overrideSubstituteRequest: boolean('override_substitute_request').notNull().default(false),
