@@ -5,17 +5,28 @@ import { AdminShell, single } from '@/components/admin/AdminShell';
 import { CLUB } from '@/config/club';
 import { matchTitle, timeLabel, dateLabel } from '@/domain/schedule';
 import { leagueDisplay } from '@/domain/league';
-import { editGameRoute } from '@/routes';
+import { alertReminderConfirmRoute, editGameRoute } from '@/routes';
+import { openGameReminderRecipients } from '@/server/admin/games';
 import { requireAdmin } from '@/server/guard';
 import { adminOverview } from '@/server/queries/admin-view';
 import { loadSettings } from '@/server/queries/settings';
-import { actOnAlertAction } from './actions';
+import { actOnAlertAction, sendReminderAction } from './actions';
 
 /**
  * Offene Spiele und Meldungen.
  *
  * Jede Meldung traegt alles bei sich, was zum Handeln noetig ist: welches
  * Spiel, welche Liga, welcher Ort, was fehlt und wie viel Vorlauf bleibt.
+ *
+ * Was sich von hier aus tun laesst, haengt an der Art der Meldung:
+ *
+ * - **Schiedsrichter fehlt** — „Erinnerung senden“ schreibt alle an, die das
+ *   Spiel pfeifen koennen. Davor steht eine Rueckfrage mit der Zahl der
+ *   Empfaenger: jede Nachricht kostet (Regel 33).
+ * - **Bestaetigung offen** — „Jetzt nachfassen“.
+ * - **Ersatz fehlt** — nur „Bearbeiten“. „Ersatz anfordern“ stand hier frueher
+ *   und ergab keinen Sinn: der Knopf fragt einen *eingetragenen* Ersatz, ob er
+ *   uebernimmt, und diese Meldung sagt gerade, dass keiner eingetragen ist.
  */
 
 export const metadata: Metadata = { title: `Meldungen · ${CLUB.appName}` };
@@ -35,11 +46,10 @@ const BAR_COLORS: Record<string, string> = {
   'substitute-missing': 'var(--status-substitute-missing)',
 };
 
-const ACTION_LABELS: Record<string, string> = {
-  unfilled: 'Erinnerung senden',
-  'confirmation-overdue': 'Jetzt nachfassen',
-  'substitute-missing': 'Ersatz anfordern',
-};
+/** Was die Rueckfrage zur Erinnerung zeigt. */
+type ReminderPrompt =
+  | { readonly gameId: string; readonly count: number }
+  | { readonly gameId: string; readonly blocked: string };
 
 const Alerts = async ({ searchParams }: PageProps) => {
   const now = new Date();
@@ -52,6 +62,25 @@ const Alerts = async ({ searchParams }: PageProps) => {
     matchdays.flatMap((day) => day.games.map((entry) => [entry.game.id, entry.game] as const)),
   );
 
+  /*
+   * Die Rueckfrage vor „an alle senden“. Gezaehlt wird mit derselben Funktion,
+   * die danach verschickt — die Zahl hier ist die Zahl der Nachrichten.
+   */
+  const askedFor = single(params.erinnern);
+  let prompt: ReminderPrompt | null = null;
+  if (askedFor) {
+    const recipients = await openGameReminderRecipients(askedFor, now);
+    prompt = !recipients.ok
+      ? { gameId: askedFor, blocked: recipients.message }
+      : recipients.recipientIds.length === 0
+        ? {
+            gameId: askedFor,
+            blocked: 'Für dieses Spiel gibt es niemanden, der angeschrieben werden könnte.',
+          }
+        : { gameId: askedFor, count: recipients.recipientIds.length };
+  }
+  const promptGame = prompt ? gameById.get(prompt.gameId) : undefined;
+
   return (
     <AdminShell
       user={user}
@@ -62,6 +91,42 @@ const Alerts = async ({ searchParams }: PageProps) => {
       hint={single(params.hinweis)}
       error={single(params.fehler)}
     >
+      {prompt ? (
+        <div className="banner">
+          <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '15px' }}>
+            {'count' in prompt
+              ? `${prompt.count} Schiedsrichter ${prompt.count === 1 ? 'wird' : 'werden'} jetzt angeschrieben`
+              : 'Erinnerung nicht möglich'}
+          </div>
+          <p style={{ fontSize: '13px', marginTop: 'var(--space-1)' }}>
+            {promptGame ? (
+              <>
+                {matchTitle(promptGame)} · {dateLabel(promptGame.kickoff, CLUB.timeZone)} ·{' '}
+                {timeLabel(promptGame.kickoff, CLUB.timeZone)}.{' '}
+              </>
+            ) : null}
+            {'count' in prompt
+              ? prompt.count === 1
+                ? 'Die Nachricht geht an die eine Person, die dieses Spiel pfeifen kann und noch nicht eingetragen ist. Wirklich senden?'
+                : `Die Nachricht geht an alle ${prompt.count}, die dieses Spiel pfeifen können und noch nicht eingetragen sind. Wirklich an alle senden?`
+              : prompt.blocked}
+          </p>
+          <div className="row">
+            {'count' in prompt ? (
+              <form action={sendReminderAction}>
+                <input type="hidden" name="spiel" value={prompt.gameId} />
+                <Button type="submit" variant="primary">
+                  {prompt.count === 1 ? 'Ja, senden' : `Ja, an alle ${prompt.count} senden`}
+                </Button>
+              </form>
+            ) : null}
+            <Link href="/meldungen" className="btn btn-secondary">
+              {'count' in prompt ? 'Abbrechen' : 'Schließen'}
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
       {alerts.length === 0 ? (
         /*
          * Zwei sehr verschiedene Gruende fuehren zu einer leeren Liste, und
@@ -108,13 +173,23 @@ const Alerts = async ({ searchParams }: PageProps) => {
                   </div>
                 </div>
                 <div className="row">
-                  <form action={actOnAlertAction}>
-                    <input type="hidden" name="art" value={alert.kind} />
-                    <input type="hidden" name="spiel" value={alert.gameId} />
-                    <Button type="submit" variant="primary">
-                      {ACTION_LABELS[alert.kind] ?? 'Erinnerung senden'}
-                    </Button>
-                  </form>
+                  {alert.kind === 'unfilled' ? (
+                    <Link
+                      href={alertReminderConfirmRoute(alert.gameId)}
+                      className="btn btn-primary"
+                    >
+                      Erinnerung senden
+                    </Link>
+                  ) : null}
+                  {alert.kind === 'confirmation-overdue' ? (
+                    <form action={actOnAlertAction}>
+                      <input type="hidden" name="art" value={alert.kind} />
+                      <input type="hidden" name="spiel" value={alert.gameId} />
+                      <Button type="submit" variant="primary">
+                        Jetzt nachfassen
+                      </Button>
+                    </form>
+                  ) : null}
                   <Link href={editGameRoute(alert.gameId)} className="btn btn-secondary">
                     Bearbeiten
                   </Link>

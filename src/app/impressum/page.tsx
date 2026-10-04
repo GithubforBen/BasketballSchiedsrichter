@@ -151,8 +151,11 @@ const Legal = async () => {
             Nachrichten vollständig nutzbar.
           </p>
           <p>
-            Öffentlich sichtbar ist ausschließlich das Kürzel. Name und Telefonnummer sind erst
-            nach Anmeldung sichtbar und werden ohne Anmeldung nicht ausgeliefert.
+            Öffentlich sichtbar ist ausschließlich das Kürzel. Angemeldete Schiedsrichter sehen
+            zusätzlich die vollen Namen der Eingeteilten — in der Spielübersicht, auch für
+            vergangene Spiele, und unter „Offene Spiele“. Die Telefonnummer sehen nur die Admins
+            und die Person selbst. Ohne Anmeldung werden Namen und Telefonnummern nicht
+            ausgeliefert.
           </p>
           <p>
             Angemeldet wird mit Telefonnummer und Passwort. Ein neues Konto beginnt mit einem

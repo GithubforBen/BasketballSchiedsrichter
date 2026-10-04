@@ -10,6 +10,7 @@ import {
   placeReferee,
   resetAssignments,
   resetSettings,
+  setOneGamePerDay,
   setQualificationDirect,
   upcomingGameIds,
   withdrawDeadline,
@@ -82,9 +83,31 @@ test.describe('Adminbereich', () => {
     await page.goto('/meldungen');
 
     await expect(page.locator('.alert').first()).toBeVisible();
-    await page.getByRole('button', { name: /Erinnerung senden|Ersatz anfordern|nachfassen/ }).first().click();
-    await expect(formSuccess(page)).toBeVisible();
-    expect(await auditCount('game.nudge')).toBeGreaterThan(0);
+    // „Ersatz anfordern“ steht hier nicht mehr: es fragt einen eingetragenen
+    // Ersatz, und die Meldung „Ersatz fehlt“ sagt gerade, dass keiner da ist.
+    await expect(page.getByRole('button', { name: 'Ersatz anfordern' })).toHaveCount(0);
+
+    // Erst die Rückfrage mit der Zahl der Empfänger, dann der Versand.
+    const before = await auditCount('game.remind');
+    await page.getByRole('link', { name: 'Erinnerung senden' }).first().click();
+    await expect(page.locator('.banner')).toContainText(/angeschrieben/);
+    expect(await auditCount('game.remind')).toBe(before);
+
+    await page.locator('.banner').getByRole('button', { name: /^Ja, / }).click();
+    await expect(formSuccess(page)).toContainText(/verschickt/);
+    expect(await auditCount('game.remind')).toBe(before + 1);
+  });
+
+  test('bricht die Erinnerung ab, ohne etwas zu verschicken', async ({ page }) => {
+    await loginAs(page, SEED.nele.phone);
+    await page.goto('/meldungen');
+
+    const before = await auditCount('game.remind');
+    await page.getByRole('link', { name: 'Erinnerung senden' }).first().click();
+    await page.locator('.banner').getByRole('link', { name: 'Abbrechen' }).click();
+
+    await expect(page.locator('.banner')).toHaveCount(0);
+    expect(await auditCount('game.remind')).toBe(before);
   });
 
   test('legt ein Spiel an', async ({ page }) => {
@@ -146,7 +169,7 @@ test.describe('Adminbereich', () => {
     await expect(formSuccess(page)).toContainText(/2 Beteiligte/);
   });
 
-  test('entfernt jemanden aus einem Spiel und fragt den Ersatz', async ({ page }) => {
+  test('entfernt jemanden aus einem Spiel, ohne den Ersatz von selbst zu fragen', async ({ page }) => {
     const game = (await upcomingGameIds())[0] ?? '';
     await placeReferee(game, 0, SEED.jonas.id);
     await placeReferee(game, 2, SEED.lena.id);
@@ -155,7 +178,7 @@ test.describe('Adminbereich', () => {
     await page.goto(`/bearbeiten?spiel=${game}`);
     await page.getByRole('button', { name: 'Entfernen' }).first().click();
 
-    await expect(formSuccess(page)).toContainText(/nachrückt/);
+    await expect(formSuccess(page)).toContainText(/Ersatz anfordern/);
     expect(await auditCount('assignment.remove')).toBeGreaterThan(0);
   });
 
@@ -165,8 +188,15 @@ test.describe('Adminbereich', () => {
     await loginAs(page, SEED.nele.phone);
     await page.goto(`/bearbeiten?spiel=${game}`);
     await page.getByLabel(/Austragen für dieses Spiel freigeben/).check();
-    await page.getByRole('button', { name: /Speichern/ }).click();
+    /*
+     * „Freigaben speichern“ und nicht „Speichern & Beteiligte informieren“:
+     * die Freigaben haben ein eigenes Formular, seit ein Haken darin ein Spiel
+     * versehentlich als verschoben eintragen und alle Beteiligten
+     * benachrichtigen konnte.
+     */
+    await page.getByRole('button', { name: 'Freigaben speichern' }).click();
     await expect(formSuccess(page)).toBeVisible();
+    await expect(page.getByText(/niemand benachrichtigt/)).toBeVisible();
 
     // Der Schiedsrichter kann sich jetzt austragen, obwohl die Frist abgelaufen ist.
     await loginAs(page, SEED.jonas.phone);
@@ -174,6 +204,25 @@ test.describe('Adminbereich', () => {
     await page.getByRole('button', { name: 'Eintragen' }).first().click();
     await expect(formSuccess(page)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Austragen' }).first()).toBeEnabled();
+  });
+
+  test('bietet „zweites Spiel am selben Tag“ nur an, wenn die Regel gilt', async ({ page }) => {
+    /*
+     * Ist „ein Spiel pro Tag“ im Verein aus, darf ohnehin jeder mehrere
+     * Spiele am Tag pfeifen — eine Ausnahme davon waere ein Haken ohne
+     * Wirkung.
+     */
+    const game = (await upcomingGameIds())[0] ?? '';
+    await loginAs(page, SEED.nele.phone);
+
+    await setOneGamePerDay(false);
+    await page.goto(`/bearbeiten?spiel=${game}`);
+    await expect(page.getByLabel(/Austragen für dieses Spiel freigeben/)).toBeVisible();
+    await expect(page.getByLabel(/Zweites Spiel am selben Tag/)).toHaveCount(0);
+
+    await setOneGamePerDay(true);
+    await page.goto(`/bearbeiten?spiel=${game}`);
+    await expect(page.getByLabel(/Zweites Spiel am selben Tag/)).toBeVisible();
   });
 
   test('erteilt und entzieht eine Qualifikation', async ({ page }) => {
@@ -239,11 +288,43 @@ test.describe('Adminbereich', () => {
     await expect(page.getByText(/lässt sich nicht abschalten/)).toBeVisible();
   });
 
-  test('führt Spiele zum Nachpflegen auf', async ({ page }) => {
+  test('blendet vergangene Spiele auf Wunsch in die Übersicht ein', async ({ page }) => {
+    /*
+     * "Spiele nachpflegen" gibt es nicht mehr. Wer eine Besetzung im
+     * Nachhinein korrigieren will, blendet die vergangenen Spiele hier ein
+     * und bearbeitet sie wie jedes andere.
+     */
     await loginAs(page, SEED.nele.phone);
-    await page.goto('/nachpflegen');
-    await expect(page.getByRole('heading', { name: /nachpflegen/, level: 1 })).toBeVisible();
-    await expect(page.getByText(/für die Abrechnung maßgeblich/)).toBeVisible();
+    await page.goto('/uebersicht');
+
+    await page.getByRole('link', { name: /Vergangene Spiele auch anzeigen/ }).click();
+    await expect(page).toHaveURL(/zeitraum=alle/);
+    await expect(page.getByRole('link', { name: /Nur kommende Spiele/ })).toBeVisible();
+    await expect(page.getByText(/samt der vergangenen/)).toBeVisible();
+  });
+
+  test('der CSV-Export folgt dem eingestellten Zeitraum', async ({ page }) => {
+    await loginAs(page, SEED.nele.phone);
+    await page.goto('/uebersicht');
+    await expect(page.getByRole('link', { name: 'Als CSV exportieren' })).toHaveAttribute(
+      'href',
+      /zeitraum=kommende/,
+    );
+
+    await page.goto('/uebersicht?zeitraum=alle');
+    await expect(page.getByRole('link', { name: 'Als CSV exportieren' })).toHaveAttribute(
+      'href',
+      /zeitraum=alle/,
+    );
+  });
+
+  test('den Bildschirm „Spiele nachpflegen“ gibt es nicht mehr', async ({ page }) => {
+    await loginAs(page, SEED.nele.phone);
+    await page.goto('/uebersicht');
+    await expect(page.getByRole('link', { name: /nachpflegen/i })).toHaveCount(0);
+
+    const antwort = await page.request.get('/nachpflegen');
+    expect(antwort.status()).toBe(404);
   });
 
   test('zeigt eine verschobene Partie im Schiedsrichter-Bereich als Rückfrage', async ({ page }) => {
@@ -260,7 +341,7 @@ test.describe('Adminbereich', () => {
     // Sechs Seitenaufbauten in einem Test — in dieser Umgebung dauert das.
     test.slow();
     await loginAs(page, SEED.nele.phone);
-    for (const path of ['/uebersicht', '/meldungen', '/anlegen', '/schiris', '/einstellungen', '/nachpflegen']) {
+    for (const path of ['/uebersicht', '/uebersicht?zeitraum=alle', '/meldungen', '/anlegen', '/schiris', '/einstellungen']) {
       await page.goto(path);
       await expectNoHorizontalScroll(page, path);
     }
@@ -277,7 +358,7 @@ test.describe('Adminbereich', () => {
     test.slow();
     await loginAs(page, SEED.nele.phone);
     await page.setViewportSize({ width: 320, height: 568 });
-    for (const path of ['/uebersicht', '/meldungen', '/anlegen', '/schiris', '/einstellungen', '/nachpflegen']) {
+    for (const path of ['/uebersicht', '/uebersicht?zeitraum=alle', '/meldungen', '/anlegen', '/schiris', '/einstellungen']) {
       await page.goto(path);
       await expectNoHorizontalScroll(page, path);
     }

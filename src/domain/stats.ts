@@ -1,6 +1,6 @@
 import { slotKind } from './slots';
 import { hasPassed } from './time';
-import type { Assignment, SlotIndex } from './types';
+import type { SlotIndex } from './types';
 
 /**
  * Einsatzzaehlung und Ranking. Regeln 25-28.
@@ -12,39 +12,29 @@ import type { Assignment, SlotIndex } from './types';
 /**
  * Regeln 25-27: Zaehlt dieser Eintrag als gepfiffenes Spiel?
  *
- * Ohne ausdrueckliche Angabe entscheidet der Platz: wer am Ende auf einem
- * Schiedsrichter-Platz steht, hat gepfiffen — auch wer dorthin nachgerueckt ist.
- * Ein Ersatz, der nie zum Einsatz kam, zaehlt nicht. Setzt der Admin
- * `playedAsReferee` ausdruecklich, gilt seine Korrektur.
+ * Der Platz entscheidet, und zwar allein: wer zum Anpfiff auf Schiri 1 oder
+ * Schiri 2 steht, hat gepfiffen — auch wer dorthin nachgerueckt ist. Ein
+ * Ersatz, der auf der Bank blieb, zaehlt nicht.
+ *
+ * Frueher konnte der Admin das unter "Spiele nachpflegen" ueberstimmen. Der
+ * Bildschirm ist weg, und zwar aus einem Grund: er verlangte nach *jedem*
+ * vergangenen Spiel mit Ersatz eine Entscheidung, die fast immer "nein"
+ * lautete, und bis sie getroffen war, stand die Abrechnungszahl auf
+ * "ungeklaert". Die Besetzung zum Anpfiff ist die bessere Auskunft, weil sie
+ * ohne Zutun stimmt. Stimmt sie ausnahmsweise nicht, aendert der Admin die
+ * Besetzung des vergangenen Spiels — dort, wo sie steht.
  */
-export const countsAsRefereed = (slotIndex: SlotIndex, assignment: Assignment): boolean =>
-  assignment.playedAsReferee ?? slotKind(slotIndex) === 'referee';
+export const countsAsRefereed = (slotIndex: SlotIndex): boolean =>
+  slotKind(slotIndex) === 'referee';
 
 export interface CountableEntry {
   slotIndex: SlotIndex;
-  assignment: Assignment;
   kickoff: Date;
 }
 
 /** Nur angepfiffene Spiele zaehlen — kommende Eintragungen sind noch keine Einsaetze. */
 export const countRefereedGames = (entries: readonly CountableEntry[], now: Date): number =>
-  entries.filter((e) => hasPassed(e.kickoff, now) && countsAsRefereed(e.slotIndex, e.assignment))
-    .length;
-
-/**
- * Eintraege, bei denen der Admin nachpflegen muss: ein Ersatz, dessen Spiel
- * vorbei ist und bei dem noch niemand entschieden hat, ob er im Einsatz war.
- */
-export const needsPlayedDecision = (
-  entries: readonly CountableEntry[],
-  now: Date,
-): readonly CountableEntry[] =>
-  entries.filter(
-    (e) =>
-      hasPassed(e.kickoff, now) &&
-      slotKind(e.slotIndex) === 'substitute' &&
-      e.assignment.playedAsReferee === null,
-  );
+  entries.filter((e) => hasPassed(e.kickoff, now) && countsAsRefereed(e.slotIndex)).length;
 
 export interface RankingInput {
   refereeId: string;

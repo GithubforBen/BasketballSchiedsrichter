@@ -219,6 +219,117 @@ a {
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
   border-bottom: 2px solid var(--color-divider);
+  /* Bezugspunkt fuer das aufgeklappte Menue darunter. */
+  position: relative;
+  /*
+   * Umbrechen statt hinausragen. Auf 320px standen Menue-Knopf, Name und
+   * "Anmelden" zusammen 19 Pixel zu breit und schoben die ganze Seite nach
+   * rechts — sichtbar als waagerechtes Scrollen auf *jedem* Bildschirm, denn
+   * die Kopfzeile ist ueberall dieselbe.
+   */
+  flex-wrap: wrap;
+}
+
+/* — Das Menue in der Kopfzeile — */
+
+/*
+ * Alle Ziele am Handy.
+ *
+ * Unter 1024px gibt es keine Seitenleiste, und die Tab-Leiste traegt vier
+ * Ziele. Der Adminbereich hat elf: Einstellungen, Nachrichten-Protokoll,
+ * Nachpflegen und der gesamte eigene Bereich waren damit nur ueber die
+ * Adresszeile zu erreichen. Hier stehen sie wieder.
+ *
+ * Ab 1024px verschwindet das Menue: dort steht dasselbe in der Seitenleiste,
+ * und zwei Wege zum selben Ziel nebeneinander sind einer zu viel.
+ */
+.shell-menu {
+  flex: none;
+}
+
+.shell-menu-button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px var(--space-3);
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 13px;
+  border: 2px solid var(--color-divider);
+  cursor: pointer;
+  /* Das Dreieck der Voreinstellung ersetzt der eigene Balkenstapel. */
+  list-style: none;
+}
+
+.shell-menu-button::-webkit-details-marker {
+  display: none;
+}
+
+/*
+ * Unter 360px bleibt nur das Symbol. Drei Elemente nebeneinander — Menue,
+ * Vereinsname, Anmelden — passen dort nicht mehr, und von den dreien ist das
+ * Wort "Menü" das entbehrlichste: der Balkenstapel ist eindeutig, und der
+ * Name des Knopfes steht weiterhin im `aria-label`.
+ */
+@media (max-width: 359px) {
+  .shell-menu-label {
+    display: none;
+  }
+}
+
+.shell-menu[open] .shell-menu-button {
+  border-color: var(--color-accent);
+  color: var(--color-accent-700);
+}
+
+/*
+ * Drei Balken, aus Rahmen gebaut statt als Bild: sie folgen damit der
+ * Textfarbe, auch wenn der Knopf gerade offen ist.
+ */
+.shell-menu-icon {
+  width: 16px;
+  height: 12px;
+  border-top: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  position: relative;
+}
+
+.shell-menu-icon::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  border-top: 2px solid currentColor;
+  transform: translateY(-1px);
+}
+
+/*
+ * Das aufgeklappte Feld legt sich ueber den Inhalt, statt ihn wegzuschieben:
+ * wer das Menue wieder zuklappt, soll dieselbe Stelle der Seite vor sich
+ * haben wie vorher.
+ */
+.shell-menu-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: var(--space-4) 0;
+  background: var(--color-bg);
+  border-bottom: 2px solid var(--color-divider);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+/*
+ * Im Menue steht die Fusszeile der Navigation direkt unter den Gruppen.
+ * `margin-top: auto` schoebe sie in der Seitenleiste ans untere Ende — hier
+ * gibt es kein unteres Ende, nur die naechste Zeile.
+ */
+.shell-menu-panel .nav-footer {
+  margin-top: var(--space-5);
 }
 
 .shell-brand {
@@ -295,6 +406,10 @@ a {
   }
 
   .shell-tabbar {
+    display: none;
+  }
+
+  .shell-menu {
     display: none;
   }
 }
@@ -657,6 +772,17 @@ a {
 /* Der oeffentliche Spielplan: sieben Spalten. */
 .table-schedule {
   min-width: 820px;
+}
+
+/*
+ * Die Schiedsrichter als Namen, einer je Zeile — in der Spieluebersicht der
+ * Angemeldeten. Zwei Namen nebeneinander braechen mitten im Namen um.
+ */
+.referee-names {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
 }
 
 /* Die Verwaltungsuebersicht: zwei Spalten mehr, dazu der Bearbeiten-Knopf. */
@@ -1136,6 +1262,44 @@ a {
  * ausserhalb des Bildes. Die Null als Minimum bricht diese Kette: die Spur
  * folgt dem Fenster, der Rahmen schneidet wieder ab.
  */
+/*
+ * Austragen und Ersatz anfordern an den eigenen Spielen. Am Rechner steht das
+ * in einer eigenen Tabellenzeile unter dem Spiel, ueber die ganze Breite —
+ * in einer siebten Spalte waeren die Begruendungen auf ein paar Worte je
+ * Zeile zusammengedrueckt worden.
+ */
+.own-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-6);
+  margin-top: var(--space-2);
+}
+
+.own-action {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.own-action-note {
+  flex: 1 1 180px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Die Aktionszeile gehoert zum Spiel darueber: keine Trennlinie dazwischen. */
+.table tr.row-with-actions > td {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.table tr.row-actions > td {
+  padding-top: 0;
+}
+
 .calendar-grid {
   display: grid;
   gap: var(--space-8);

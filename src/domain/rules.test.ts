@@ -15,10 +15,13 @@ import {
   canRequestSubstitute,
   canWithdraw,
   claimableSlot,
+  handoverSlot,
   isQualified,
+  nextSubstituteToAsk,
   qualifiedReferees,
   type ClaimContext,
 } from './rules';
+import type { Game, Referee } from './types';
 
 const claim = (overrides: Partial<ClaimContext> = {}) =>
   canClaimSlot({
@@ -362,18 +365,29 @@ describe('Regel 7 — Austragen bis drei Wochen vor Anpfiff', () => {
   });
 });
 
-describe('Regel 8 — Ersatz anfordern bis drei Tage vor Anpfiff', () => {
+describe('Regel 8 — Ersatz anfordern heisst: das Spiel abgeben', () => {
+  /*
+   * Was der Knopf tut, hat sich umgedreht. Frueher rief er weitere Leute auf,
+   * sich als Ersatz **einzutragen**, und verlangte dafuer einen *freien*
+   * Ersatzplatz. Jetzt fragt er den vordersten eingetragenen Ersatz, ob er das
+   * Spiel **uebernimmt** — und verlangt dafuer einen *besetzten*.
+   */
   const request = (
     kickoff: Date,
-    occupants: readonly (string | null)[] = ['r-jk', 'b', null, null],
-    overrides = {},
+    occupants: readonly (string | null)[] = ['r-jk', 'b', 'c', null],
+    extra: {
+      overrides?: Game['overrides'];
+      referee?: Referee;
+      pendingRequest?: boolean;
+    } = {},
   ) =>
     canRequestSubstitute({
-      game: makeGame({ kickoff, ...overrides }),
+      game: makeGame(extra.overrides ? { kickoff, overrides: extra.overrides } : { kickoff }),
       slots: slotsFrom(occupants),
-      referee: makeReferee(),
+      referee: extra.referee ?? makeReferee(),
       settings: settings(),
       now: NOW,
+      ...(extra.pendingRequest === undefined ? {} : { pendingRequest: extra.pendingRequest }),
     });
 
   it('erlaubt es deutlich vor der Frist', () => {
@@ -392,66 +406,131 @@ describe('Regel 8 — Ersatz anfordern bis drei Tage vor Anpfiff', () => {
   });
 
   it('erlaubt es nach der Frist, wenn der Admin freigegeben hat', () => {
-    const result = request(inDays(1), ['r-jk', 'b', null, null], {
+    const result = request(inDays(1), ['r-jk', 'b', 'c', null], {
       overrides: { withdraw: false, substituteRequest: true, oneGamePerDay: false },
     });
     expect(result.allowed).toBe(true);
   });
 
+  it('erlaubt es auch von Schiri 2 aus', () => {
+    expect(request(inDays(10), ['a', 'r-jk', 'c', null]).allowed).toBe(true);
+  });
+
   it('lehnt ab, wenn die Person selbst nicht eingetragen ist', () => {
-    expect(request(inDays(10), ['a', 'b', null, null])).toMatchObject({
+    expect(request(inDays(10), ['a', 'b', 'c', null])).toMatchObject({
       allowed: false,
       reason: 'not-assigned',
     });
   });
 
-  it('lehnt ab, wenn beide Ersatzplaetze schon besetzt sind — die Nachricht haette keinen Adressaten', () => {
-    expect(request(inDays(10), ['r-jk', 'b', 'c', 'd'])).toMatchObject({
+  it('lehnt ab, wenn die Person nur auf einem Ersatzplatz steht', () => {
+    /*
+     * Abgeben kann nur, wer etwas abzugeben hat. Ein Ersatz traegt sich aus,
+     * er reicht das Spiel nicht weiter.
+     */
+    expect(request(inDays(10), ['a', 'b', 'r-jk', 'c'])).toMatchObject({
       allowed: false,
-      reason: 'no-open-substitute-slot',
+      reason: 'not-assigned',
+    });
+  });
+
+  it('lehnt ab, wenn kein Ersatz eingetragen ist — es gibt niemanden zu fragen', () => {
+    expect(request(inDays(10), ['r-jk', 'b', null, null])).toMatchObject({
+      allowed: false,
+      reason: 'no-substitute-available',
+    });
+  });
+
+  it('erlaubt es, wenn nur Ersatz 2 besetzt ist', () => {
+    /*
+     * Eine Luecke auf der Bank ist kein Grund, niemanden zu fragen — gefragt
+     * wird der vorderste *besetzte* Platz, nicht stur Ersatz 1.
+     */
+    expect(request(inDays(10), ['r-jk', 'b', null, 'd']).allowed).toBe(true);
+  });
+
+  it('lehnt eine zweite Anfrage ab, solange die erste laeuft', () => {
+    expect(request(inDays(10), ['r-jk', 'b', 'c', 'd'], { pendingRequest: true })).toMatchObject({
+      allowed: false,
+      reason: 'request-running',
+    });
+  });
+
+  it('lehnt ab, wenn das Spiel abgesagt ist', () => {
+    const result = canRequestSubstitute({
+      game: makeGame({ kickoff: inDays(10), state: 'cancelled' }),
+      slots: slotsFrom(['r-jk', 'b', 'c', null]),
+      referee: makeReferee(),
+      settings: settings(),
+      now: NOW,
+    });
+    expect(result).toMatchObject({ allowed: false, reason: 'game-cancelled' });
+  });
+
+  it('lehnt nach dem Anpfiff ab', () => {
+    expect(request(inDays(-1))).toMatchObject({ allowed: false, reason: 'kickoff-passed' });
+  });
+});
+
+describe('Regel 8 — derselbe Vorgang, ausgeloest vom Admin', () => {
+  const admin = makeReferee({ id: 'r-admin', role: 'admin' });
+
+  const request = (occupants: readonly (string | null)[]) =>
+    canRequestSubstitute({
+      game: makeGame({ kickoff: inDays(10) }),
+      slots: slotsFrom(occupants),
+      referee: admin,
+      settings: settings(),
+      now: NOW,
+    });
+
+  it('erlaubt es fuer einen geraeumten Schiedsrichter-Platz', () => {
+    expect(request([null, 'b', 'c', null]).allowed).toBe(true);
+  });
+
+  it('verlangt, dass vorher jemand ausgetragen wurde', () => {
+    /*
+     * Solange beide Plaetze besetzt sind, gibt es nichts abzugeben. Der Admin
+     * traegt erst jemanden aus — dann steht der Platz leer und kann an den
+     * Ersatz gehen.
+     */
+    expect(request(['a', 'b', 'c', null])).toMatchObject({
+      allowed: false,
+      reason: 'not-assigned',
+    });
+  });
+
+  it('gibt den eigenen Platz ab, wenn der Admin selbst eingeteilt ist', () => {
+    /*
+     * Ein Admin, der selbst pfeift, geht denselben Weg wie jeder andere:
+     * abgegeben wird sein Platz, nicht irgendein leerer.
+     */
+    const slots = slotsFrom(['r-admin', null, 'c', null]);
+    expect(handoverSlot(slots, admin)?.index).toBe(0);
+  });
+
+  it('braucht auch beim Admin einen eingetragenen Ersatz', () => {
+    expect(request([null, 'b', null, null])).toMatchObject({
+      allowed: false,
+      reason: 'no-substitute-available',
     });
   });
 });
 
-describe('Regel 9 — beide Fristen sind vereinsweit einstellbar', () => {
-  it('folgt einer verkuerzten Austragefrist', () => {
-    const short = settings({ withdrawDeadlineDays: 7 });
-    const context = {
-      game: makeGame({ kickoff: inDays(10) }),
-      slots: slotsFrom(['r-jk', 'b', null, null]),
-      referee: makeReferee(),
-      settings: short,
-      now: NOW,
-    };
-    expect(canWithdraw(context).allowed).toBe(true);
-    expect(canWithdraw({ ...context, settings: settings({ withdrawDeadlineDays: 21 }) })).toMatchObject(
-      { allowed: false, reason: 'withdraw-deadline-passed' },
-    );
+describe('Wer als naechstes gefragt wird', () => {
+  it('nimmt den vordersten besetzten Ersatzplatz', () => {
+    expect(nextSubstituteToAsk(slotsFrom(['a', 'b', 'c', 'd']))?.index).toBe(2);
   });
 
-  it('folgt einer verlaengerten Ersatzfrist', () => {
-    const context = {
-      game: makeGame({ kickoff: inDays(5) }),
-      slots: slotsFrom(['r-jk', 'b', null, null]),
-      referee: makeReferee(),
-      settings: settings({ substituteRequestDeadlineDays: 7 }),
-      now: NOW,
-    };
-    expect(canRequestSubstitute(context)).toMatchObject({
-      allowed: false,
-      reason: 'substitute-request-deadline-passed',
-    });
+  it('ueberspringt eine Luecke auf der Bank', () => {
+    expect(nextSubstituteToAsk(slotsFrom(['a', 'b', null, 'd']))?.index).toBe(3);
   });
 
-  it('nennt die eingestellte Frist im Ablehnungstext, nicht eine fest verdrahtete Zahl', () => {
-    const result = canWithdraw({
-      game: makeGame({ kickoff: inDays(2) }),
-      slots: slotsFrom(['r-jk', 'b', null, null]),
-      referee: makeReferee(),
-      settings: settings({ withdrawDeadlineDays: 14 }),
-      now: NOW,
-    });
-    expect(result.allowed).toBe(false);
-    if (!result.allowed) expect(result.message).toContain('14 Tage');
+  it('meldet eine leere Bank als null', () => {
+    expect(nextSubstituteToAsk(slotsFrom(['a', 'b', null, null]))).toBeNull();
+  });
+
+  it('sieht Schiedsrichter-Plaetze nicht als Ersatz an', () => {
+    expect(nextSubstituteToAsk(slotsFrom(['a', 'b', null, null]))).toBeNull();
   });
 });

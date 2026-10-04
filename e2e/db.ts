@@ -271,7 +271,13 @@ export const hasQualification = async (refereeId: string, leagueId: string): Pro
 /** Setzt eine Einstellung zurück. */
 export const resetSettings = async (): Promise<void> => {
   await sql`UPDATE settings SET withdraw_deadline_days = 21, substitute_request_deadline_days = 3,
-            confirmation_lead_hours = 72, reminder_limit = 10 WHERE id = 1`;
+            confirmation_lead_hours = 72, reminder_limit = 10, one_game_per_day = true
+            WHERE id = 1`;
+};
+
+/** Schaltet Regel 6 — ein Spiel pro Tag — im Verein an oder aus. */
+export const setOneGamePerDay = async (on: boolean): Promise<void> => {
+  await sql`UPDATE settings SET one_game_per_day = ${on} WHERE id = 1`;
 };
 
 /** Die Austragefrist aus den Einstellungen. */
@@ -279,4 +285,25 @@ export const withdrawDeadline = async (): Promise<number> => {
   const rows = await sql<{ d: number }[]>`
     SELECT withdraw_deadline_days AS d FROM settings WHERE id = 1`;
   return rows[0]?.d ?? 21;
+};
+
+/** Die laufende Ersatz-Anfrage eines Spiels — Id und Empfänger. Regel 8. */
+export const pendingOfferFor = async (
+  gameId: string,
+): Promise<{ id: string; refereeId: string; substituteSlot: number } | null> => {
+  const rows = await sql<
+    { id: string; referee_id: string; substitute_slot: number }[]
+  >`SELECT id, referee_id, substitute_slot FROM promotion_offers
+    WHERE game_id = ${gameId} AND outcome = 'pending'
+    ORDER BY created_at DESC LIMIT 1`;
+  const row = rows[0];
+  return row ? { id: row.id, refereeId: row.referee_id, substituteSlot: row.substitute_slot } : null;
+};
+
+/** Die Belegung eines Spiels als „Platz:Person“, nach Platz sortiert. */
+export const occupantsOf = async (gameId: string): Promise<readonly string[]> => {
+  const rows = await sql<{ slot_index: number; referee_id: string }[]>`
+    SELECT slot_index, referee_id FROM assignments WHERE game_id = ${gameId}
+    ORDER BY slot_index`;
+  return rows.map((row) => `${row.slot_index}:${row.referee_id}`);
 };

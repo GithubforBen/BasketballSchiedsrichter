@@ -37,12 +37,32 @@ import type { NextConfig } from 'next';
  * Nichts davon laedt von aussen: Schriften liegen unter /schriften, es gibt
  * kein fremdes Skript und kein fremdes Bild. `'self'` reicht deshalb ueberall.
  */
+/*
+ * Im Entwicklungsbetrieb kommt `'unsafe-eval'` dazu — und nur dort.
+ *
+ * Next laedt seine Module waehrend `next dev` ueber einen Webpack-Runtime, der
+ * `eval` benutzt; dasselbe gilt fuer React Refresh. Ohne diese Erlaubnis
+ * bricht das Skript beim Start mit einer CSP-Verletzung ab, und die Seite
+ * **hydratisiert gar nicht**: jedes Kaestchen, jeder Regler, jeder Knopf mit
+ * `onClick` bleibt stumm. Der Fehler steht nur in der Browserkonsole — auf der
+ * Seite sieht alles richtig aus, es passiert nur nichts.
+ *
+ * Genau das macht die Zeile noetig: ohne sie laesst sich kein interaktiver
+ * Baustein vor dem Produktivgang ausprobieren, und ein Fehler darin faellt
+ * erst dort auf. Der gebaute Server braucht `eval` nicht und bekommt es auch
+ * nicht — die strenge Richtlinie bleibt dort unveraendert.
+ */
+const SCRIPT_SRC =
+  process.env.NODE_ENV === 'production'
+    ? "script-src 'self' 'unsafe-inline'"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+
 const SECURITY_HEADERS = [
   {
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      SCRIPT_SRC,
       // Das Design-System setzt Abstaende ueber `style`-Attribute am Element.
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data:",

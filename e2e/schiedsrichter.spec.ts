@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import {
   answerLinkFor,
   createGame,
@@ -6,6 +6,8 @@ import {
   dropGame,
   initialsOf,
   markRelocated,
+  occupantsOf,
+  pendingOfferFor,
   placeReferee,
   reminderCount,
   resetAssignments,
@@ -180,16 +182,23 @@ test.describe('Offene Spiele', () => {
     await expect(page.getByText(/Spiel verschoben/)).toHaveCount(0);
   });
 
-  test('zeigt fremde Belegungen als Kürzel', async ({ page }) => {
+  test('zeigt fremde Belegungen mit vollem Namen', async ({ page }) => {
+    /*
+     * Frueher stand hier das Kuerzel. Angemeldet ist der Name keine
+     * vertrauliche Angabe, und niemand soll die Kuerzel aller anderen kennen
+     * muessen — ohne Anmeldung bleibt es beim Kuerzel (siehe
+     * oeffentliche-ansicht.spec.ts).
+     */
     const game = (await upcomingGameIds())[0];
     expect(game, 'kein kommendes Spiel im Seed').toBeDefined();
     await placeReferee(game ?? '', 0, SEED.lena.id);
 
     await loginAs(page, SEED.jonas.phone);
     await page.goto('/spiele');
+    await expect(page.locator('.slot-who').filter({ hasText: SEED.lena.name }).first()).toBeVisible();
     await expect(
-      page.getByText(await initialsOf(SEED.lena.id), { exact: true }).first(),
-    ).toBeVisible();
+      page.locator('.slot-who').getByText(await initialsOf(SEED.lena.id), { exact: true }),
+    ).toHaveCount(0);
   });
 });
 
@@ -425,5 +434,176 @@ test.describe('Der Antwortlink aus der Nachricht', () => {
     await expect(
       page.getByRole('heading', { name: 'Dieser Link führt nicht weiter', level: 1 }),
     ).toBeVisible();
+  });
+});
+
+test.describe('Regel 8 — das Spiel abgeben', () => {
+  test.beforeEach(async () => {
+    await resetAssignments();
+  });
+
+  /*
+   * Der Knopf steht in „Kalender & Verlauf“, an den eigenen Spielen — nicht
+   * mehr in „Offene Spiele“. Die Seite zeichnet die Liste zweimal: am Rechner
+   * als Tabelle, am Telefon als Karten, und je nach Breite ist eine davon
+   * ausgeblendet. `:visible` nimmt die, die man gerade sieht.
+   */
+  const eigeneKarte = (page: Page) => page.locator('.own-actions:visible');
+
+  /*
+   * Der ganze Weg in einem Test, weil er als Ganzes gilt: Jonas gibt ab, Lena
+   * sitzt auf der Bank und bekommt den Link, sie sagt zu — danach steht sie
+   * auf seinem Platz und er ist raus.
+   */
+  test('fragt den Ersatz und tauscht bei einer Zusage die Plätze', async ({ page }) => {
+    const game = (await upcomingGameIds())[0] ?? '';
+    await placeReferee(game, 0, SEED.jonas.id);
+    await placeReferee(game, 1, SEED.nele.id);
+    await placeReferee(game, 2, SEED.lena.id);
+
+    await loginAs(page, SEED.jonas.phone);
+    await page.goto('/kalender');
+
+    const knopf = eigeneKarte(page).getByRole('button', { name: 'Ersatz anfordern' });
+    await expect(knopf).toBeEnabled();
+    await knopf.click();
+    await expect(formSuccess(page)).toBeVisible();
+
+    const offer = await pendingOfferFor(game);
+    expect(offer?.refereeId).toBe(SEED.lena.id);
+
+    /* Bis zur Antwort bleibt alles, wie es war. */
+    expect(await occupantsOf(game)).toEqual([
+      `0:${SEED.jonas.id}`,
+      `1:${SEED.nele.id}`,
+      `2:${SEED.lena.id}`,
+    ]);
+
+    await page.context().clearCookies();
+    await page.goto(await answerLinkFor('promotion', game, SEED.lena.id, offer?.id ?? ''));
+    await page.getByRole('button', { name: 'Ja, ich übernehme' }).click();
+    /*
+     * Erst die Quittung abwarten, dann in die Datenbank sehen. Ohne diese
+     * Zeile liest der Test den Stand, bevor die Server-Aktion ihn geschrieben
+     * hat — und scheitert je nach Laufzeit mal so, mal so.
+     */
+    await expect(page.getByText(/nachgerückt|stehst jetzt/)).toBeVisible();
+
+    expect(await occupantsOf(game)).toEqual([`0:${SEED.lena.id}`, `1:${SEED.nele.id}`]);
+  });
+
+  test('nimmt den Absagenden von der Bank und fragt den nächsten', async ({ page }) => {
+    const game = (await upcomingGameIds())[0] ?? '';
+    await placeReferee(game, 0, SEED.jonas.id);
+    await placeReferee(game, 2, SEED.lena.id);
+    await placeReferee(game, 3, SEED.nele.id);
+
+    await loginAs(page, SEED.jonas.phone);
+    await page.goto('/kalender');
+    await eigeneKarte(page).getByRole('button', { name: 'Ersatz anfordern' }).click();
+    await expect(formSuccess(page)).toBeVisible();
+
+    const erste = await pendingOfferFor(game);
+    expect(erste?.refereeId).toBe(SEED.lena.id);
+
+    await page.context().clearCookies();
+    await page.goto(await answerLinkFor('promotion', game, SEED.lena.id, erste?.id ?? ''));
+    await page.getByRole('button', { name: 'Nein, ich kann nicht' }).click();
+    await expect(page.getByText(/aus diesem Spiel raus/)).toBeVisible();
+
+    /* Lena ist raus, Nele rückt von Ersatz 2 auf Ersatz 1 — und ist gefragt. */
+    expect(await occupantsOf(game)).toEqual([`0:${SEED.jonas.id}`, `2:${SEED.nele.id}`]);
+    const zweite = await pendingOfferFor(game);
+    expect(zweite?.refereeId).toBe(SEED.nele.id);
+    expect(zweite?.substituteSlot).toBe(2);
+  });
+
+  test('sperrt den Knopf ohne Ersatz und nennt den Grund', async ({ page }) => {
+    const game = (await upcomingGameIds())[0] ?? '';
+    await placeReferee(game, 0, SEED.jonas.id);
+
+    await loginAs(page, SEED.jonas.phone);
+    await page.goto('/kalender');
+
+    const karte = eigeneKarte(page);
+    await expect(karte.getByRole('button', { name: 'Ersatz anfordern' })).toBeDisabled();
+    await expect(karte.getByText(/kein Ersatz eingetragen/)).toBeVisible();
+  });
+
+  test('lädt niemanden mehr ein, sich zusätzlich als Ersatz einzutragen', async ({ page }) => {
+    /*
+     * Die alte Bedeutung des Knopfes: er schrieb den freien Ersatzplatz aus.
+     * Sie ist weg, und der Hinweistext darf sie nicht mehr versprechen.
+     */
+    const game = (await upcomingGameIds())[0] ?? '';
+    await placeReferee(game, 0, SEED.jonas.id);
+    await placeReferee(game, 2, SEED.lena.id);
+
+    await loginAs(page, SEED.jonas.phone);
+    await page.goto('/kalender');
+
+    await expect(eigeneKarte(page).getByText(/Ersatz 1 wird gefragt/)).toBeVisible();
+    await expect(page.getByText(/geht an alle mit Qualifikation/)).toHaveCount(0);
+  });
+});
+
+test.describe('Offene Spiele und die eigenen Spiele', () => {
+  test.beforeEach(async () => {
+    await resetAssignments();
+  });
+
+  test('„Offene Spiele“ bietet Austragen, aber kein Ersatz anfordern mehr', async ({ page }) => {
+    /*
+     * Die Seite ist zum Eintragen da. Ein Spiel abgeben gehoert zu den
+     * eigenen Spielen — in „Kalender & Verlauf“.
+     */
+    const game = (await upcomingGameIds())[0] ?? '';
+    await placeReferee(game, 0, SEED.jonas.id);
+    await placeReferee(game, 2, SEED.lena.id);
+
+    await loginAs(page, SEED.jonas.phone);
+    await page.goto(`/spiele?tag=${await dayKeyOfGame(game)}`);
+
+    await expect(page.locator('.slot-mine').getByRole('button', { name: 'Austragen' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ersatz anfordern' })).toHaveCount(0);
+  });
+
+  test('trägt sich aus „Kalender & Verlauf“ heraus aus', async ({ page }) => {
+    /* Ein Spiel weit jenseits der Austragefrist — die Seed-Spiele liegen dafuer zu nah. */
+    const id = 'e2e-kalender-austragen';
+    await createGame(id, 40);
+    try {
+      await placeReferee(id, 0, SEED.jonas.id);
+      await loginAs(page, SEED.jonas.phone);
+      await page.goto('/kalender');
+
+      const aktionen = page.locator('.own-actions:visible');
+      await expect(aktionen).toHaveCount(1);
+      await aktionen.getByRole('button', { name: 'Austragen' }).click();
+      await expect(formSuccess(page)).toBeVisible();
+      /* Die Rueckmeldung steht im Kalender — dort, wo der Knopf war. */
+      await expect(page).toHaveURL(/\/kalender/);
+      expect(await occupantsOf(id)).toEqual([]);
+    } finally {
+      await dropGame(id);
+    }
+  });
+
+  test('bietet Ersatz anfordern nur auf einem Schiedsrichter-Platz an', async ({ page }) => {
+    const id = 'e2e-kalender-ersatzbank';
+    await createGame(id, 40);
+    try {
+      await placeReferee(id, 0, SEED.lena.id);
+      await placeReferee(id, 1, SEED.nele.id);
+      await placeReferee(id, 2, SEED.jonas.id);
+      await loginAs(page, SEED.jonas.phone);
+      await page.goto('/kalender');
+
+      const aktionen = page.locator('.own-actions:visible');
+      await expect(aktionen.getByRole('button', { name: 'Austragen' })).toBeVisible();
+      await expect(aktionen.getByRole('button', { name: 'Ersatz anfordern' })).toHaveCount(0);
+    } finally {
+      await dropGame(id);
+    }
   });
 });

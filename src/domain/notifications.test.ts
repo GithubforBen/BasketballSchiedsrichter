@@ -7,6 +7,7 @@ import {
   dailyDigestIntent,
   costUnits,
   deduplicate,
+  manualOpenSlotReminderIntent,
   openSlotAnnouncementIntent,
   personalReminderIntent,
   promotionOfferIntent,
@@ -37,6 +38,24 @@ describe('Regel 32 — der Admin erinnert alle Qualifizierten an offene Spiele',
     expect(openSlotAnnouncementIntent('g1', ['a'], 0, 1).key).not.toBe(
       openSlotAnnouncementIntent('g1', ['a'], 0, 2).key,
     );
+  });
+});
+
+describe('Regel 32 — die Erinnerung von Hand unter „Meldungen“', () => {
+  it('ist dieselbe Nachricht wie die Ausschreibung, mit eigenem Schluessel', () => {
+    const manual = manualOpenSlotReminderIntent('g1', ['a', 'b'], '2026-08-01T12:00');
+    expect(manual.kind).toBe('open-slot-announcement');
+    expect(manual.recipientIds).toEqual(['a', 'b']);
+    /* Sie verbraucht keine Stufe des Zeitplans und wird von keiner verschluckt. */
+    for (const round of [0, 1, 2, 3, 4]) {
+      expect(manual.key).not.toBe(openSlotAnnouncementIntent('g1', ['a'], 0, round).key);
+    }
+  });
+
+  it('geht bei einem Doppelklick einmal raus, eine Stunde spaeter aber erneut', () => {
+    const first = manualOpenSlotReminderIntent('g1', ['a'], '2026-08-01T12:00');
+    expect(manualOpenSlotReminderIntent('g1', ['a'], '2026-08-01T12:00').key).toBe(first.key);
+    expect(manualOpenSlotReminderIntent('g1', ['a'], '2026-08-01T13:00').key).not.toBe(first.key);
   });
 });
 

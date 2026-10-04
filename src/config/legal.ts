@@ -82,7 +82,7 @@ export const LEGAL: LegalConfig = {
   dataProtectionEmail: 'medienwart.bb.scb@gmail.com',
   supervisoryAuthority:
     'Der Hessische Beauftragte für Datenschutz und Informationsfreiheit, Postfach 3163, 65021 Wiesbaden',
-  privacyPolicyDate: '2026-09-09',
+  privacyPolicyDate: '2026-09-25',
   reviewed: true,
 };
 

@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { LEGAL, missingLegalFields } from '@/config/legal';
+import { createGame, dropGame, placeReferee, resetAssignments, upcomingGameIds } from './db';
+import { loginAs, SEED } from './helfer';
 
 /**
  * Die zentrale Zusicherung aus Meilenstein 2: ohne Anmeldung verlaesst kein
@@ -70,5 +72,69 @@ test.describe('Öffentliche Ansicht', () => {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow).toBeLessThanOrEqual(1);
+  });
+});
+
+/**
+ * Angemeldet wird die oeffentliche Ansicht zur Spieluebersicht: dieselben
+ * Spiele, aber mit vollen Namen — niemand soll die Kuerzel aller anderen
+ * kennen muessen. Verwaltet wird dort nichts.
+ */
+test.describe('Spielübersicht für Angemeldete', () => {
+  test.beforeEach(async () => {
+    await resetAssignments();
+  });
+
+  test('zeigt einem Schiedsrichter die vollen Namen', async ({ page }) => {
+    const game = (await upcomingGameIds())[0] ?? '';
+    await placeReferee(game, 0, SEED.lena.id);
+
+    await loginAs(page, SEED.jonas.phone);
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Spielübersicht', level: 1 })).toBeVisible();
+    /*
+     * `visible`: die Seite zeichnet jeden Spieltag zweimal — Tabelle am Rechner,
+     * Karten am Telefon — und blendet je nach Breite eine davon aus.
+     */
+    await expect(
+      page.locator('main').getByText(SEED.lena.name).filter({ visible: true }).first(),
+    ).toBeVisible();
+    /* Keine Verwaltung: weder Bearbeiten noch Export. */
+    await expect(page.getByRole('link', { name: 'Bearbeiten' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /CSV/ })).toHaveCount(0);
+  });
+
+  test('klappt die vergangenen Spiele auf Klick auf und wieder zu', async ({ page }) => {
+    const id = 'e2e-vergangen';
+    await createGame(id, -2);
+    try {
+      await placeReferee(id, 0, SEED.lena.id);
+      await loginAs(page, SEED.jonas.phone);
+      await page.goto('/');
+
+      await expect(page.getByText(/Vergangene Spiele · neueste zuerst/)).toHaveCount(0);
+      await page.getByRole('link', { name: 'Vergangene Spiele anzeigen' }).click();
+      await expect(page.getByText(/Vergangene Spiele · neueste zuerst/)).toBeVisible();
+      await expect(
+        page.locator('main').getByText('Testheim — Testgast').filter({ visible: true }).first(),
+      ).toBeVisible();
+
+      await page.getByRole('link', { name: 'Vergangene Spiele ausblenden' }).click();
+      await expect(page.getByText(/Vergangene Spiele · neueste zuerst/)).toHaveCount(0);
+    } finally {
+      await dropGame(id);
+    }
+  });
+
+  test('zeigt dem Admin weiterhin die öffentliche Ansicht mit Kürzeln', async ({ page }) => {
+    const game = (await upcomingGameIds())[0] ?? '';
+    await placeReferee(game, 0, SEED.jonas.id);
+
+    await loginAs(page, SEED.nele.phone);
+    const response = await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Spielplan', level: 1 })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Vergangene Spiele anzeigen' })).toHaveCount(0);
+    /* Die Seite traegt keinen fremden Namen — nur den eigenen in der Kopfzeile. */
+    expect((await response?.text()) ?? '').not.toContain(SEED.jonas.name);
   });
 });

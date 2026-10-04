@@ -155,7 +155,7 @@ const NewGames = async ({ searchParams }: PageProps) => {
 
             <div className="row" style={{ marginTop: 'var(--space-6)' }}>
               <Button type="submit" variant="primary">
-                Anlegen &amp; Schiedsrichter benachrichtigen
+                Anlegen
               </Button>
               <Link href="/uebersicht" className="btn btn-secondary">
                 Abbrechen

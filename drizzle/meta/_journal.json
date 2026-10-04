@@ -85,6 +85,27 @@
       "when": 1788882022918,
       "tag": "0011_sitzungsrueckruf",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789923630725,
+      "tag": "0012_ersatz_anfordern",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789923631725,
+      "tag": "0013_nachpflegen_entfaellt",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791128246767,
+      "tag": "0014_ersatz_erst_auf_knopfdruck",
+      "breakpoints": true
     }
   ]
 }

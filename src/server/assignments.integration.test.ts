@@ -241,14 +241,22 @@ suite('Besetzung', () => {
     expect(await occupants()).toHaveLength(1);
   });
 
-  it('Regel 8: Ersatz anfordern nur, wenn man selbst eingetragen ist', async () => {
+  it('Regel 8: Ersatz anfordern verlangt einen eigenen Platz und einen Ersatz', async () => {
     await makeGame(gameId, inDays(30));
+
     const outsider = await requestSubstitute(gameId, a);
     expect(outsider.ok).toBe(false);
+    expect(outsider.message).toContain('selbst');
 
     await claimNextSlot(gameId, a);
-    const inside = await requestSubstitute(gameId, a);
-    expect(inside.ok).toBe(true);
+    const leereBank = await requestSubstitute(gameId, a);
+    expect(leereBank.ok).toBe(false);
+    expect(leereBank.message).toContain('kein Ersatz');
+
+    await claimNextSlot(gameId, b);
+    await claimNextSlot(gameId, c);
+    const mitBank = await requestSubstitute(gameId, a);
+    expect(mitBank.ok, mitBank.message).toBe(true);
   });
 
   it('Regel 10: bestätigen setzt den Haken, und nur auf Schiedsrichter-Plätzen', async () => {
@@ -329,6 +337,200 @@ suite('Besetzung', () => {
     } finally {
       await setReceipt(true);
     }
+  });
+
+
+  describe('Regel 8: das Spiel abgeben — die ganze Kette', () => {
+    const offers = async () => {
+      const rows = await sql<
+        {
+          kind: string;
+          referee_id: string;
+          substitute_slot: number;
+          target_slot: number;
+          outcome: string;
+          replaces_referee_id: string | null;
+        }[]
+      >`SELECT kind, referee_id, substitute_slot, target_slot, outcome, replaces_referee_id
+        FROM promotion_offers WHERE game_id = ${gameId} ORDER BY created_at`;
+      return rows.map((row) => ({
+        ...row,
+        referee_id: row.referee_id.replace(`${prefix}-`, ''),
+        replaces_referee_id: row.replaces_referee_id?.replace(`${prefix}-`, '') ?? null,
+      }));
+    };
+
+    const latestOfferId = async () => {
+      const rows = await sql<{ id: string }[]>`
+        SELECT id FROM promotion_offers WHERE game_id = ${gameId}
+        ORDER BY created_at DESC LIMIT 1`;
+      return rows[0]?.id ?? '';
+    };
+
+    /** a auf Schiri 1, b auf Schiri 2, c auf Ersatz 1. */
+    const besetzt = async () => {
+      await makeGame(gameId, inDays(30));
+      await claimNextSlot(gameId, a);
+      await claimNextSlot(gameId, b);
+      await claimNextSlot(gameId, c);
+    };
+
+    it('fragt genau einen Ersatz und laesst die Besetzung zunaechst unberuehrt', async () => {
+      await besetzt();
+      const result = await requestSubstitute(gameId, a);
+      expect(result.ok, result.message).toBe(true);
+
+      /*
+       * Der Abgebende bleibt auf seinem Platz, bis jemand zusagt. Ein Spiel,
+       * das zwischendurch unbesetzt dasteht, waere schlechter als eines mit
+       * einem Schiedsrichter, der noch sucht.
+       */
+      expect(await occupants()).toEqual([`0:a`, `1:b`, `2:c`]);
+      expect(await offers()).toEqual([
+        {
+          kind: 'handover',
+          referee_id: 'c',
+          substitute_slot: 2,
+          target_slot: 0,
+          outcome: 'pending',
+          replaces_referee_id: 'a',
+        },
+      ]);
+    });
+
+    it('legt genau eine Nachricht in die Outbox — nicht eine an alle', async () => {
+      await besetzt();
+      await requestSubstitute(gameId, a);
+      const rows = await sql<{ recipient_id: string; kind: string }[]>`
+        SELECT recipient_id, kind FROM notification_outbox
+        WHERE game_id = ${gameId} AND kind = 'promotion-offer'`;
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.recipient_id).toBe(c);
+    });
+
+    it('laesst keine zweite Anfrage zu, solange die erste laeuft', async () => {
+      await besetzt();
+      await requestSubstitute(gameId, a);
+      const zweite = await requestSubstitute(gameId, a);
+      expect(zweite.ok).toBe(false);
+      expect(zweite.message).toContain('läuft schon');
+      expect(await offers()).toHaveLength(1);
+    });
+
+    it('tauscht bei Zusage die Plaetze: der Ersatz rueckt auf, der Abgebende ist raus', async () => {
+      await besetzt();
+      await requestSubstitute(gameId, a);
+      const result = await respondToPromotion(await latestOfferId(), c, 'accept');
+      expect(result.ok, result.message).toBe(true);
+
+      expect(await occupants()).toEqual([`0:c`, `1:b`]);
+    });
+
+    it('setzt beim Uebernehmen die Pflichtbestaetigung zurueck', async () => {
+      await besetzt();
+      await requestSubstitute(gameId, a);
+      await respondToPromotion(await latestOfferId(), c, 'accept');
+      const rows = await sql<{ confirmed_at: Date | null }[]>`
+        SELECT confirmed_at FROM assignments WHERE game_id = ${gameId} AND referee_id = ${c}`;
+      expect(rows[0]?.confirmed_at).toBeNull();
+    });
+
+    it('nimmt den Absagenden von der Bank und fragt den naechsten', async () => {
+      await besetzt();
+      /* b von Schiri 2 runter und auf Ersatz 2, damit die Bank zwei traegt. */
+      await sql`UPDATE assignments SET slot_index = 3
+                WHERE game_id = ${gameId} AND referee_id = ${b}`;
+      await requestSubstitute(gameId, a);
+
+      const result = await respondToPromotion(await latestOfferId(), c, 'decline');
+      expect(result.ok, result.message).toBe(true);
+      expect(result.message).toContain('raus');
+
+      /*
+       * c ist weg, b rueckt von Ersatz 2 auf Ersatz 1 — und wird sofort
+       * gefragt. Die Kette laeuft weiter, ohne dass jemand nachhelfen muss.
+       */
+      expect(await occupants()).toEqual([`0:a`, `2:b`]);
+      const alle = await offers();
+      expect(alle).toHaveLength(2);
+      expect(alle[0]).toMatchObject({ referee_id: 'c', outcome: 'declined' });
+      expect(alle[1]).toMatchObject({
+        referee_id: 'b',
+        substitute_slot: 2,
+        outcome: 'pending',
+        replaces_referee_id: 'a',
+      });
+    });
+
+    it('endet, wenn nach der Absage niemand mehr auf der Bank sitzt', async () => {
+      await besetzt();
+      await requestSubstitute(gameId, a);
+      const result = await respondToPromotion(await latestOfferId(), c, 'decline');
+      expect(result.ok).toBe(true);
+      expect(result.message).toContain('nicht bereit');
+
+      /* Der Abgebende behaelt seinen Platz — er weiss jetzt, dass er dran ist. */
+      expect(await occupants()).toEqual([`0:a`, `1:b`]);
+      expect(await offers()).toHaveLength(1);
+    });
+
+    it('erlaubt dem Admin denselben Vorgang fuer einen geraeumten Platz', async () => {
+      await makeGame(gameId, inDays(30));
+      await claimNextSlot(gameId, b);
+      await claimNextSlot(gameId, c);
+      /* Platz 0 bleibt leer — so sieht es aus, wenn der Admin jemanden austrägt. */
+      await sql`UPDATE assignments SET slot_index = 2
+                WHERE game_id = ${gameId} AND referee_id = ${c}`;
+      await sql`UPDATE assignments SET slot_index = 1
+                WHERE game_id = ${gameId} AND referee_id = ${b}`;
+      await sql`UPDATE referees SET role = 'admin' WHERE id = ${a}`;
+
+      const result = await requestSubstitute(gameId, a);
+      expect(result.ok, result.message).toBe(true);
+
+      const alle = await offers();
+      expect(alle).toHaveLength(1);
+      expect(alle[0]).toMatchObject({
+        kind: 'handover',
+        referee_id: 'c',
+        target_slot: 0,
+        /* Niemand raeumt etwas — der Platz war schon leer. */
+        replaces_referee_id: null,
+      });
+
+      await respondToPromotion(await latestOfferId(), c, 'accept');
+      expect(await occupants()).toEqual([`0:c`, `1:b`]);
+      await sql`UPDATE referees SET role = 'referee' WHERE id = ${a}`;
+    });
+
+    it('erklaert es, wenn der Abgebende inzwischen selbst weg ist', async () => {
+      await besetzt();
+      await requestSubstitute(gameId, a);
+      const offerId = await latestOfferId();
+      /* Jemand anderes besetzt Platz 0 — Regel 3, wer zuerst kommt. */
+      await sql`DELETE FROM assignments WHERE game_id = ${gameId} AND referee_id = ${a}`;
+      await sql`UPDATE assignments SET slot_index = 0
+                WHERE game_id = ${gameId} AND referee_id = ${b}`;
+
+      const result = await respondToPromotion(offerId, c, 'accept');
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('besetzt');
+    });
+
+    it('sperrt die Anfrage nach der Frist und gibt sie mit der Freigabe wieder frei', async () => {
+      await makeGame(gameId, inDays(1));
+      await claimNextSlot(gameId, a);
+      await claimNextSlot(gameId, b);
+      await claimNextSlot(gameId, c);
+
+      const gesperrt = await requestSubstitute(gameId, a);
+      expect(gesperrt.ok).toBe(false);
+      expect(gesperrt.message).toContain('gesperrt');
+
+      await sql`UPDATE games SET override_substitute_request = true WHERE id = ${gameId}`;
+      const frei = await requestSubstitute(gameId, a);
+      expect(frei.ok, frei.message).toBe(true);
+    });
   });
 
   describe('Regeln 13 bis 16: die Antwort auf eine Nachrück-Anfrage', () => {

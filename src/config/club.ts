@@ -6,7 +6,7 @@ export const CLUB = {
   /** Der Verein, wie er im Spielplan und im Seitentitel erscheint. */
   name: 'Schulsportclub Bergstraße',
   /** Kurzform fuer die Kopfzeile, wo wenig Platz ist. */
-  shortName: 'SSC Bergstraße',
+  shortName: 'SC Bergstraße',
   appName: 'SCHIRIPLAN',
   timeZone: 'Europe/Berlin',
   locale: 'de-DE',

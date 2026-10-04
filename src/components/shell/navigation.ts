@@ -3,7 +3,7 @@ import type { NavGroup, NavTarget } from './nav';
 /**
  * Die Navigation je Rolle.
  *
- * Gruppiert statt aufgereiht. Der Adminbereich hat elf Ziele; als eine Liste
+ * Gruppiert statt aufgereiht. Der Adminbereich hat zehn Ziele; als eine Liste
  * standen "Offene Spiele & Meldungen" (was der Verein noch besetzen muss) und
  * "Offene Spiele" (wo ich mich selbst eintrage) unmittelbar untereinander und
  * waren am Namen kaum zu unterscheiden. Die Gruppen sagen, aus welcher Rolle
@@ -11,8 +11,16 @@ import type { NavGroup, NavTarget } from './nav';
  * beiden, und ohne ihn ist er nicht zu sehen.
  */
 
-/** Die oeffentliche Ansicht — sie steht in jeder Rolle zuoberst. */
+/** Die oeffentliche Ansicht — ohne Anmeldung und fuer Admins zuoberst. */
 const PUBLIC_ENTRY: NavTarget = { href: '/', label: 'Öffentliche Ansicht', short: 'Spielplan' };
+
+/**
+ * Dieselbe Adresse fuer angemeldete Schiedsrichter — dort ist sie die
+ * Spieluebersicht mit vollen Namen. Der Admin behaelt "Öffentliche Ansicht":
+ * fuer ihn zeigt `/` weiterhin, was die Oeffentlichkeit sieht, und seine
+ * Spieluebersicht ist `/uebersicht`.
+ */
+const OVERVIEW_ENTRY: NavTarget = { href: '/', label: 'Spielübersicht', short: 'Spiele' };
 
 /** Was jeder Angemeldete fuer sich selbst tut. */
 const OWN_AREA: readonly NavTarget[] = [
@@ -32,7 +40,7 @@ export const FOOTER_NAV: readonly NavTarget[] = [
 
 /** Navigation fuer angemeldete Schiedsrichter. */
 export const REFEREE_NAV: readonly NavGroup[] = [
-  { label: null, items: [PUBLIC_ENTRY] },
+  { label: null, items: [OVERVIEW_ENTRY] },
   { label: 'Mein Bereich', items: OWN_AREA },
 ];
 
@@ -59,7 +67,6 @@ export const ADMIN_NAV: readonly NavGroup[] = [
       { href: '/uebersicht', label: 'Spielübersicht', short: 'Spiele' },
       { href: '/meldungen', label: 'Offene Spiele & Meldungen', short: 'Meldungen' },
       { href: '/anlegen', label: 'Spiele anlegen', short: 'Neu' },
-      { href: '/nachpflegen', label: 'Spiele nachpflegen', short: 'Nachpflegen' },
     ],
   },
   {

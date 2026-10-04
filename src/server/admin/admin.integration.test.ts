@@ -4,14 +4,16 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ensureLeagues } from '../../../test/ligen';
 import { CSV_COLUMNS } from '@/domain/csv';
 import { claimNextSlot } from '../assignments';
-import { setPlayedAsReferee } from './appearances';
 import {
   assignReferee,
   createGame,
   editGame,
   importCsv,
   previewCsv,
+  openGameReminderRecipients,
+  remindOpenGame,
   removeFromGame,
+  setGameReleases,
 } from './games';
 import {
   createReferee,
@@ -364,9 +366,6 @@ suite('Adminbereich', () => {
       venue,
       requiredLicense: 'E' as const,
       reason: 'moved' as const,
-      overrideWithdraw: false,
-      overrideSubstituteRequest: false,
-      overrideOneGamePerDay: false,
     });
 
     it('Regel 17: benachrichtigt beim Verschieben Schiedsrichter und Ersatz', async () => {
@@ -402,20 +401,9 @@ suite('Adminbereich', () => {
     it('verschickt nichts, wenn sich weder Termin noch Ort ändern', async () => {
       const gameId = await newGame();
       await claimNextSlot(gameId, a);
-      const result = await editGame(admin, gameId, {
-        ...editInput(30, 'Testhalle'),
-        overrideWithdraw: true,
-      });
+      const result = await editGame(admin, gameId, editInput(30, 'Testhalle'));
       expect(result.message).toBe('Gespeichert.');
       expect((await outbox(gameId)).filter((row) => row.kind === 'relocation')).toHaveLength(0);
-    });
-
-    it('setzt die Freigaben, die der Admin pro Spiel erteilt', async () => {
-      const gameId = await newGame();
-      await editGame(admin, gameId, { ...editInput(30, 'Testhalle'), overrideWithdraw: true });
-      const rows = await sql<{ override_withdraw: boolean }[]>`
-        SELECT override_withdraw FROM games WHERE id = ${gameId}`;
-      expect(rows[0]?.override_withdraw).toBe(true);
     });
 
     it('sagt ein Spiel ab und informiert die Beteiligten', async () => {
@@ -428,6 +416,134 @@ suite('Adminbereich', () => {
       });
       expect(result.message).toContain('abgesagt');
       expect(await auditActions(gameId)).toContain('game.cancel');
+    });
+  });
+
+  describe('Freigaben pro Spiel', () => {
+    const releases = async (gameId: string) =>
+      (
+        await sql<
+          {
+            override_withdraw: boolean;
+            override_substitute_request: boolean;
+            override_one_game_per_day: boolean;
+            state: string;
+            relocation_version: number;
+            kickoff: Date;
+          }[]
+        >`SELECT override_withdraw, override_substitute_request, override_one_game_per_day,
+                 state, relocation_version, kickoff FROM games WHERE id = ${gameId}`
+      )[0];
+
+    it('hebt die Sperre für Ersatz anfordern auf — Regel 8', async () => {
+      const gameId = await newGame();
+      const result = await setGameReleases(admin, gameId, {
+        withdraw: false,
+        substituteRequest: true,
+        oneGamePerDay: false,
+      });
+      expect(result.ok).toBe(true);
+      expect((await releases(gameId))?.override_substitute_request).toBe(true);
+    });
+
+    it('nennt in der Rückmeldung, was jetzt gilt — der Haken allein ist kein Beleg', async () => {
+      const gameId = await newGame();
+      const result = await setGameReleases(admin, gameId, {
+        withdraw: false,
+        substituteRequest: true,
+        oneGamePerDay: false,
+      });
+      expect(result.message).toContain('Ersatz anfordern');
+      expect(result.message).toContain('niemand benachrichtigt');
+    });
+
+    it('laesst das zweite Spiel am Tag unangetastet, wenn die Regel aus ist', async () => {
+      /*
+       * Ist "ein Spiel pro Tag" abgeschaltet, steht der Haken nicht im
+       * Formular und kommt als `null` an. Wer dann nur die Austragefrist
+       * freigibt, darf die gespeicherte Ausnahme nicht nebenbei loeschen —
+       * sie gilt wieder, sobald der Verein die Regel einschaltet.
+       */
+      const gameId = await newGame();
+      await setGameReleases(admin, gameId, {
+        withdraw: false,
+        substituteRequest: false,
+        oneGamePerDay: true,
+      });
+      const result = await setGameReleases(admin, gameId, {
+        withdraw: true,
+        substituteRequest: false,
+        oneGamePerDay: null,
+      });
+      const row = await releases(gameId);
+      expect(row?.override_withdraw).toBe(true);
+      expect(row?.override_one_game_per_day).toBe(true);
+      /* Die Rueckmeldung nennt nur, was ueber das Formular gesetzt wurde. */
+      expect(result.message).toContain('Austragen');
+      expect(result.message).not.toContain('zweites Spiel');
+    });
+
+    it('nimmt eine Freigabe auch wieder zurück', async () => {
+      const gameId = await newGame();
+      const alle = { withdraw: true, substituteRequest: true, oneGamePerDay: true };
+      await setGameReleases(admin, gameId, alle);
+      const result = await setGameReleases(admin, gameId, {
+        withdraw: false,
+        substituteRequest: false,
+        oneGamePerDay: false,
+      });
+      expect(result.message).toContain('wieder alle Fristen');
+      const row = await releases(gameId);
+      expect([
+        row?.override_withdraw,
+        row?.override_substitute_request,
+        row?.override_one_game_per_day,
+      ]).toEqual([false, false, false]);
+    });
+
+    it('verschiebt das Spiel nicht und schickt niemandem etwas — Regeln 17 und 33', async () => {
+      /*
+       * Der eigentliche Grund für die getrennte Operation: über `editGame`
+       * ging derselbe Haken nur zusammen mit Datum, Uhrzeit und Ort raus.
+       * Wich der gespeicherte Anpfiff um Sekunden vom Formular ab — die
+       * Spalte kennt Sekunden, das Eingabefeld nicht —, galt das Spiel als
+       * verschoben und jeder Beteiligte bekam eine Nachricht.
+       */
+      const gameId = await newGame();
+      await claimNextSlot(gameId, a);
+      const vorher = await releases(gameId);
+      const vorherigeNachrichten = (await outbox(gameId)).length;
+
+      await setGameReleases(admin, gameId, {
+        withdraw: false,
+        substituteRequest: true,
+        oneGamePerDay: false,
+      });
+
+      const nachher = await releases(gameId);
+      expect(nachher?.state).toBe(vorher?.state);
+      expect(nachher?.relocation_version).toBe(vorher?.relocation_version);
+      expect(nachher?.kickoff.getTime()).toBe(vorher?.kickoff.getTime());
+      expect(await outbox(gameId)).toHaveLength(vorherigeNachrichten);
+    });
+
+    it('schreibt die Freigaben ins Prüfprotokoll', async () => {
+      const gameId = await newGame();
+      await setGameReleases(admin, gameId, {
+        withdraw: true,
+        substituteRequest: false,
+        oneGamePerDay: false,
+      });
+      expect(await auditActions(gameId)).toContain('game.releases');
+    });
+
+    it('meldet ein Spiel, das es nicht mehr gibt', async () => {
+      const result = await setGameReleases(admin, 'gibt-es-nicht', {
+        withdraw: true,
+        substituteRequest: true,
+        oneGamePerDay: true,
+      });
+      expect(result.ok).toBe(false);
     });
   });
 
@@ -482,7 +598,7 @@ suite('Adminbereich', () => {
   });
 
   describe('Besetzung entfernen', () => {
-    it('Regel 13: auf einem Schiedsrichter-Platz wird zuerst der Ersatz gefragt', async () => {
+    it('Regel 13: der Ersatz wird nicht von selbst gefragt — erst auf Knopfdruck', async () => {
       const gameId = await newGame();
       await claimNextSlot(gameId, a);
       await claimNextSlot(gameId, b);
@@ -490,8 +606,30 @@ suite('Adminbereich', () => {
 
       const result = await removeFromGame(admin, gameId, 0);
       expect(result.ok).toBe(true);
-      expect(result.message).toContain('nachrückt');
+      expect(result.message).toContain('Ersatz anfordern');
       expect(await auditActions(gameId)).toContain('assignment.remove');
+
+      /*
+       * Die Luecke ist als "vom Admin geraeumt" vermerkt: beide Zaehler stehen
+       * auf demselben Stand, und daran erkennt der Zeitplan, dass er wartet.
+       */
+      const [row] = await sql<{ vacancy_version: number; manual_vacancy_version: number | null }[]>`
+        SELECT vacancy_version, manual_vacancy_version FROM games WHERE id = ${gameId}`;
+      expect(row?.vacancy_version).toBe(1);
+      expect(row?.manual_vacancy_version).toBe(1);
+    });
+
+    it('ein geraeumter Ersatzplatz ist keine Luecke und vermerkt nichts', async () => {
+      const gameId = await newGame();
+      await claimNextSlot(gameId, a);
+      await claimNextSlot(gameId, b);
+      await claimNextSlot(gameId, c);
+
+      await removeFromGame(admin, gameId, 2);
+      const [row] = await sql<{ vacancy_version: number; manual_vacancy_version: number | null }[]>`
+        SELECT vacancy_version, manual_vacancy_version FROM games WHERE id = ${gameId}`;
+      expect(row?.vacancy_version).toBe(0);
+      expect(row?.manual_vacancy_version).toBeNull();
     });
 
     it('ohne Ersatz wird der Platz ausgeschrieben', async () => {
@@ -506,6 +644,74 @@ suite('Adminbereich', () => {
     it('meldet einen leeren Platz, statt stillschweigend nichts zu tun', async () => {
       const gameId = await newGame();
       expect(await removeFromGame(admin, gameId, 3)).toMatchObject({ ok: false });
+    });
+  });
+
+  describe('Erinnerung an ein offenes Spiel — Regel 32', () => {
+    const reminders = async (gameId: string) =>
+      sql<{ recipient_id: string; state: string }[]>`
+        SELECT recipient_id, state FROM notification_outbox
+        WHERE game_id = ${gameId} AND kind = 'open-slot-announcement'`;
+
+    it('das Anlegen selbst schreibt niemanden an', async () => {
+      const gameId = await newGame();
+      expect(await outbox(gameId)).toHaveLength(0);
+    });
+
+    it('schreibt alle an, die das Spiel pfeifen koennen und noch nicht darin stehen', async () => {
+      const gameId = await newGame();
+      await claimNextSlot(gameId, a);
+
+      const result = await remindOpenGame(admin, gameId);
+      expect(result.ok, result.message).toBe(true);
+      expect(result.message).toContain('verschickt');
+
+      const rows = await reminders(gameId);
+      const recipients = rows.map((row) => row.recipient_id);
+      expect(recipients).toEqual(expect.arrayContaining([b, c]));
+      expect(recipients).not.toContain(a);
+      /* Nicht "vorgemerkt": die Nachricht ist wirklich rausgegangen. */
+      expect(rows.every((row) => row.state === 'sent')).toBe(true);
+      expect(await auditActions(gameId)).toContain('game.remind');
+    });
+
+    it('die Rueckfrage nennt genau die Zahl, die danach rausgeht', async () => {
+      const gameId = await newGame();
+      await claimNextSlot(gameId, a);
+
+      const asked = await openGameReminderRecipients(gameId);
+      expect(asked.ok).toBe(true);
+      await remindOpenGame(admin, gameId);
+      expect(await reminders(gameId)).toHaveLength(asked.ok ? asked.recipientIds.length : -1);
+    });
+
+    it('ein Doppelklick verschickt nicht doppelt', async () => {
+      const gameId = await newGame();
+      await remindOpenGame(admin, gameId);
+      const once = (await reminders(gameId)).length;
+      await remindOpenGame(admin, gameId);
+      /*
+       * Faellt der zweite Aufruf in eine neue Minute, ist er eine neue
+       * Erinnerung — mehr als das Doppelte darf es trotzdem nie werden, und
+       * innerhalb derselben Minute bleibt es bei einer.
+       */
+      const twice = (await reminders(gameId)).length;
+      expect([once, once * 2]).toContain(twice);
+    });
+
+    it('lehnt ab, wenn beide Schiedsrichter-Plaetze besetzt sind', async () => {
+      const gameId = await newGame();
+      await claimNextSlot(gameId, a);
+      await claimNextSlot(gameId, b);
+
+      const result = await remindOpenGame(admin, gameId);
+      expect(result.ok).toBe(false);
+      expect(result.message).toContain('besetzt');
+      expect(await reminders(gameId)).toHaveLength(0);
+    });
+
+    it('lehnt ein Spiel ab, das es nicht gibt', async () => {
+      expect(await remindOpenGame(admin, 'gibt-es-nicht')).toMatchObject({ ok: false });
     });
   });
 
@@ -805,40 +1011,39 @@ suite('Adminbereich', () => {
     });
   });
 
-  describe('Spiele nachpflegen', () => {
-    it('Regel 27: trägt den Einsatz eines Ersatzes nach', async () => {
-      const gameId = await newGame();
-      await claimNextSlot(gameId, a);
-      await claimNextSlot(gameId, b);
-      await claimNextSlot(gameId, c);
+  describe('Vergangene Spiele bleiben aenderbar', () => {
+    /*
+     * "Spiele nachpflegen" ist weg. Gezaehlt wird, wer zum Anpfiff auf Schiri
+     * 1 oder Schiri 2 steht — und wenn das ausnahmsweise nicht stimmt, aendert
+     * der Admin die Besetzung des vergangenen Spiels. Das muss also gehen.
+     */
+    const pastGame = async () => {
+      const gameId = `${prefix}-past-${randomUUID().slice(0, 8)}`;
+      const kickoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      await sql`INSERT INTO games (id, kickoff, league_id, home, away, venue)
+                VALUES (${gameId}, ${kickoff}, 'U14', 'Heim', 'Gast', 'Halle')`;
+      return gameId;
+    };
 
-      const result = await setPlayedAsReferee(admin, gameId, 2, true);
-      expect(result.ok).toBe(true);
-      expect(await auditActions(gameId)).toContain('appearance.set');
+    it('teilt auch nach dem Anpfiff noch jemanden ein', async () => {
+      const gameId = await pastGame();
+      const result = await assignReferee(admin, gameId, 0, a);
+      expect(result.ok, result.message).toBe(true);
 
-      const rows = await sql<{ played_as_referee: boolean }[]>`
-        SELECT played_as_referee FROM assignments
-        WHERE game_id = ${gameId} AND slot_index = 2`;
-      expect(rows[0]?.played_as_referee).toBe(true);
+      const rows = await sql<{ referee_id: string }[]>`
+        SELECT referee_id FROM assignments WHERE game_id = ${gameId} AND slot_index = 0`;
+      expect(rows[0]?.referee_id).toBe(a);
     });
 
-    it('lässt sich auch wieder zurücknehmen', async () => {
-      const gameId = await newGame();
-      await claimNextSlot(gameId, a);
-      await claimNextSlot(gameId, b);
-      await claimNextSlot(gameId, c);
+    it('nimmt auch nach dem Anpfiff jemanden wieder heraus', async () => {
+      const gameId = await pastGame();
+      await assignReferee(admin, gameId, 0, a);
+      const result = await removeFromGame(admin, gameId, 0);
+      expect(result.ok, result.message).toBe(true);
 
-      await setPlayedAsReferee(admin, gameId, 2, true);
-      await setPlayedAsReferee(admin, gameId, 2, false);
-      const rows = await sql<{ played_as_referee: boolean }[]>`
-        SELECT played_as_referee FROM assignments
-        WHERE game_id = ${gameId} AND slot_index = 2`;
-      expect(rows[0]?.played_as_referee).toBe(false);
-    });
-
-    it('meldet einen leeren Platz', async () => {
-      const gameId = await newGame();
-      expect(await setPlayedAsReferee(admin, gameId, 3, true)).toMatchObject({ ok: false });
+      const rows = await sql<{ n: number }[]>`
+        SELECT count(*)::int AS n FROM assignments WHERE game_id = ${gameId}`;
+      expect(rows[0]?.n).toBe(0);
     });
   });
 });

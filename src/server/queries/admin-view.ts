@@ -12,17 +12,13 @@ import {
   refereeSlots,
   slotKind,
   substituteSlots,
-  SLOT_LABELS,
   SLOT_LABELS_SHORT,
 } from '@/domain/slots';
-import type { ClubSettings, Game, Referee, SlotIndex } from '@/domain/types';
+import type { ClubSettings, Game, Referee, Slot, SlotIndex } from '@/domain/types';
 import { toAssignment, toGame } from './games';
 import { loadAllReferees } from './referees';
 
-/**
- * Die Daten des Adminbereichs: Uebersicht, Meldungen, Besetzung und die Liste
- * der nachzupflegenden Einsaetze.
- */
+/** Die Daten des Adminbereichs: Uebersicht, Meldungen und Besetzung. */
 
 export interface Kpis {
   planned: number;
@@ -34,9 +30,20 @@ export interface Kpis {
 const allGames = async () =>
   db.select().from(schema.games).orderBy(asc(schema.games.kickoff));
 
+/**
+ * Welcher Zeitraum in der Uebersicht steht.
+ *
+ * `kommende` ist die Voreinstellung — die Arbeit liegt in der Zukunft. `alle`
+ * nimmt die vergangenen Spiele dazu, damit sich eine Besetzung im Nachhinein
+ * noch korrigieren laesst; seit "Spiele nachpflegen" weg ist, ist das der Weg
+ * dafuer.
+ */
+export type OverviewScope = 'kommende' | 'alle';
+
 export const adminOverview = async (
   settings: ClubSettings,
   now: Date,
+  scope: OverviewScope = 'kommende',
 ): Promise<{
   matchdays: readonly Matchday[];
   kpis: Kpis;
@@ -53,6 +60,16 @@ export const adminOverview = async (
   const upcoming = rows
     .filter((row) => row.kickoff > now && row.state !== 'cancelled')
     .map((row) => withSlots(toGame(row), assignments));
+  /*
+   * Die Liste folgt dem gewaehlten Zeitraum, die Kennzahlen nicht: "46 offen"
+   * meint Spiele, die noch zu besetzen sind. Vergangene mitzuzaehlen ergaebe
+   * eine Zahl, gegen die niemand mehr etwas tun kann — und sie wuerde mit
+   * jedem Spieltag weiter steigen.
+   */
+  const shown =
+    scope === 'alle'
+      ? rows.filter((row) => row.state !== 'cancelled').map((row) => withSlots(toGame(row), assignments))
+      : upcoming;
 
   const kpis = upcoming.reduce<Kpis>(
     (totals, entry) => {
@@ -69,7 +86,7 @@ export const adminOverview = async (
   );
 
   return {
-    matchdays: groupByMatchday(upcoming, CLUB.timeZone),
+    matchdays: groupByMatchday(shown, CLUB.timeZone),
     kpis,
     /*
      * Der Bildschirm zeigt **alles**, was Aufmerksamkeit braucht — unabhaengig
@@ -111,6 +128,8 @@ export const adminGame = async (
 ): Promise<{
   game: Game;
   relocationVersion: number;
+  /** Die Plaetze als Fachobjekt — fuer die Regel-Engine (Regel 8). */
+  entrySlots: readonly Slot[];
   slots: readonly {
     index: SlotIndex;
     role: string;
@@ -137,6 +156,7 @@ export const adminGame = async (
   return {
     game,
     relocationVersion: row.relocationVersion,
+    entrySlots: entry.slots,
     slots: entry.slots.map((slot) => {
       const refereeId = slot.assignment?.refereeId ?? null;
       const isReferee = slotKind(slot.index) === 'referee';
@@ -218,41 +238,6 @@ export const adminRows = async (
             : 'var(--status-substitute-missing)',
     };
   });
-};
-
-export interface PendingAppearance {
-  game: Game;
-  slotIndex: SlotIndex;
-  role: string;
-  refereeName: string;
-}
-
-/**
- * Ersatzleute, deren Spiel vorbei ist und bei denen noch niemand entschieden
- * hat, ob sie im Einsatz waren. Regel 27.
- */
-export const pendingAppearances = async (now: Date): Promise<readonly PendingAppearance[]> => {
-  const rows = await db
-    .select({ assignment: schema.assignments, game: schema.games, referee: schema.referees })
-    .from(schema.assignments)
-    .innerJoin(schema.games, eq(schema.games.id, schema.assignments.gameId))
-    .innerJoin(schema.referees, eq(schema.referees.id, schema.assignments.refereeId))
-    .orderBy(asc(schema.games.kickoff));
-
-  return rows
-    .filter(
-      (row) =>
-        row.game.kickoff <= now &&
-        row.game.state !== 'cancelled' &&
-        row.assignment.slotIndex >= 2 &&
-        row.assignment.playedAsReferee === null,
-    )
-    .map((row) => ({
-      game: toGame(row.game),
-      slotIndex: row.assignment.slotIndex as SlotIndex,
-      role: SLOT_LABELS[row.assignment.slotIndex as SlotIndex],
-      refereeName: row.referee.name,
-    }));
 };
 
 export { loadLeagues } from './leagues';

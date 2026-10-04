@@ -81,6 +81,23 @@ export interface Game {
    * aus und bliebe stumm. Regeln 15 und 32.
    */
   vacancyVersion: number;
+  /**
+   * Der Stand von `vacancyVersion`, als zuletzt ein Admin einen
+   * Schiedsrichter-Platz geraeumt hat — `null`, wenn das nie vorkam.
+   *
+   * Stimmt er mit `vacancyVersion` ueberein, hat der Admin die juengste Luecke
+   * gerissen. Dann wird der Ersatz nicht automatisch gefragt: der Admin
+   * entscheidet mit „Ersatz anfordern“, ob und wann. Tritt danach jemand
+   * selbst aus, steigt `vacancyVersion`, und die Kaskade laeuft wieder von
+   * allein. Regel 13.
+   */
+  manualVacancyVersion: number | null;
+  /**
+   * Wann das Spiel angelegt wurde. Was an Ausschreibungs-Stufen beim Anlegen
+   * schon erreicht war, geht nicht raus — das Anlegen selbst benachrichtigt
+   * niemanden. Regel 32.
+   */
+  createdAt: Date;
   /** Freigaben, die der Admin pro Spiel setzt. Regeln 6, 7, 8. */
   overrides: GameOverrides;
 }
@@ -108,11 +125,6 @@ export interface Assignment {
   claimedAt: Date;
   /** Zeitpunkt der Pflichtbestaetigung, null solange offen. Regeln 10-12. */
   confirmedAt: Date | null;
-  /**
-   * Ob die Person tatsaechlich als Schiedsrichter auf dem Feld stand.
-   * null = noch nicht entschieden. Regeln 25-27.
-   */
-  playedAsReferee: boolean | null;
 }
 
 /** Ein Platz mit seiner aktuellen Belegung. `assignment` ist null, wenn frei. */
@@ -220,7 +232,10 @@ export type DenialReason =
   | 'withdraw-deadline-passed'
   | 'substitute-request-deadline-passed'
   | 'not-assigned'
-  | 'no-open-substitute-slot';
+  /* Regel 8: die Bank ist leer — es gibt niemanden zu fragen. */
+  | 'no-substitute-available'
+  /* Regel 8: eine Anfrage laeuft schon; eine zweite waere eine Zusage zu viel. */
+  | 'request-running';
 
 export const allow = (): Decision => ({ allowed: true });
 

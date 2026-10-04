@@ -65,6 +65,24 @@ export const messageLogRoute = (filter: {
     vor: filter.before,
   });
 
+/**
+ * Der Spielplan auf der Startseite.
+ *
+ * `spieltage` ist die Zahl der geladenen Spieltage, `vergangene` blendet —
+ * nur fuer angemeldete Schiedsrichter — die vergangenen Spiele ein. Beides
+ * steht in der Adresse, damit ein Klick auf "Weitere Spieltage" die
+ * aufgeklappte Vergangenheit nicht wieder zuklappt und umgekehrt.
+ */
+export const scheduleRoute = (query: { spieltage?: number; vergangene?: boolean }): Route =>
+  withQuery('/', {
+    spieltage: query.spieltage === undefined ? undefined : String(query.spieltage),
+    vergangene: query.vergangene ? 'an' : undefined,
+  });
+
+/** Kalender & Verlauf mit einer Rückmeldung zur zuletzt ausgeführten Aktion. */
+export const calendarResultRoute = (result: { ok: boolean; message: string }): Route =>
+  withQuery('/kalender', { [result.ok ? 'hinweis' : 'fehler']: result.message });
+
 /** Ein bestimmter Spieltag in „Offene Spiele“. */
 export const openGamesRoute = (day?: string): Route => withQuery('/spiele', { tag: day });
 
@@ -122,6 +140,14 @@ export const adminResultRoute = (
   result: { ok: boolean; message: string },
 ): Route => withQuery(path, { [result.ok ? 'hinweis' : 'fehler']: result.message });
 
+/**
+ * Meldungen mit offener Rückfrage: „N Schiedsrichter werden angeschrieben …“.
+ * Das Spiel steht in der Adresse, damit die Rückfrage auch ein Neuladen
+ * übersteht — wie bei der Kostenrückfrage im Profil.
+ */
+export const alertReminderConfirmRoute = (gameId: string): Route =>
+  withQuery('/meldungen', { erinnern: gameId });
+
 /** Ein bestimmtes Spiel im Bearbeiten-Bildschirm. */
 export const editGameRoute = (gameId: string, result?: { ok: boolean; message: string }): Route =>
   withQuery('/bearbeiten', {
@@ -139,3 +165,27 @@ export const editGameRoute = (gameId: string, result?: { ok: boolean; message: s
  */
 export const gameExportRoute = (zeitraum: 'kommende' | 'alle'): Route =>
   withQuery('/api/export/spielplan', { zeitraum });
+
+/**
+ * Die Spielübersicht mit oder ohne vergangene Spiele.
+ *
+ * Der Zeitraum steht in der Adresse und nicht in einem Zustand im Browser:
+ * so überlebt er das Neuladen, lässt sich verlinken, und der CSV-Export
+ * daneben kann denselben Wert übernehmen — was angezeigt wird, wird
+ * exportiert.
+ */
+export const overviewRoute = (zeitraum: 'kommende' | 'alle'): Route =>
+  withQuery('/uebersicht', zeitraum === 'alle' ? { zeitraum } : {});
+
+/**
+ * Die Kalenderdatei der eigenen Einsätze.
+ *
+ * Anders als beim CSV-Export steht hier kein fertiger Link, sondern nur der
+ * Pfad: welche Spiele in der Datei landen, entscheidet ein Formular mit einem
+ * Kästchen je Spiel. Der Name des Feldes steht daneben, damit Formular und
+ * Route sich nicht auseinanderentwickeln können — eine Umbenennung an einer
+ * Stelle allein fiele erst beim Herunterladen auf, und dann wäre die Datei
+ * stillschweigend die falsche.
+ */
+export const CALENDAR_EXPORT_PATH: Route = '/api/export/kalender';
+export const CALENDAR_GAME_PARAM = 'spiel';

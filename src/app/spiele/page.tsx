@@ -11,10 +11,10 @@ import { confirmationDueAt, confirmationState } from '@/domain/confirmation';
 import { dateLabel, groupByMatchday, matchTitle, statusOf, timeLabel } from '@/domain/schedule';
 import { isLicensedFor, isQualified } from '@/domain/rules';
 import { slotOf } from '@/domain/slots';
-import { slotViews, substituteRequestView } from '@/domain/slot-actions';
+import { slotViews } from '@/domain/slot-actions';
 import { describeHours, describeHoursDative, describeLeadTime } from '@/domain/time';
 import type { Game } from '@/domain/types';
-import { initialsById } from '@/server/queries/games';
+import { namesById } from '@/server/queries/games';
 import { loadReferee } from '@/server/queries/referees';
 import { pendingRelocations, upcomingGamesWithSlots } from '@/server/queries/referee-view';
 import { loadSettings } from '@/server/queries/settings';
@@ -44,11 +44,11 @@ const OpenGames = async ({ searchParams }: PageProps) => {
   const user = await requireUser(now);
   const params = await searchParams;
 
-  const [referee, settings, entries, initials, relocations] = await Promise.all([
+  const [referee, settings, entries, names, relocations] = await Promise.all([
     loadReferee(user.id),
     loadSettings(),
     upcomingGamesWithSlots(now),
-    initialsById(),
+    namesById(),
     pendingRelocations(user.id, now),
   ]);
   if (!referee) throw new Error(`Konto ${user.id} nicht gefunden`);
@@ -192,8 +192,7 @@ const OpenGames = async ({ searchParams }: PageProps) => {
               timeZone={CLUB.timeZone}
               status={statusOf(entry)}
               slots={slotViews(context)}
-              substituteRequest={substituteRequestView(context)}
-              initials={initials}
+              names={names}
               eligible={qualified && licensed}
               eligibilityNote={
                 (qualified

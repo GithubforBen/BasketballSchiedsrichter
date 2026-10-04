@@ -6,6 +6,7 @@ import {
   dueAdminOpenSlots,
   dueConfirmationAlerts,
   dueConfirmations,
+  continueHandover,
   dueDigest,
   duePersonalReminders,
   nudgeRound,
@@ -220,9 +221,12 @@ describe('Regeln 13 bis 15 — die Nachrueck-Kaskade laeuft von allein weiter', 
   const offer = (over: Partial<PromotionOfferRecord> = {}): PromotionOfferRecord => ({
     id: 'o1',
     gameId: 'g1',
+    kind: 'vacancy',
     targetSlot: 0,
     substituteSlot: 2,
     refereeId: 'r-tf',
+    replacesRefereeId: null,
+    requestedBy: null,
     respondBy: inHours(5),
     outcome: 'pending',
     ...over,
@@ -235,6 +239,79 @@ describe('Regeln 13 bis 15 — die Nachrueck-Kaskade laeuft von allein weiter', 
     expect(plan.newOffers).toHaveLength(1);
     expect(plan.newOffers[0]?.refereeId).toBe('r-tf');
     expect(plan.newOffers[0]?.targetSlot).toBe(0);
+  });
+
+  it('fragt den Ersatz nicht von selbst, wenn der Admin den Platz geraeumt hat', () => {
+    /*
+     * Der Admin sieht die Besetzung vor sich und entscheidet mit „Ersatz
+     * anfordern“. Eine Anfrage, die der Lauf schon gestellt hat, waehrend er
+     * noch ueberlegt, nimmt ihm genau das ab.
+     */
+    const plan = planPromotions(
+      entry({
+        game: makeGame({ kickoff: inDays(10), vacancyVersion: 2, manualVacancyVersion: 2 }),
+        slots: gap,
+      }),
+      settings(),
+      NOW,
+    );
+    expect(plan).toEqual({ expiredOfferIds: [], newOffers: [], announce: false });
+  });
+
+  it('fragt wieder von selbst, sobald danach jemand selbst austritt', () => {
+    /* Der Zaehler ist am Stand des Admins vorbeigezogen: die juengste Luecke ist nicht seine. */
+    const plan = planPromotions(
+      entry({
+        game: makeGame({ kickoff: inDays(10), vacancyVersion: 3, manualVacancyVersion: 2 }),
+        slots: gap,
+      }),
+      settings(),
+      NOW,
+    );
+    expect(plan.newOffers[0]?.refereeId).toBe('r-tf');
+  });
+
+  it('schreibt auch nach dem Raeumen durch den Admin aus, wenn kein Ersatz dasteht', () => {
+    const plan = planPromotions(
+      entry({
+        game: makeGame({ kickoff: inDays(10), vacancyVersion: 1, manualVacancyVersion: 1 }),
+        slots: slotsFrom([null, 'r-ms', null, null]),
+      }),
+      settings(),
+      NOW,
+    );
+    expect(plan.announce).toBe(true);
+  });
+
+  it('stellt nach dem Knopfdruck des Admins je Lauf genau eine Anfrage', () => {
+    /*
+     * Der Admin hat geraeumt und „Ersatz anfordern“ gedrueckt; Ersatz 1 hat die
+     * Frist verstreichen lassen. Weiter geht es mit Ersatz 2 — und zwar nur
+     * ueber die Abgabe-Kette. Liefe die Kaskade daneben mit, bekaeme dieselbe
+     * Person zwei Anfragen fuer denselben Platz.
+     */
+    const plan = planNotifications(
+      input({
+        games: [
+          entry({
+            game: makeGame({ kickoff: inDays(10), vacancyVersion: 1, manualVacancyVersion: 1 }),
+            slots: gap,
+            offers: [
+              offer({
+                kind: 'handover',
+                requestedBy: 'r-admin',
+                respondBy: inHours(-1),
+              }),
+            ],
+          }),
+        ],
+        settings: settings({ openSlotVisibility: 'off' }),
+      }),
+      NOW,
+    );
+    expect(plan.expiredOfferIds).toEqual(['o1']);
+    expect(plan.newOffers).toHaveLength(1);
+    expect(plan.newOffers[0]).toMatchObject({ kind: 'handover', refereeId: 'r-ay' });
   });
 
   it('wartet, solange die Frist der laufenden Anfrage nicht verstrichen ist', () => {
@@ -366,9 +443,53 @@ describe('Regeln 19 und 32 — die Ausschreibung und ihre Reihenfolge', () => {
     expect(nudgeRound(inDays(2), NOW)).toBe(3);
   });
 
+  it('das Anlegen eines Spiels benachrichtigt niemanden', () => {
+    /*
+     * Die Luecke war von Anfang an da — der Admin hat sie selbst angelegt.
+     * Solange niemand ausgetreten ist, gibt es nichts auszuschreiben.
+     */
+    const intent = openSlotAnnouncement(
+      entry({ game: makeGame({ kickoff: inDays(20), createdAt: NOW }), slots: gap }),
+      [jk],
+      new Map(),
+      settings(),
+      NOW,
+    );
+    expect(intent).toBeNull();
+  });
+
+  it('auch nicht, wenn das Spiel kurz vor dem Anpfiff angelegt wird', () => {
+    /*
+     * Zehn Tage vor Anpfiff ist die Stufe „14 Tage“ schon erreicht. Ohne diese
+     * Zusicherung ginge sie im selben Augenblick raus, in dem das Spiel
+     * entsteht — das Anlegen haette dann doch jemanden benachrichtigt.
+     */
+    const intent = openSlotAnnouncement(
+      entry({ game: makeGame({ kickoff: inDays(10), createdAt: NOW }), slots: gap }),
+      [jk],
+      new Map(),
+      settings({ autoNudge: true }),
+      NOW,
+    );
+    expect(intent).toBeNull();
+  });
+
+  it('die Stufen danach gehen raus wie bisher', () => {
+    /* Angelegt 20 Tage vor Anpfiff, jetzt sind es noch 10: die Stufe „14 Tage“ ist neu. */
+    const kickoff = inDays(10);
+    const intent = openSlotAnnouncement(
+      entry({ game: makeGame({ kickoff, createdAt: inDays(-10) }), slots: gap }),
+      [jk],
+      new Map(),
+      settings({ autoNudge: true }),
+      NOW,
+    );
+    expect(intent?.recipientIds).toEqual(['r-jk']);
+  });
+
   it('die erste Ausschreibung haengt nicht am Schalter fuer die Nachfrage', () => {
     const intent = openSlotAnnouncement(
-      entry({ game: makeGame({ kickoff: inDays(20) }), slots: gap }),
+      entry({ game: makeGame({ kickoff: inDays(20), vacancyVersion: 1 }), slots: gap }),
       [jk],
       new Map(),
       settings({ autoNudge: false }),
@@ -414,7 +535,7 @@ describe('Regeln 19 und 32 — die Ausschreibung und ihre Reihenfolge', () => {
     const ohne = makeReferee({ id: 'r-o', qualifications: ['U14'], license: null });
     const intent = openSlotAnnouncement(
       entry({
-        game: makeGame({ kickoff: inDays(20), requiredLicense: 'D' }),
+        game: makeGame({ kickoff: inDays(20), requiredLicense: 'D', vacancyVersion: 1 }),
         slots: gap,
       }),
       [jk, mitE, ohne],
@@ -438,19 +559,21 @@ describe('Regeln 19 und 32 — die Ausschreibung und ihre Reihenfolge', () => {
 
   it('trennt zwei Luecken desselben Spiels — sonst bliebe die zweite stumm', () => {
     const first = openSlotAnnouncement(
-      entry({ game: makeGame({ kickoff: inDays(20) }), slots: gap }),
-      [jk],
-      new Map(),
-      settings(),
-      NOW,
-    );
-    const second = openSlotAnnouncement(
       entry({ game: makeGame({ kickoff: inDays(20), vacancyVersion: 1 }), slots: gap }),
       [jk],
       new Map(),
       settings(),
       NOW,
     );
+    const second = openSlotAnnouncement(
+      entry({ game: makeGame({ kickoff: inDays(20), vacancyVersion: 2 }), slots: gap }),
+      [jk],
+      new Map(),
+      settings(),
+      NOW,
+    );
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
     expect(first?.key).not.toBe(second?.key);
   });
 
@@ -566,6 +689,76 @@ describe('Regel 20 — die Tageszusammenfassung', () => {
   it('geht ab der eingestellten Stunde raus, nicht frueher', () => {
     expect(DIGEST_HOUR).toBe(18);
   });
+
+  /*
+   * Was die Uebersicht **nicht** meldet. Beides stand frueher in jeder Zeile
+   * und hat die Nachricht so weit aufgeblaeht, dass die echten Luecken darin
+   * untergingen.
+   */
+
+  it('schweigt bei einem besetzten Spiel, auch wenn beide Ersatzplaetze frei sind', () => {
+    const besetzt = input({
+      games: [
+        entry({
+          game: makeGame({ kickoff: inDays(10, abends) }),
+          slots: slotsFrom(['a', 'b', null, null], (x) => ({ ...x, confirmedAt: NOW })),
+        }),
+      ],
+      referees: [admin],
+    });
+    expect(dueDigest(besetzt, [admin], abends)).toHaveLength(0);
+  });
+
+  it('nennt den freien Ersatzplatz auch dann nicht, wenn das Spiel ohnehin in der Liste steht', () => {
+    const halb = input({
+      games: [
+        entry({
+          game: makeGame({ kickoff: inDays(10, abends) }),
+          slots: slotsFrom(['a', null, null, null], (x) => ({ ...x, confirmedAt: NOW })),
+        }),
+      ],
+      referees: [admin],
+    });
+    const lines = first(dueDigest(halb, [admin], abends))?.payload['lines'] as
+      | readonly string[]
+      | undefined;
+    expect(lines?.[0]).toContain('Schiedsrichter 2 offen');
+    expect(lines?.[0]).not.toContain('Ersatz');
+  });
+
+  it('meldet keine Bestaetigung, die noch gar nicht angefragt wurde', () => {
+    /*
+     * Anpfiff in zehn Tagen, Vorlauf 72 Stunden: die Frage geht erst in sieben
+     * Tagen raus. Bis dahin ist nichts ausstehend — es ist nur noch nichts
+     * gefragt worden, und der Admin koennte ohnehin nichts tun.
+     */
+    const frueh = input({
+      games: [
+        entry({
+          game: makeGame({ kickoff: inDays(10, abends) }),
+          slots: slotsFrom(['a', 'b', null, null]),
+        }),
+      ],
+      referees: [admin],
+    });
+    expect(dueDigest(frueh, [admin], abends)).toHaveLength(0);
+  });
+
+  it('meldet die Bestaetigung, sobald die Frage tatsaechlich raus ist', () => {
+    const gefragt = input({
+      games: [
+        entry({
+          game: makeGame({ kickoff: inHours(60, abends) }),
+          slots: slotsFrom(['a', 'b', null, null]),
+        }),
+      ],
+      referees: [admin],
+    });
+    const lines = first(dueDigest(gefragt, [admin], abends))?.payload['lines'] as
+      | readonly string[]
+      | undefined;
+    expect(lines?.[0]).toContain('2x Bestaetigung ausstehend');
+  });
 });
 
 describe('Regeln 15 und 32 — die Tagesbilanz der offenen Plaetze', () => {
@@ -664,5 +857,89 @@ describe('Der Gesamtplan bleibt bei doppeltem Lauf derselbe', () => {
       referees: [jk, admin],
     });
     expect(planNotifications(abgesagt, NOW).intents).toEqual([]);
+  });
+});
+
+describe('Regel 8 — eine Abgabe-Kette bleibt nicht an einer ausbleibenden Antwort haengen', () => {
+  /*
+   * Eine Absage nimmt den Gefragten sofort von der Bank und fragt den
+   * naechsten — das passiert beim Antworten und nicht hier. Dieser Lauf
+   * kuemmert sich um den Fall, dass gar keine Antwort kommt: sonst wartet der
+   * Abgebende bis zum Anpfiff auf jemanden, der nie zusagt.
+   */
+  const abgabe = (over: Partial<PromotionOfferRecord> = {}): PromotionOfferRecord => ({
+    id: 'h1',
+    gameId: 'g1',
+    kind: 'handover',
+    targetSlot: 0,
+    substituteSlot: 2,
+    refereeId: 'r-tf',
+    replacesRefereeId: 'r-jk',
+    requestedBy: 'r-jk',
+    respondBy: inHours(-1),
+    outcome: 'expired',
+    ...over,
+  });
+
+  /* Der Abgebende steht noch auf Platz 0, die Bank ist doppelt besetzt. */
+  const besetzt: readonly Slot[] = slotsFrom(['r-jk', 'r-ms', 'r-tf', 'r-ay']);
+
+  it('fragt nach Ablauf der Frist den naechsten Ersatz', () => {
+    const offers = continueHandover(entry({ slots: besetzt, offers: [abgabe()] }), settings(), NOW);
+    expect(offers).toHaveLength(1);
+    expect(offers[0]).toMatchObject({
+      kind: 'handover',
+      targetSlot: 0,
+      substituteSlot: 3,
+      refereeId: 'r-ay',
+      replacesRefereeId: 'r-jk',
+    });
+  });
+
+  it('wartet, solange die Frist noch laeuft', () => {
+    const laufend = abgabe({ respondBy: inHours(5), outcome: 'pending' });
+    expect(continueHandover(entry({ slots: besetzt, offers: [laufend] }), settings(), NOW)).toEqual(
+      [],
+    );
+  });
+
+  it('hoert auf, wenn die Bank durch ist', () => {
+    const beide = [abgabe(), abgabe({ id: 'h2', substituteSlot: 3, refereeId: 'r-ay' })];
+    expect(continueHandover(entry({ slots: besetzt, offers: beide }), settings(), NOW)).toEqual([]);
+  });
+
+  it('hoert auf, sobald jemand zugesagt hat', () => {
+    const angenommen = abgabe({ outcome: 'accepted' });
+    expect(
+      continueHandover(entry({ slots: besetzt, offers: [angenommen] }), settings(), NOW),
+    ).toEqual([]);
+  });
+
+  it('laesst die Kette fallen, wenn der Abgebende gar nicht mehr dasteht', () => {
+    /*
+     * Hat er sich inzwischen selbst ausgetragen oder jemand anderes den Platz
+     * besetzt, ist die Frage gegenstandslos — und die Kaskade nach Regel 13
+     * uebernimmt.
+     */
+    const anderer: readonly Slot[] = slotsFrom(['r-ms', 'r-ms2', 'r-tf', 'r-ay']);
+    expect(
+      continueHandover(entry({ slots: anderer, offers: [abgabe()] }), settings(), NOW),
+    ).toEqual([]);
+  });
+
+  it('ruehrt eine gewoehnliche Nachrueck-Anfrage nicht an', () => {
+    const kaskade = abgabe({ kind: 'vacancy', replacesRefereeId: null, requestedBy: null });
+    expect(
+      continueHandover(entry({ slots: besetzt, offers: [kaskade] }), settings(), NOW),
+    ).toEqual([]);
+  });
+
+  it('schweigt nach dem Anpfiff', () => {
+    const vorbei = entry({
+      game: makeGame({ kickoff: inHours(-1) }),
+      slots: besetzt,
+      offers: [abgabe()],
+    });
+    expect(continueHandover(vorbei, settings(), NOW)).toEqual([]);
   });
 });

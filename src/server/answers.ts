@@ -42,6 +42,13 @@ export interface AnswerQuestion {
   /** Antwortfrist einer Nachrueck-Anfrage. */
   respondBy: Date | null;
   /**
+   * Ob jemand sein Spiel abgibt (Regel 8) statt eines frei gewordenen Platzes
+   * (Regeln 13-16). Der Unterschied gehoert auf den Bildschirm: bei einer
+   * Abgabe ist der Platz nicht frei, sondern besetzt, und eine Absage nimmt
+   * den Gefragten von der Bank.
+   */
+  handover: boolean;
+  /**
    * Ob die Frage noch offen ist.
    *
    * - `open`     es gibt etwas zu entscheiden
@@ -132,6 +139,7 @@ export const openAnswer = async (
     slotLabel: assignment ? label(assignment.slotIndex) : null,
     targetSlotLabel: null,
     respondBy: null,
+    handover: false,
   } satisfies Omit<AnswerQuestion, 'state' | 'status'>;
 
   if (game.state === 'cancelled') {
@@ -164,6 +172,7 @@ export const openAnswer = async (
       ...base,
       targetSlotLabel: label(offer.targetSlot),
       respondBy: offer.respondBy,
+      handover: offer.kind === 'handover',
     };
     if (offer.outcome === 'accepted') {
       return {
@@ -180,7 +189,13 @@ export const openAnswer = async (
       return {
         ok: true,
         claims,
-        question: { ...question, state: 'answered', status: 'Du hast diese Anfrage abgelehnt.' },
+        question: {
+          ...question,
+          state: 'answered',
+          status: offer.kind === 'handover'
+            ? 'Du hast abgesagt und bist aus diesem Spiel heraus.'
+            : 'Du hast diese Anfrage abgelehnt.',
+        },
       };
     }
     if (offer.outcome === 'expired' || now.getTime() >= offer.respondBy.getTime()) {

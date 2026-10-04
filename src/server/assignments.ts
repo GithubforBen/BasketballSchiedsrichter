@@ -1,11 +1,22 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, eq, gte, lt, ne, sql as sqlRaw } from 'drizzle-orm';
+import { and, eq, gt, gte, lt, ne, sql as sqlRaw } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { CLUB } from '@/config/club';
-import { assignmentIntent } from '@/domain/notifications';
-import { canClaimSlot, canRequestSubstitute, canWithdraw } from '@/domain/rules';
+import { assignmentIntent, promotionOfferIntent } from '@/domain/notifications';
+import {
+  canClaimSlot,
+  canRequestSubstitute,
+  canWithdraw,
+  handoverSlot,
+  nextSubstituteToAsk,
+} from '@/domain/rules';
 import { buildSlots, nextFreeSlot, slotOf, SLOT_LABELS } from '@/domain/slots';
+
+/** Die beiden Ersatzplaetze. Regel 1. */
+const SUBSTITUTE_FIRST = 2;
+const SUBSTITUTE_SECOND = 3;
+import { promotionResponseWindowMs } from '@/domain/escalation';
 import { days } from '@/domain/time';
 import type { ClubSettings, Game, Referee, Slot, SlotIndex } from '@/domain/types';
 import { loadSettings } from './queries/settings';
@@ -262,28 +273,154 @@ export const confirmAssignment = async (
   return succeed('Bestätigt: „Ja, habe ich gelesen und mache es.“');
 };
 
-/** Fordert Ersatz an. Regel 8. */
+/**
+ * Regel 8: Ersatz anfordern — das Spiel abgeben.
+ *
+ * Der Knopf tut jetzt etwas anderes als frueher. Bisher rief er weitere Leute
+ * auf, sich als Ersatz **einzutragen**, solange ein Ersatzplatz frei war; dem
+ * Anfragenden half das nicht, er stand danach weiterhin auf seinem Platz.
+ *
+ * Jetzt fragt er den vordersten eingetragenen Ersatz, ob er das Spiel
+ * **uebernimmt**, und zwar genau einen — nicht alle gleichzeitig. Sonst
+ * koennten zwei zusagen, und einer von beiden stuende umsonst in der Halle.
+ * Wer absagt, verlaesst die Bank, der naechste rueckt auf und wird gefragt.
+ *
+ * Zwei Wege fuehren hierher:
+ *
+ * - **Der Eingeteilte selbst.** Abgegeben wird sein Platz. Er bleibt darauf
+ *   stehen, bis jemand zusagt — ein Spiel, das zwischendurch unbesetzt
+ *   dasteht, waere schlechter als eines mit einem Schiedsrichter, der noch
+ *   sucht.
+ * - **Der Admin.** Er hat den Platz vorher geraeumt; abgegeben wird der erste
+ *   leere Schiedsrichter-Platz.
+ */
 export const requestSubstitute = async (
   gameId: string,
-  refereeId: string,
+  actorId: string,
   now: Date = new Date(),
 ): Promise<ActionResult> => {
-  const context = await loadContext(gameId, refereeId);
+  const context = await loadContext(gameId, actorId);
   if (!context) return fail('Dieses Spiel gibt es nicht mehr.');
 
-  const decision = canRequestSubstitute({ ...context, now });
+  const decision = canRequestSubstitute({
+    ...context,
+    now,
+    pendingRequest: await hasPendingOffer(gameId, now),
+  });
   if (!decision.allowed) return fail(decision.message);
 
-  await writeAudit(db, {
-    actorId: refereeId,
-    action: 'assignment.request-substitute',
-    gameId,
-    detail: { league: context.game.leagueId },
+  const target = handoverSlot(context.slots, context.referee);
+  const substitute = nextSubstituteToAsk(context.slots);
+  /* Beides hat `canRequestSubstitute` schon geprueft — hier nur fuer den Typ. */
+  if (!target || !substitute?.assignment) return fail('Für dieses Spiel ist keine Anfrage möglich.');
+
+  const asked = await askSubstitute(
+    {
+      game: context.game,
+      settings: context.settings,
+      targetSlot: target.index,
+      substitute,
+      replacesRefereeId: target.assignment?.refereeId ?? null,
+      requestedBy: actorId,
+    },
+    now,
+  );
+
+  const name = await nameOf(asked.refereeId);
+  return succeed(
+    `${name} ist gefragt, ob er ${SLOT_LABELS[target.index]} übernimmt. ` +
+      'Bis zur Antwort bleibt die Besetzung, wie sie ist.',
+  );
+};
+
+/** Laeuft schon eine Anfrage fuer dieses Spiel? Dann geht keine zweite raus. */
+const hasPendingOffer = async (gameId: string, now: Date): Promise<boolean> => {
+  const rows = await db
+    .select({ id: schema.promotionOffers.id })
+    .from(schema.promotionOffers)
+    .where(
+      and(
+        eq(schema.promotionOffers.gameId, gameId),
+        eq(schema.promotionOffers.outcome, 'pending'),
+        gt(schema.promotionOffers.respondBy, now),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+};
+
+const nameOf = async (refereeId: string): Promise<string> => {
+  const referee = await loadReferee(refereeId);
+  return referee?.firstName?.trim() || referee?.name || 'Der Ersatz';
+};
+
+interface AskInput {
+  game: Game;
+  settings: ClubSettings;
+  targetSlot: SlotIndex;
+  substitute: Slot;
+  /** Wer den Platz raeumt, sobald zugesagt wird. null = er ist schon leer. */
+  replacesRefereeId: string | null;
+  requestedBy: string;
+}
+
+/**
+ * Stellt die Frage an genau einen Ersatz und legt die Nachricht in die Outbox.
+ *
+ * Anfrage und Nachricht entstehen in derselben Transaktion: eine Anfrage ohne
+ * Nachricht wartet auf eine Antwort, die niemand geben kann, weil niemand
+ * gefragt wurde — und sie blockiert dabei die naechste.
+ */
+const askSubstitute = async (
+  input: AskInput,
+  now: Date,
+): Promise<{ offerId: string; refereeId: string }> => {
+  const assignment = input.substitute.assignment;
+  if (!assignment) throw new Error('Der Ersatzplatz ist nicht belegt.');
+
+  const offerId = randomUUID();
+  const respondBy = new Date(
+    now.getTime() + promotionResponseWindowMs(input.game, input.settings, now),
+  );
+
+  await db.transaction(async (tx) => {
+    await tx.insert(schema.promotionOffers).values({
+      id: offerId,
+      gameId: input.game.id,
+      kind: 'handover',
+      targetSlot: input.targetSlot,
+      substituteSlot: input.substitute.index,
+      refereeId: assignment.refereeId,
+      replacesRefereeId: input.replacesRefereeId,
+      requestedBy: input.requestedBy,
+      respondBy,
+    });
+    await writeAudit(tx, {
+      actorId: input.requestedBy,
+      action: 'assignment.request-substitute',
+      gameId: input.game.id,
+      detail: {
+        offerId,
+        targetSlot: input.targetSlot,
+        substituteSlot: input.substitute.index,
+        asked: assignment.refereeId,
+        replaces: input.replacesRefereeId,
+      },
+    });
+    await enqueue(
+      tx,
+      promotionOfferIntent(
+        offerId,
+        input.game.id,
+        assignment.refereeId,
+        input.targetSlot,
+        respondBy,
+        'handover',
+      ),
+    );
   });
 
-  return succeed(
-    `Ersatz angefordert — alle mit Qualifikation ${context.game.leagueId} bekommen eine Nachricht.`,
-  );
+  return { offerId, refereeId: assignment.refereeId };
 };
 
 interface AuditEntry {
@@ -401,17 +538,9 @@ export const respondToPromotion = async (
   }
 
   if (answer === 'decline') {
-    await db
-      .update(schema.promotionOffers)
-      .set({ outcome: 'declined' })
-      .where(eq(schema.promotionOffers.id, offerId));
-    await writeAudit(db, {
-      actorId: refereeId,
-      action: 'promotion.decline',
-      gameId: offer.gameId,
-      detail: { offerId, targetSlot: offer.targetSlot, via },
-    });
-    return succeed('Danke für die Rückmeldung — du bleibst auf deinem Ersatzplatz.');
+    return offer.kind === 'handover'
+      ? declineHandover(offer, refereeId, now, via)
+      : declineVacancy(offer, refereeId, via);
   }
 
   const context = await loadContext(offer.gameId, refereeId);
@@ -425,12 +554,19 @@ export const respondToPromotion = async (
   if (!target || target.index !== offer.substituteSlot) {
     return fail('Du stehst nicht mehr auf dem Ersatzplatz dieser Anfrage.');
   }
-  if (context.slots[offer.targetSlot]?.assignment) {
-    /*
-     * Zwischen Anfrage und Antwort hat jemand anders den Platz belegt. Das ist
-     * kein Fehler, sondern First come, first served (Regel 3) — es muss nur
-     * erklaert werden.
-     */
+
+  /*
+   * Wer auf dem Zielplatz steht, entscheidet ueber Annahme oder Absage.
+   *
+   * Bei einer Abgabe ("Ersatz anfordern") steht dort noch der, der abgibt —
+   * genau deshalb ist die Anfrage gestellt worden, und er raeumt den Platz
+   * jetzt. Bei der Kaskade nach einem Austritt ist der Platz leer. In beiden
+   * Faellen gilt: steht dort jemand **anderes**, war jemand schneller (Regel
+   * 3), und die Anfrage hat sich erledigt.
+   */
+  const occupant = context.slots[offer.targetSlot]?.assignment?.refereeId ?? null;
+  const leaves = offer.kind === 'handover' ? offer.replacesRefereeId : null;
+  if (occupant !== null && occupant !== leaves) {
     await db
       .update(schema.promotionOffers)
       .set({ outcome: 'declined' })
@@ -440,6 +576,21 @@ export const respondToPromotion = async (
 
   try {
     await db.transaction(async (tx) => {
+      /*
+       * Erst raeumen, dann nachruecken — nicht umgekehrt. Der
+       * Primaerschluessel steht auf (Spiel, Platz): waere der Abgebende noch
+       * da, koennte niemand auf denselben Platz.
+       */
+      if (leaves !== null && occupant === leaves) {
+        await tx
+          .delete(schema.assignments)
+          .where(
+            and(
+              eq(schema.assignments.gameId, offer.gameId),
+              eq(schema.assignments.refereeId, leaves),
+            ),
+          );
+      }
       await tx
         .update(schema.assignments)
         .set({ slotIndex: offer.targetSlot, claimedAt: now, confirmedAt: null })
@@ -457,7 +608,14 @@ export const respondToPromotion = async (
         actorId: refereeId,
         action: 'promotion.accept',
         gameId: offer.gameId,
-        detail: { offerId, targetSlot: offer.targetSlot, from: offer.substituteSlot, via },
+        detail: {
+          offerId,
+          kind: offer.kind,
+          targetSlot: offer.targetSlot,
+          from: offer.substituteSlot,
+          replaced: leaves,
+          via,
+        },
       });
     });
   } catch (error) {
@@ -469,4 +627,140 @@ export const respondToPromotion = async (
 
   const label = SLOT_LABELS[offer.targetSlot as SlotIndex];
   return succeed(`Du bist nachgerückt und stehst jetzt als ${label}. Die Eintragung ist verbindlich.`);
+};
+
+type PromotionOfferRow = typeof schema.promotionOffers.$inferSelect;
+
+/**
+ * Absage auf eine Kaskaden-Anfrage (Regeln 13-16).
+ *
+ * Hier ist nichts weiter zu tun: der Platz war schon vorher frei, und wer
+ * nicht nachruecken will, bleibt Ersatz. Der naechste wird vom Zeitplan-Lauf
+ * gefragt.
+ */
+const declineVacancy = async (
+  offer: PromotionOfferRow,
+  refereeId: string,
+  via: string | null,
+): Promise<ActionResult> => {
+  await db
+    .update(schema.promotionOffers)
+    .set({ outcome: 'declined' })
+    .where(eq(schema.promotionOffers.id, offer.id));
+  await writeAudit(db, {
+    actorId: refereeId,
+    action: 'promotion.decline',
+    gameId: offer.gameId,
+    detail: { offerId: offer.id, kind: offer.kind, targetSlot: offer.targetSlot, via },
+  });
+  return succeed('Danke für die Rückmeldung — du bleibst auf deinem Ersatzplatz.');
+};
+
+/**
+ * Absage auf eine Abgabe-Anfrage (Regel 8).
+ *
+ * Hier bedeutet die Absage mehr als "nein, diesmal nicht". Gefragt wurde, ob
+ * die Person an diesem Termin ueberhaupt kann — wer verneint, steht auch als
+ * Ersatz nicht zur Verfuegung. Auf der Bank zu bleiben hiesse, bei jedem
+ * weiteren Ausfall erneut gefragt zu werden, und bei einem kurzfristigen
+ * Nachruecken waere sie die Erste, die einspringen muesste.
+ *
+ * Also: runter von der Bank, der naechste rueckt auf den frei gewordenen
+ * Ersatzplatz und bekommt dieselbe Frage. Erst wenn niemand mehr da ist, endet
+ * die Kette — der Abgebende behaelt dann seinen Platz und weiss, dass er ihn
+ * selbst besetzen oder den Admin ansprechen muss.
+ */
+const declineHandover = async (
+  offer: PromotionOfferRow,
+  refereeId: string,
+  now: Date,
+  via: string | null,
+): Promise<ActionResult> => {
+  await db.transaction(async (tx) => {
+    await tx
+      .update(schema.promotionOffers)
+      .set({ outcome: 'declined' })
+      .where(eq(schema.promotionOffers.id, offer.id));
+
+    await tx
+      .delete(schema.assignments)
+      .where(
+        and(
+          eq(schema.assignments.gameId, offer.gameId),
+          eq(schema.assignments.refereeId, refereeId),
+        ),
+      );
+
+    /*
+     * Nachruecken auf der Bank: Ersatz 2 wird Ersatz 1. Die Reihenfolge ist
+     * kein Schmuck, sie entscheidet, wer als Naechstes gefragt wird — eine
+     * Luecke davor wuerde die Kette abreissen lassen.
+     */
+    if (offer.substituteSlot === SUBSTITUTE_FIRST) {
+      await tx
+        .update(schema.assignments)
+        .set({ slotIndex: SUBSTITUTE_FIRST })
+        .where(
+          and(
+            eq(schema.assignments.gameId, offer.gameId),
+            eq(schema.assignments.slotIndex, SUBSTITUTE_SECOND),
+          ),
+        );
+    }
+
+    await writeAudit(tx, {
+      actorId: refereeId,
+      action: 'promotion.decline',
+      gameId: offer.gameId,
+      detail: {
+        offerId: offer.id,
+        kind: offer.kind,
+        targetSlot: offer.targetSlot,
+        removedFrom: offer.substituteSlot,
+        via,
+      },
+    });
+  });
+
+  const next = await askNextAfterDecline(offer, now);
+  return succeed(
+    next
+      ? 'Danke für die Rückmeldung — du bist aus diesem Spiel raus. Der nächste Ersatz wird gefragt.'
+      : 'Danke für die Rückmeldung — du bist aus diesem Spiel raus. Ein weiterer Ersatz steht nicht bereit.',
+  );
+};
+
+/** Die naechste Frage in derselben Kette — oder null, wenn die Bank leer ist. */
+const askNextAfterDecline = async (
+  offer: PromotionOfferRow,
+  now: Date,
+): Promise<string | null> => {
+  const context = await loadContext(offer.gameId, offer.refereeId);
+  if (!context) return null;
+  if (context.game.state === 'cancelled') return null;
+  if (context.game.kickoff.getTime() <= now.getTime()) return null;
+
+  const substitute = nextSubstituteToAsk(context.slots);
+  if (!substitute?.assignment) return null;
+
+  /*
+   * Der Zielplatz muss noch so dastehen wie bei der ersten Frage. Hat der
+   * Abgebende sich inzwischen selbst ausgetragen oder jemand anderes den Platz
+   * besetzt, ist die Kette gegenstandslos.
+   */
+  const occupant = context.slots[offer.targetSlot]?.assignment?.refereeId ?? null;
+  if (occupant !== (offer.replacesRefereeId ?? null)) return null;
+
+  const asked = await askSubstitute(
+    {
+      game: context.game,
+      settings: context.settings,
+      targetSlot: offer.targetSlot as SlotIndex,
+      substitute,
+      replacesRefereeId: offer.replacesRefereeId,
+      requestedBy: offer.requestedBy ?? offer.refereeId,
+    },
+    now,
+  );
+  return asked.refereeId;
 };

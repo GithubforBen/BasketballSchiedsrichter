@@ -1,4 +1,4 @@
-import { confirmationState } from './confirmation';
+import { confirmationState, openConfirmations } from './confirmation';
 import { nextPromotionStep, promotionResponseWindowMs } from './escalation';
 import {
   adminAlertIntent,
@@ -35,9 +35,14 @@ import { REFEREE_SLOT_COUNT, type ClubSettings, type Game, type Referee, type Sl
 export interface PromotionOfferRecord {
   id: string;
   gameId: string;
+  /** `vacancy` = Kaskade nach einem Austritt, `handover` = Abgabe (Regel 8). */
+  kind: 'vacancy' | 'handover';
   targetSlot: SlotIndex;
   substituteSlot: SlotIndex;
   refereeId: string;
+  /** Wer den Platz raeumt, wenn angenommen wird — nur bei einer Abgabe. */
+  replacesRefereeId: string | null;
+  requestedBy: string | null;
   respondBy: Date;
   outcome: 'pending' | 'accepted' | 'declined' | 'expired';
 }
@@ -52,9 +57,12 @@ export interface ScheduledGame {
 /** Eine Anfrage, die neu gestellt werden soll. Die Id vergibt erst die Ablage. */
 export interface NewPromotionOffer {
   gameId: string;
+  kind: 'vacancy' | 'handover';
   targetSlot: SlotIndex;
   substituteSlot: SlotIndex;
   refereeId: string;
+  replacesRefereeId: string | null;
+  requestedBy: string | null;
   respondBy: Date;
 }
 
@@ -237,6 +245,16 @@ export const dueConfirmationAlerts = (
   return intents;
 };
 
+/**
+ * Ob die juengste Luecke vom Admin stammt und deshalb auf ihn wartet. Regel 13.
+ *
+ * `manualVacancyVersion` haelt den Zaehlerstand fest, bei dem der Admin
+ * geraeumt hat. Tritt danach jemand selbst aus, steigt `vacancyVersion` daran
+ * vorbei — und die Kaskade laeuft wieder von allein.
+ */
+export const vacancyAwaitsAdmin = (game: Game): boolean =>
+  game.manualVacancyVersion !== null && game.manualVacancyVersion === game.vacancyVersion;
+
 interface PromotionPlan {
   expiredOfferIds: readonly string[];
   newOffers: readonly NewPromotionOffer[];
@@ -284,6 +302,16 @@ export const planPromotions = (
   if (step.kind === 'idle') return { expiredOfferIds, newOffers: [], announce: false };
   if (step.kind === 'announce') return { expiredOfferIds, newOffers: [], announce: true };
 
+  /*
+   * Hat der Admin die juengste Luecke gerissen, fragt der Lauf den Ersatz
+   * nicht von selbst. Der Admin sieht die Besetzung vor sich und entscheidet
+   * mit „Ersatz anfordern“, ob der Ersatz nachruecken soll oder ob er den
+   * Platz anders besetzt — eine Anfrage, die schon unterwegs ist, wenn er
+   * noch ueberlegt, nimmt ihm das ab. Ist niemand mehr zu fragen, greift
+   * weiter oben die Ausschreibung wie sonst auch.
+   */
+  if (vacancyAwaitsAdmin(game)) return { expiredOfferIds, newOffers: [], announce: false };
+
   const assignment = step.substitute.assignment;
   if (!assignment) return { expiredOfferIds, newOffers: [], announce: false };
 
@@ -292,14 +320,70 @@ export const planPromotions = (
     newOffers: [
       {
         gameId: game.id,
+        kind: 'vacancy',
         targetSlot: step.targetSlot,
         substituteSlot: step.substitute.index,
         refereeId: assignment.refereeId,
+        replacesRefereeId: null,
+        requestedBy: null,
         respondBy: new Date(now.getTime() + promotionResponseWindowMs(game, settings, now)),
       },
     ],
     announce: false,
   };
+};
+
+/**
+ * Regel 8: eine Abgabe-Kette, deren Frist verstrichen ist, laeuft weiter.
+ *
+ * Eine Absage nimmt den Gefragten von der Bank und fragt sofort den naechsten
+ * — das passiert in dem Augenblick, in dem er antwortet. Wer gar nicht
+ * antwortet, hat aber nichts gesagt: er bleibt Ersatz, und trotzdem darf die
+ * Kette nicht an ihm haengenbleiben. Sonst wartet der Abgebende auf eine
+ * Antwort, die nie kommt, bis das Spiel angepfiffen wird.
+ *
+ * Gefragt wird deshalb der naechste Ersatzplatz, den diese Kette noch nicht
+ * gefragt hat. Ist die Bank durch, endet sie: der Abgebende behaelt den Platz
+ * und weiss nun, dass er sich selbst kuemmern muss.
+ */
+export const continueHandover = (
+  entry: ScheduledGame,
+  settings: ClubSettings,
+  now: Date,
+): readonly NewPromotionOffer[] => {
+  const { game, slots, offers } = entry;
+  if (game.state === 'cancelled' || now.getTime() >= game.kickoff.getTime()) return [];
+
+  const handovers = offers.filter((o) => o.kind === 'handover');
+  if (handovers.length === 0) return [];
+  if (handovers.some((o) => o.outcome === 'pending' && now.getTime() < o.respondBy.getTime())) {
+    return [];
+  }
+  if (handovers.some((o) => o.outcome === 'accepted')) return [];
+
+  /* Die juengste Kette gibt Ziel und Abgebenden vor. */
+  const latest = handovers.reduce((a, b) => (a.respondBy >= b.respondBy ? a : b));
+  const occupant = slots[latest.targetSlot]?.assignment?.refereeId ?? null;
+  if (occupant !== (latest.replacesRefereeId ?? null)) return [];
+
+  const asked = new Set(handovers.map((o) => o.refereeId));
+  const next = substituteSlots(slots).find(
+    (slot) => slot.assignment !== null && !asked.has(slot.assignment.refereeId),
+  );
+  if (!next?.assignment) return [];
+
+  return [
+    {
+      gameId: game.id,
+      kind: 'handover',
+      targetSlot: latest.targetSlot,
+      substituteSlot: next.index,
+      refereeId: next.assignment.refereeId,
+      replacesRefereeId: latest.replacesRefereeId,
+      requestedBy: latest.requestedBy,
+      respondBy: new Date(now.getTime() + promotionResponseWindowMs(game, settings, now)),
+    },
+  ];
 };
 
 /**
@@ -331,6 +415,17 @@ export const openSlotAnnouncement = (
 
   const round = nudgeRound(game.kickoff, now);
   if (round > 0 && !settings.autoNudge) return null;
+
+  /*
+   * Ein Spiel anzulegen benachrichtigt niemanden. Solange an ihm noch kein
+   * Platz frei *geworden* ist, war die Luecke von Anfang an da — der Admin
+   * hat sie selbst angelegt und weiss davon. Die erste Ausschreibung und jede
+   * Stufe, die beim Anlegen schon erreicht war, bleiben deshalb aus. Was
+   * danach erreicht wird, geht raus wie bisher (und nur mit eingeschalteter
+   * automatischer Nachfrage, siehe oben). Wer vorher erinnern will, tut es von
+   * Hand unter „Meldungen“.
+   */
+  if (game.vacancyVersion === 0 && round <= nudgeRound(game.kickoff, game.createdAt)) return null;
 
   const assigned = new Set(
     slots.flatMap((s) => (s.assignment ? [s.assignment.refereeId] : [])),
@@ -438,7 +533,23 @@ export const dueDigest = (
   return intents;
 };
 
-/** Eine Zeile je Spiel, das Aufmerksamkeit braucht. */
+/**
+ * Eine Zeile je Spiel, das Aufmerksamkeit braucht.
+ *
+ * Zwei Dinge stehen bewusst **nicht** darin:
+ *
+ * - **Der fehlende Ersatz.** Ein Spiel mit zwei Schiedsrichtern ist besetzt;
+ *   ein leerer Ersatzplatz ist ein Wunsch, keine Luecke. Er stand frueher in
+ *   jeder Zeile und war damit die haeufigste Angabe der ganzen Nachricht —
+ *   eine Liste, in der fast jedes Spiel vorkommt, sagt nicht mehr, wo etwas zu
+ *   tun ist. Wer den Ersatz sehen will, sieht ihn in der Uebersicht.
+ * - **Eine Bestaetigung, die noch gar nicht angefragt wurde.** `scheduled`
+ *   heisst: die Frage geht erst zum eingestellten Vorlauf raus. Sie als
+ *   "ausstehend" zu melden, mahnt eine Antwort auf eine Frage an, die dem
+ *   Schiedsrichter nie gestellt wurde — und der Admin kann nichts tun, ausser
+ *   zu warten. Gezaehlt wird deshalb nur, was tatsaechlich unterwegs ist
+ *   (`pending` und `overdue`).
+ */
 const digestLines = (
   entries: readonly ScheduledGame[],
   input: SchedulerInput,
@@ -447,10 +558,7 @@ const digestLines = (
   const lines: string[] = [];
   for (const entry of entries) {
     const missing = refereeSlots(entry.slots).filter((s) => s.assignment === null);
-    const openSubstitutes = substituteSlots(entry.slots).filter((s) => s.assignment === null);
-    const unconfirmed = refereeSlots(entry.slots).filter(
-      (s) => s.assignment !== null && confirmationState(s, entry.game, input.settings, now) !== 'confirmed',
-    );
+    const unconfirmed = openConfirmations(entry.slots, entry.game, input.settings, now);
     if (missing.length === 0 && unconfirmed.length === 0) continue;
 
     const parts: string[] = [];
@@ -458,7 +566,6 @@ const digestLines = (
       parts.push(`${missing.map((s) => SLOT_LABELS[s.index]).join(' und ')} offen`);
     }
     if (unconfirmed.length > 0) parts.push(`${unconfirmed.length}x Bestaetigung ausstehend`);
-    if (openSubstitutes.length > 0) parts.push(`${openSubstitutes.length} Ersatzplatz frei`);
     /*
      * Datum *und* Vorlauf, wie in jeder Nachricht zu einem Spiel: das Datum
      * sagt, welches Spiel gemeint ist, der Vorlauf, wie eilig es ist. Ohne das
@@ -499,6 +606,7 @@ export const planNotifications = (input: SchedulerInput, now: Date): Notificatio
     const promotion = planPromotions(entry, input.settings, now);
     expiredOfferIds.push(...promotion.expiredOfferIds);
     newOffers.push(...promotion.newOffers);
+    newOffers.push(...continueHandover(entry, input.settings, now));
 
     if (promotion.announce) {
       const announcement = openSlotAnnouncement(

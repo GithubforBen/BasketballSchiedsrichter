@@ -107,21 +107,51 @@ describe('Was an welchem Platz möglich ist', () => {
 });
 
 describe('Ersatz anfordern', () => {
-  it('ist möglich, wenn man selbst eingetragen ist und die Frist läuft', () => {
-    const view = substituteRequestView(context({ slots: slotsFrom(['r-jk', 'b', null, null]) }));
+  it('ist möglich, wenn man selbst eingetragen ist und ein Ersatz bereitsteht', () => {
+    const view = substituteRequestView(context({ slots: slotsFrom(['r-jk', 'b', 'c', null]) }));
     expect(view.possible).toBe(true);
-    expect(view.note).toContain('U14');
+  });
+
+  it('sagt, wer gefragt wird und was eine Zusage bedeutet', () => {
+    /*
+     * Frueher stand hier „die Nachricht geht an alle mit Qualifikation U14“.
+     * Das war die alte Bedeutung des Knopfes; jetzt geht genau eine Nachricht
+     * an genau eine Person, und der Hinweis muss beides nennen — wen es
+     * trifft und was danach gilt.
+     */
+    const view = substituteRequestView(context({ slots: slotsFrom(['r-jk', 'b', 'c', null]) }));
+    expect(view.note).toContain('Ersatz 1');
+    expect(view.note).toContain('Schiedsrichter 1');
+    expect(view.note).not.toContain('alle');
+  });
+
+  it('nennt den Ersatzplatz, der wirklich besetzt ist', () => {
+    const view = substituteRequestView(context({ slots: slotsFrom(['r-jk', 'b', null, 'd']) }));
+    expect(view.note).toContain('Ersatz 2');
   });
 
   it('begründet, warum es nicht geht', () => {
-    const notIn = substituteRequestView(context({ slots: slotsFrom(['a', 'b', null, null]) }));
+    const notIn = substituteRequestView(context({ slots: slotsFrom(['a', 'b', 'c', null]) }));
     expect(notIn.possible).toBe(false);
     expect(notIn.note).toContain('selbst');
 
+    const noBench = substituteRequestView(context({ slots: slotsFrom(['r-jk', 'b', null, null]) }));
+    expect(noBench.possible).toBe(false);
+    expect(noBench.note).toContain('kein Ersatz');
+
     const tooLate = substituteRequestView(
-      context({ game: makeGame({ kickoff: inDays(1) }), slots: slotsFrom(['r-jk', 'b', null, null]) }),
+      context({ game: makeGame({ kickoff: inDays(1) }), slots: slotsFrom(['r-jk', 'b', 'c', null]) }),
     );
     expect(tooLate.possible).toBe(false);
     expect(tooLate.note).toContain('gesperrt');
+  });
+
+  it('sperrt den Knopf, solange eine Anfrage läuft', () => {
+    const view = substituteRequestView({
+      ...context({ slots: slotsFrom(['r-jk', 'b', 'c', 'd']) }),
+      pendingRequest: true,
+    });
+    expect(view.possible).toBe(false);
+    expect(view.note).toContain('läuft schon');
   });
 });

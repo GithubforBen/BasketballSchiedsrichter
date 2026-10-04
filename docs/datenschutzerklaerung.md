@@ -114,8 +114,12 @@ Das ist keine Frage der Anzeige, sondern der Auslieferung: Daten, die ohne
 Anmeldung nicht sichtbar sein sollen, verlassen den Server auch nicht. Sie
 stecken nicht versteckt im ausgelieferten HTML.
 
-Name und weitere Angaben sind erst nach der Anmeldung sichtbar, und auch dann
-nur innerhalb der Abteilung.
+Nach der Anmeldung sehen Schiedsrichterinnen und Schiedsrichter zusätzlich die
+**vollen Namen** der Eingeteilten — in der Spielübersicht, auch für vergangene
+Spiele, und unter „Offene Spiele“. Der Name ist innerhalb der Abteilung keine
+vertrauliche Angabe; er ersetzt das Kürzel, damit niemand die Kürzel aller
+anderen kennen muss. Telefonnummer, Lizenz und Qualifikationen anderer
+Personen sehen nur Admins.
 
 ## 5. Nachrichtenversand über WhatsApp
 
@@ -202,7 +206,8 @@ Innerhalb des Vereins haben Zugriff:
 
 - **Admins der Abteilung** — auf alle Daten, soweit für die Planung erforderlich.
 - **Angemeldete Schiedsrichterinnen und Schiedsrichter** — auf Namen und Kürzel
-  der übrigen Eingeteilten sowie auf die eigenen Daten vollständig.
+  der Eingeteilten aller Spiele, kommender wie vergangener (siehe 4.), sowie auf
+  die eigenen Daten vollständig.
 - **Nicht angemeldete Besucher** — ausschließlich auf Kürzel (siehe 4.).
 
 Außerhalb des Vereins: die unter 5. und 6. genannten Dienstleister. Eine
@@ -261,4 +266,4 @@ Bei Fragen zur Verarbeitung personenbezogener Daten oder zur Wahrnehmung der Bet
 Linda Schnorrenberger
 medienwart.bb.scb@gmail.com
 
-Stand: 09.09.2026
+Stand: 25.09.2026

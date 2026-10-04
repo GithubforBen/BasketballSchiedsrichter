@@ -52,7 +52,7 @@ Aus dem Mockup extrahiert und in Session 1 ergänzt. Diese Liste ist die Referen
 12. Nur Schiedsrichter-Plätze brauchen eine Bestätigung, Ersatzplätze nicht.
 
 ### Ausfall und Nachrücken
-13. Sagt ein Schiedsrichter ab oder wird er vom Admin entfernt, wird **Ersatz 1** angefragt („Rückst du nach?") mit Frist.
+13. Sagt ein Schiedsrichter ab, wird **Ersatz 1** angefragt („Rückst du nach?") mit Frist. Entfernt ihn dagegen der **Admin**, wird der Ersatz nicht von selbst gefragt, sondern erst, wenn der Admin „Ersatz anfordern" drückt; steht kein Ersatz bereit, wird der Platz ausgeschrieben.
 14. Läuft die Frist ab oder lehnt Ersatz 1 ab, wird **Ersatz 2** mit derselben Frist angefragt.
 15. Lehnt auch Ersatz 2 ab oder verstreicht die Frist, wird der Platz für alle Qualifizierten ausgeschrieben.
 16. Wer nachrückt, belegt den Schiedsrichter-Platz und bekommt eine Pflichtbestätigung. Der frei gewordene Ersatzplatz wird ausgeschrieben.
@@ -83,7 +83,7 @@ Aus dem Mockup extrahiert und in Session 1 ergänzt. Diese Liste ist die Referen
 
 ### Nachrichten an Schiedsrichter
 31. Wer sich einträgt, bekommt sofort eine Zuteilungsnachricht („Das Spiel gehört dir") mit Datum, Zeit, Ort und Liga.
-32. Der Admin kann per Knopf alle Qualifizierten an **offene Spiele** erinnern (die „Notruf"-Erinnerung aus dem Erst-Briefing).
+32. Der Admin kann per Knopf alle Qualifizierten an ein **offenes Spiel** erinnern (die „Notruf"-Erinnerung aus dem Erst-Briefing). Vor dem Versand steht eine Rückfrage mit der Zahl der Empfänger. Das **Anlegen** eines Spiels benachrichtigt niemanden: ausgeschrieben wird erst, wenn ein Platz wieder frei wird oder die automatische Nachfrage ihre nächste Stufe erreicht.
 33. Jede Nachricht kostet den Verein Geld — Sparsamkeit ist ein Produktziel, kein Detail. Jeder neue Nachrichtenauslöser muss begründet sein und im Kostenzähler auftauchen.
 
 ### Anmeldung mit Passwort

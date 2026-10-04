@@ -334,6 +334,41 @@ export const renderMessage = (kind: NotificationKind, ctx: MessageContext): Rend
     case 'promotion-offer': {
       const respondBy = text(ctx.payload['respondBy']);
       const deadline = respondBy ? dateLine(new Date(respondBy), timeZone) : 'möglichst bald';
+      /*
+       * Zwei Anlaesse, zwei Fragen — und sie sind nicht dieselbe.
+       *
+       * `vacancy`  Ein Platz ist frei geworden, gefragt wird nach dem
+       *            Nachruecken. Eine Absage laesst den Ersatzplatz unberuehrt.
+       * `handover` Jemand gibt das Spiel ab, gefragt wird nach dem Uebernehmen.
+       *            Eine Absage heisst "ich kann an dem Termin nicht" und nimmt
+       *            die Person von der Bank. Das muss in der Nachricht stehen,
+       *            sonst hat sie eine Folge, mit der niemand gerechnet hat.
+       */
+      if (text(ctx.payload['kind']) === 'handover') {
+        return render({
+          subject: 'Übernimmst du das Spiel?',
+          template: 'schiriplan_nachruecken',
+          text: [
+            'Hallo {{1}},',
+            '',
+            'du bist als Ersatz eingetragen. {{2}} wird abgegeben — übernimmst du?',
+            '{{3}}',
+            'Ort: {{4}}',
+            'Anpfiff {{5}}.',
+            '',
+            'Bitte sage bis {{6}} zu oder ab. Sagst du ab, nehmen wir dich aus diesem Spiel heraus und fragen den nächsten Ersatz.',
+          ].join('\n'),
+          params: [
+            recipientName,
+            slotLabel(ctx.payload['targetSlot']),
+            line,
+            venue,
+            lead,
+            deadline,
+          ],
+          button: answerButton(ctx, 'Zu oder Absagen'),
+        });
+      }
       return render({
         subject: 'Rückst du nach?',
         template: 'schiriplan_nachruecken',

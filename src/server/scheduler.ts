@@ -68,7 +68,6 @@ const appearancesInWindow = async (
     .select({
       refereeId: schema.assignments.refereeId,
       slotIndex: schema.assignments.slotIndex,
-      playedAsReferee: schema.assignments.playedAsReferee,
     })
     .from(schema.assignments)
     .innerJoin(schema.games, eq(schema.assignments.gameId, schema.games.id))
@@ -83,15 +82,7 @@ const appearancesInWindow = async (
   const counts = new Map<string, number>();
   for (const row of rows) {
     const slotIndex = row.slotIndex as SlotIndex;
-    const counted = countsAsRefereed(slotIndex, {
-      gameId: '',
-      slotIndex,
-      refereeId: row.refereeId,
-      claimedAt: now,
-      confirmedAt: null,
-      playedAsReferee: row.playedAsReferee,
-    });
-    if (!counted) continue;
+    if (!countsAsRefereed(slotIndex)) continue;
     counts.set(row.refereeId, (counts.get(row.refereeId) ?? 0) + 1);
   }
   return counts;
@@ -129,8 +120,11 @@ const loadHorizon = async (now: Date): Promise<readonly ScheduledGame[]> => {
         (o): PromotionOfferRecord => ({
           id: o.id,
           gameId: o.gameId,
+          kind: o.kind,
           targetSlot: o.targetSlot as SlotIndex,
           substituteSlot: o.substituteSlot as SlotIndex,
+          replacesRefereeId: o.replacesRefereeId,
+          requestedBy: o.requestedBy,
           refereeId: o.refereeId,
           respondBy: o.respondBy,
           outcome: o.outcome,
@@ -181,13 +175,23 @@ const openOffer = async (offer: NewPromotionOffer): Promise<NotificationIntent> 
   await db.insert(schema.promotionOffers).values({
     id,
     gameId: offer.gameId,
+    kind: offer.kind,
     targetSlot: offer.targetSlot,
     substituteSlot: offer.substituteSlot,
     refereeId: offer.refereeId,
+    replacesRefereeId: offer.replacesRefereeId,
+    requestedBy: offer.requestedBy,
     respondBy: offer.respondBy,
     outcome: 'pending',
   });
-  return promotionOfferIntent(id, offer.gameId, offer.refereeId, offer.targetSlot, offer.respondBy);
+  return promotionOfferIntent(
+    id,
+    offer.gameId,
+    offer.refereeId,
+    offer.targetSlot,
+    offer.respondBy,
+    offer.kind,
+  );
 };
 
 /** Der Stand, gegen den geplant wird. */

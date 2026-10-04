@@ -47,6 +47,18 @@ const HEADINGS: Readonly<Record<AnswerQuestion['kind'], string>> = {
   relocation: 'Passt der neue Termin?',
 };
 
+/**
+ * Die Ueberschrift zur Frage.
+ *
+ * Bei einer Abgabe (Regel 8) ist der Platz nicht frei geworden — jemand gibt
+ * ihn ab. "Rückst du nach?" waere dort schlicht eine andere Frage als die
+ * gestellte.
+ */
+const headingFor = (question: AnswerQuestion): string =>
+  question.kind === 'promotion' && question.handover
+    ? 'Übernimmst du das Spiel?'
+    : HEADINGS[question.kind];
+
 /** Ein Knopf, der genau eine Antwort abschickt. */
 const Choice = ({
   token,
@@ -69,7 +81,8 @@ const Choice = ({
 );
 
 /** Die Antwortmöglichkeiten, passend zur Frage. */
-const Choices = ({ token, kind }: { token: string; kind: AnswerQuestion['kind'] }) => {
+const Choices = ({ token, question }: { token: string; question: AnswerQuestion }) => {
+  const kind = question.kind;
   if (kind === 'confirm') {
     return (
       <Choice
@@ -81,7 +94,22 @@ const Choices = ({ token, kind }: { token: string; kind: AnswerQuestion['kind'] 
     );
   }
   if (kind === 'promotion') {
-    return (
+    /*
+     * "Nein, diesmal nicht" waere bei einer Abgabe zu harmlos: die Absage
+     * nimmt die Person aus dem Spiel. Was der Knopf tut, muss auf dem Knopf
+     * stehen.
+     */
+    return question.handover ? (
+      <>
+        <Choice token={token} choice="nachruecken" label="Ja, ich übernehme" variant="primary" />
+        <Choice
+          token={token}
+          choice="ablehnen"
+          label="Nein, ich kann nicht"
+          variant="secondary"
+        />
+      </>
+    ) : (
       <>
         <Choice token={token} choice="nachruecken" label="Ja, ich rücke nach" variant="primary" />
         <Choice token={token} choice="ablehnen" label="Nein, diesmal nicht" variant="secondary" />
@@ -121,7 +149,7 @@ const GameFacts = ({ question, now }: { question: AnswerQuestion; now: Date }) =
       ) : null}
       {question.targetSlotLabel ? (
         <>
-          <dt>Frei geworden</dt>
+          <dt>{question.handover ? 'Wird abgegeben' : 'Frei geworden'}</dt>
           <dd>{question.targetSlotLabel}</dd>
         </>
       ) : null}
@@ -201,7 +229,7 @@ const Answer = async ({ params, searchParams }: PageProps) => {
     <Shell nav={PUBLIC_NAV} tabs={PUBLIC_TABS} footerNav={FOOTER_NAV} current="/">
       <div className="form-page">
         <div className="kicker kicker-accent">Aus deiner Nachricht</div>
-        <h1>{HEADINGS[question.kind]}</h1>
+        <h1>{headingFor(question)}</h1>
         <p className="text-muted" style={{ fontSize: '14px' }}>
           Hallo {question.refereeName}, es geht um genau dieses Spiel:
         </p>
@@ -222,7 +250,7 @@ const Answer = async ({ params, searchParams }: PageProps) => {
             className="row"
             style={{ gap: 'var(--space-3)', marginTop: 'var(--space-4)', flexWrap: 'wrap' }}
           >
-            <Choices token={token} kind={question.kind} />
+            <Choices token={token} question={question} />
           </div>
         ) : null}
       </div>

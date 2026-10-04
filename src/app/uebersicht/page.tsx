@@ -7,9 +7,10 @@ import { statusOf, timeLabel, matchTitle } from '@/domain/schedule';
 import { describeLeadTime } from '@/domain/time';
 import { GAME_EXPORT_COLUMNS } from '@/domain/csv-export';
 import { leagueDisplay } from '@/domain/league';
-import { editGameRoute, gameExportRoute } from '@/routes';
+import { editGameRoute, gameExportRoute, overviewRoute } from '@/routes';
 import { requireAdmin } from '@/server/guard';
 import { adminOverview, adminRows } from '@/server/queries/admin-view';
+import { isExportScope } from '@/server/queries/export';
 import { loadSettings } from '@/server/queries/settings';
 import { nudgeAction } from './actions';
 
@@ -30,8 +31,18 @@ const Overview = async ({ searchParams }: PageProps) => {
   const user = await requireAdmin(now);
   const params = await searchParams;
 
+  /*
+   * Ein Zeitraum fuer beides: die Liste auf dem Bildschirm und die Datei
+   * daneben. Wer die vergangenen Spiele einblendet und dann exportiert,
+   * bekommt genau das, was er vor sich hat — alles andere waere eine
+   * Ueberraschung beim Oeffnen der Datei.
+   */
+  const wanted = single(params.zeitraum);
+  const scope = isExportScope(wanted) ? wanted : 'kommende';
+  const withPast = scope === 'alle';
+
   const settings = await loadSettings();
-  const { matchdays, kpis } = await adminOverview(settings, now);
+  const { matchdays, kpis } = await adminOverview(settings, now, scope);
   const rowsPerDay = await Promise.all(
     matchdays.map(async (day) => ({ day, rows: await adminRows(day, settings, now) })),
   );
@@ -53,7 +64,11 @@ const Overview = async ({ searchParams }: PageProps) => {
       current="/uebersicht"
       kicker="Adminbereich"
       title="Spielübersicht"
-      lead="Nach Spieltagen getrennt. Alle kommenden Spiele mit ihrer Besetzung."
+      lead={
+        withPast
+          ? 'Nach Spieltagen getrennt — alle Spiele der Saison, auch die vergangenen.'
+          : 'Nach Spieltagen getrennt. Alle kommenden Spiele mit ihrer Besetzung.'
+      }
       hint={single(params.hinweis)}
       error={single(params.fehler)}
       actions={
@@ -82,24 +97,33 @@ const Overview = async ({ searchParams }: PageProps) => {
         <Link href="/meldungen" className="btn btn-primary">
           Offene Spiele &amp; Meldungen
         </Link>
+        <Link
+          href={overviewRoute(withPast ? 'kommende' : 'alle')}
+          className={`btn ${withPast ? 'btn-secondary' : 'btn-ghost'}`}
+        >
+          {withPast ? 'Nur kommende Spiele' : 'Vergangene Spiele auch anzeigen'}
+        </Link>
         {/*
-          Gewoehnliche Verweise und kein <Link>: das Ziel ist eine Datei, keine
+          Gewoehnlicher Verweis und kein <Link>: das Ziel ist eine Datei, keine
           Seite. Der Router von Next wuerde versuchen, sie als Seite zu laden.
         */}
-        <a href={gameExportRoute('kommende')} className="btn btn-secondary" download>
-          Spielplan als CSV
-        </a>
-        <a href={gameExportRoute('alle')} className="btn btn-ghost" download>
-          … samt vergangener Spiele
+        <a href={gameExportRoute(scope)} className="btn btn-secondary" download>
+          Als CSV exportieren
         </a>
       </div>
       <p className="text-muted" style={{ fontSize: '12px', marginTop: 'calc(-1 * var(--space-2))' }}>
-        Die Datei enthält {GAME_EXPORT_COLUMNS.join('; ')} — auf den vier Plätzen stehen die
-        Kürzel, nicht die Namen. Abgesagte Spiele stehen nicht darin.
+        Die Datei enthält genau die Spiele, die hier stehen —{' '}
+        {withPast ? 'samt der vergangenen' : 'ohne die vergangenen'}. Spalten:{' '}
+        {GAME_EXPORT_COLUMNS.join('; ')}; auf den vier Plätzen stehen die Kürzel, nicht die
+        Namen. Abgesagte Spiele stehen nicht darin.
       </p>
 
       {rowsPerDay.length === 0 ? (
-        <p className="text-muted">Zurzeit sind keine kommenden Spiele eingetragen.</p>
+        <p className="text-muted">
+          {withPast
+            ? 'Es sind keine Spiele eingetragen.'
+            : 'Zurzeit sind keine kommenden Spiele eingetragen.'}
+        </p>
       ) : (
         rowsPerDay.map(({ day, rows }) => (
           <section key={day.key} style={{ marginTop: 'var(--space-8)' }}>

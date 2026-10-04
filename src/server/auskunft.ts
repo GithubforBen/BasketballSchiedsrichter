@@ -56,7 +56,6 @@ export const buildDataExport = async (refereeId: string): Promise<DataExport | n
         slotIndex: schema.assignments.slotIndex,
         claimedAt: schema.assignments.claimedAt,
         confirmedAt: schema.assignments.confirmedAt,
-        playedAsReferee: schema.assignments.playedAsReferee,
         kickoff: schema.games.kickoff,
         home: schema.games.home,
         away: schema.games.away,
@@ -127,12 +126,14 @@ export const buildDataExport = async (refereeId: string): Promise<DataExport | n
     qualifikationen: quals.map((q) => q.leagueId),
     erinnerungen: referee.reminderHours.map((h) => `${describeHours(h)} vor Anpfiff`),
     eintragungen: assignments.map((a) => {
+      /*
+       * Gezaehlt wird der Platz zum Anpfiff: wer auf Schiri 1 oder Schiri 2
+       * steht, hat gepfiffen. Frueher stand hier zusaetzlich, ob der Admin
+       * einen Ersatz nachtraeglich als Einsatz gewertet hat — diese
+       * Nachpflege gibt es nicht mehr.
+       */
       const einsatz =
-        a.playedAsReferee === null
-          ? 'noch nicht nachgepflegt'
-          : a.playedAsReferee
-            ? 'als Schiedsrichter gepfiffen'
-            : 'nicht gepfiffen';
+        a.slotIndex < 2 ? 'als Schiedsrichter gezählt' : 'als Ersatz, zählt nicht';
       return (
         `${matchdayLabel(a.kickoff, CLUB.timeZone)}, ${timeLabel(a.kickoff, CLUB.timeZone)} Uhr · ` +
         `${a.home} gegen ${a.away} · ${SLOT_LABELS[a.slotIndex as SlotIndex]} · ` +
