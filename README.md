@@ -236,6 +236,30 @@ docker compose logs backup | tail  # die letzte Sicherung
 Der Healthcheck unter `/api/gesundheit` fragt die Datenbank mit an: ein Prozess, der läuft, aber
 die Datenbank nicht erreicht, kann nichts ausliefern und gilt deshalb auch nicht als gesund.
 
+### Aktualisieren
+
+```bash
+./aktualisieren.sh
+```
+
+Das Skript sieht nach, ob es einen neueren Stand gibt, **sichert zuerst die Datenbank** nach
+`./sicherungen/vor-update-<Zeit>.sql.gz` und prüft die Datei — erst danach holt es den neuen
+Stand, baut das Abbild, spielt das Schema ein und startet den Verbund neu. Ohne geprüfte
+Sicherung zieht es nichts: eine Migration, die eine Spalte löscht, lässt sich nicht
+zurückdrehen.
+
+Die bisherige Anwendung läuft weiter, bis das neue Abbild gebaut ist; angehalten ist sie nur
+für das Einspielen des Schemas und den Neustart. Scheitert etwas, nennt das Skript die
+Sicherung und den alten Stand und sagt, wie man zurückkommt — von selbst dreht es nichts
+zurück.
+
+Gibt es nichts Neues, ist nach der Prüfung Schluss. `./aktualisieren.sh --erzwingen` sichert,
+baut und startet trotzdem neu, etwa nach einem `git pull` von Hand. Eigene Änderungen an
+versionierten Dateien weist das Skript ab, statt sie still in das neue Abbild zu übernehmen.
+
+Die Sicherungen vor einem Update räumt niemand von selbst ab — die tägliche Aufräumung fasst
+nur die Tagesstände an.
+
 ### Eine Sicherung zurückspielen
 
 ```bash
