@@ -1,10 +1,16 @@
 # Betrieb auf dem VPS. Nach aussen ist nichts offen — der Zugriff laeuft
 # ausschliesslich ueber den Cloudflare Tunnel, der als eigener Dienst neben
 # der App laeuft und sie unter ihrem internen Namen erreicht.
+#
+# Alle Dienste mit "restart: always": sie kommen nach einem Neustart des
+# Rechners wieder hoch, auch wenn sie vorher von Hand angehalten wurden. Mit
+# "unless-stopped" blieb nach einem `docker compose stop` und einem Reboot
+# alles aus. Die Reihenfolge aus depends_on gilt beim Start durch Docker
+# selbst nicht — deshalb wartet die Sicherung unten selbst auf die Datenbank.
 services:
   db:
     image: postgres:17-alpine
-    restart: unless-stopped
+    restart: always
     environment:
       POSTGRES_USER: schiriplan
       # Kein Standardwert, so wie bei CRON_SECRET und PUBLIC_BASE_URL auch.
@@ -27,7 +33,7 @@ services:
 
   app:
     build: .
-    restart: unless-stopped
+    restart: always
     depends_on:
       db:
         condition: service_healthy
@@ -38,6 +44,11 @@ services:
       # veroeffentlicht — nicht der interne Dienstname. Anmeldelinks und
       # Weiterleitungen werden daraus gebaut.
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL muss gesetzt sein}
+      # Der Next-Server lauscht auf $HOSTNAME, und Docker setzt dort die
+      # Container-ID ein. Dann antwortet er nur unter der Adresse des
+      # Containers, nicht auf der Rueckschleife, und der Healthcheck unten
+      # meldete dauerhaft "unhealthy", obwohl die Anwendung lief.
+      HOSTNAME: 0.0.0.0
     env_file:
       - .env
     # Kein "ports"-Eintrag: die App ist nur im Compose-Netz erreichbar.
@@ -46,8 +57,10 @@ services:
     # Der Healthcheck fragt die Datenbank mit an: ein Prozess, der laeuft, aber
     # die Datenbank nicht erreicht, kann nichts ausliefern und soll auch nicht
     # als gesund gelten. busybox-wget statt curl — kein Paket nachzuinstallieren.
+    # 127.0.0.1 statt localhost: busybox-wget nimmt fuer localhost zuerst ::1,
+    # und auf IPv6 lauscht der Server mit HOSTNAME=0.0.0.0 nicht.
     healthcheck:
-      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:3000/api/gesundheit || exit 1']
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:3000/api/gesundheit || exit 1']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -59,7 +72,7 @@ services:
   # nichts, und ein doppelter Lauf scheitert an den Schluesseln der Outbox.
   cron:
     image: alpine:3.21
-    restart: unless-stopped
+    restart: always
     depends_on:
       - app
     environment:
@@ -81,7 +94,7 @@ services:
   # einen Fehler zu bemerken, der erst nach ein paar Tagen auffaellt.
   backup:
     image: postgres:17-alpine
-    restart: unless-stopped
+    restart: always
     depends_on:
       db:
         condition: service_healthy
@@ -89,19 +102,36 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss gesetzt sein}
     volumes:
       - ./sicherungen:/sicherungen
+    #
+    # Nach einem Neustart des Rechners startet Docker alle Dienste zugleich,
+    # ohne auf depends_on zu achten. Deshalb wartet jeder Lauf erst, bis die
+    # Datenbank antwortet.
+    #
+    # Erst in eine Datei, dann packen: in einer Pipe verschluckte gzip einen
+    # Abbruch von pg_dump, und uebrig blieb eine leere Datei, die wie eine
+    # gelungene Sicherung aussah. Aufgeraeumt wird nur nach einer gelungenen
+    # Sicherung — sonst loeschte eine Reihe von Fehlschlaegen nach 14 Tagen
+    # die letzten guten Staende.
     command: >
       sh -c 'while true; do
+      until pg_isready -q -h db -U schiriplan; do sleep 5; done;
       ziel="/sicherungen/schiriplan-$$(date +%Y-%m-%d).sql.gz";
-      pg_dump -h db -U schiriplan schiriplan | gzip > "$$ziel.teil"
-      && mv "$$ziel.teil" "$$ziel"
-      && echo "Sicherung: $$ziel"
-      || echo "Sicherung fehlgeschlagen";
+      if pg_dump -h db -U schiriplan schiriplan > /tmp/sicherung.sql
+      && gzip -c /tmp/sicherung.sql > "$$ziel.teil"
+      && mv "$$ziel.teil" "$$ziel";
+      then echo "Sicherung: $$ziel";
       find /sicherungen -name "schiriplan-*.sql.gz" -mtime +14 -delete;
+      else echo "Sicherung fehlgeschlagen"; rm -f "$$ziel.teil";
+      fi;
+      rm -f /tmp/sicherung.sql;
       sleep 86400; done'
 
+  # Feste Version statt latest: sie wechselt nur, wenn hier eine neue steht.
+  # 2026.10.3 enthaelt den Schutz vor den kompromittierten eMudhra-Zwischen-
+  # zertifikaten (CVE-2026-111943, ab 2026.10.2).
   tunnel:
-    image: cloudflare/cloudflared:latest
-    restart: unless-stopped
+    image: cloudflare/cloudflared:2026.10.3
+    restart: always
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
