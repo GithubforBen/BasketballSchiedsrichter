@@ -220,6 +220,13 @@ HILFE[MAIL_FROM]='Steht als Absender in jeder E-Mail.'
 LABEL[MAIL_TEST_RECIPIENT]='Testempfaenger'
 HILFE[MAIL_TEST_RECIPIENT]='Leer lassen im Echtbetrieb. Gesetzt lenkt es *alle* Nachrichten auf dieses Postfach.'
 
+LABEL[CLOUDBEAVER_ADRESSE]='CloudBeaver: Adresse'
+HILFE[CLOUDBEAVER_ADRESSE]='Die Datenbank im Browser, Port 18978, nie ueber den Tunnel. 127.0.0.1 = nur dieser Rechner (auf einem VPS: per SSH). Fuers lokale Netz die LAN-Adresse dieses Rechners. Nie 0.0.0.0 — Docker oeffnet den Port an ufw vorbei.'
+
+LABEL[CLOUDBEAVER_PASSWORT]='CloudBeaver: Passwort'
+HILFE[CLOUDBEAVER_PASSWORT]='Fuer den Verwalter (CLOUDBEAVER_ADMIN, Vorgabe verwalter). Gilt nur beim ersten Start — danach in CloudBeaver selbst aendern.'
+GEHEIM[CLOUDBEAVER_PASSWORT]=1
+
 LABEL[ADMIN_NAME]='Erster Admin: Name'
 HILFE[ADMIN_NAME]='Vor- und Nachname. Daraus entsteht auch das Start-Passwort.'
 
@@ -241,11 +248,15 @@ setze_vorgabe CRON_SECRET "$(openssl rand -base64 32)"
 setze_vorgabe NOTIFICATION_CHANNEL 'dev'
 setze_vorgabe LOGIN_MAGIC_LINK 'aus'
 setze_vorgabe MAIL_FROM 'schiriplan@example.org'
+setze_vorgabe CLOUDBEAVER_ADRESSE '127.0.0.1'
+setze_vorgabe CLOUDBEAVER_ADMIN 'verwalter'
+setze_vorgabe CLOUDBEAVER_PASSWORT "$(openssl rand -hex 16)"
 
 # Welche Felder gefragt werden, haengt am Kanal.
 felder() {
   local liste=(PUBLIC_BASE_URL CLOUDFLARE_TUNNEL_TOKEN POSTGRES_PASSWORD SESSION_SECRET
-               CRON_SECRET NOTIFICATION_CHANNEL LOGIN_MAGIC_LINK)
+               CRON_SECRET NOTIFICATION_CHANNEL LOGIN_MAGIC_LINK
+               CLOUDBEAVER_ADRESSE CLOUDBEAVER_PASSWORT)
   case ${WERT[NOTIFICATION_CHANNEL]} in
     whatsapp) liste+=(WHATSAPP_PHONE_NUMBER_ID WHATSAPP_ACCESS_TOKEN) ;;
     email)    liste+=(SMTP_URL MAIL_FROM MAIL_TEST_RECIPIENT) ;;
@@ -280,7 +291,14 @@ pruefe() {
       # einer URL nichts bedeuten — "/", "@", ":" und "%" zerlegten sie.
       [[ $wert =~ ^[A-Za-z0-9._~-]+$ ]] ||
         { echo "Nur Buchstaben, Ziffern und . _ ~ - — andere Zeichen zerlegen die Datenbankadresse."; return 1; } ;;
-    CRON_SECRET|CLOUDFLARE_TUNNEL_TOKEN|ADMIN_NAME|ADMIN_TELEFON)
+    CLOUDBEAVER_ADRESSE)
+      # 0.0.0.0 hiesse auf einem VPS: CloudBeaver steht im Internet, an ufw
+      # vorbei. Verlangt ist deshalb eine bestimmte Adresse.
+      [[ $wert =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] ||
+        { echo "Eine IPv4-Adresse, z. B. 127.0.0.1 oder 192.168.178.20."; return 1; }
+      [[ $wert != 0.0.0.0 ]] ||
+        { echo "Nicht 0.0.0.0 — damit waere CloudBeaver auf jeder Schnittstelle offen."; return 1; } ;;
+    CRON_SECRET|CLOUDFLARE_TUNNEL_TOKEN|CLOUDBEAVER_PASSWORT|ADMIN_NAME|ADMIN_TELEFON)
       [[ -n $wert ]] || { echo "Darf nicht leer bleiben."; return 1; } ;;
     NOTIFICATION_CHANNEL)
       [[ $wert == dev || $wert == email || $wert == whatsapp ]] || { echo "Nur dev, email oder whatsapp."; return 1; } ;;
@@ -400,6 +418,10 @@ umask 077
   echo "SMTP_URL=${WERT[SMTP_URL]:-}"
   echo "MAIL_FROM=${WERT[MAIL_FROM]:-}"
   echo "MAIL_TEST_RECIPIENT=${WERT[MAIL_TEST_RECIPIENT]:-}"
+  echo
+  echo "CLOUDBEAVER_ADRESSE=${WERT[CLOUDBEAVER_ADRESSE]}"
+  echo "CLOUDBEAVER_ADMIN=${WERT[CLOUDBEAVER_ADMIN]}"
+  echo "CLOUDBEAVER_PASSWORT=${WERT[CLOUDBEAVER_PASSWORT]}"
 } >> .env.neu
 
 mv .env.neu .env

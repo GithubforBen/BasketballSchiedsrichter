@@ -209,13 +209,14 @@ sowie in den Testnamen mit ihrer Nummer belegt.
 ## Betrieb
 
 Docker Compose startet App, Datenbank und den Cloudflare Tunnel. Nach außen ist kein Port
-offen — der Zugriff läuft ausschließlich über den Tunnel.
+offen — der Zugriff läuft ausschließlich über den Tunnel. Einzige Ausnahme ist CloudBeaver,
+und das nur im lokalen Netz (siehe unten).
 
 ```bash
 docker compose up -d
 ```
 
-Fünf Dienste laufen im Verbund:
+Sechs Dienste laufen im Verbund:
 
 | Dienst | Aufgabe |
 | --- | --- |
@@ -224,6 +225,29 @@ Fünf Dienste laufen im Verbund:
 | `cron` | ruft alle fünf Minuten den Nachrichtenlauf auf — im internen Netz, nicht über den Tunnel, damit ein Ausfall bei Cloudflare die Erinnerungen nicht mitnimmt |
 | `backup` | sichert die Datenbank täglich nach `./sicherungen/`, hält 14 Stände |
 | `tunnel` | Cloudflare Tunnel; der einzige Weg von außen |
+| `cloudbeaver` | die Datenbank im Browser ansehen — nur im lokalen Netz, Port 18978, nicht über den Tunnel |
+
+### Die Datenbank im Browser: CloudBeaver
+
+CloudBeaver lauscht auf Port **18978**, und zwar auf der Adresse aus `CLOUDBEAVER_ADRESSE` in
+der `.env`. Ohne Angabe ist das `127.0.0.1` — dann kommt nur der Rechner selbst heran. Fürs
+lokale Netz steht dort die LAN-Adresse des Servers (`ip -4 addr`), etwa `192.168.178.20`;
+aufgerufen wird dann `http://192.168.178.20:18978`. **Niemals `0.0.0.0`:** Docker öffnet
+veröffentlichte Ports an ufw vorbei, und auf einem VPS stünde CloudBeaver damit im Internet.
+Ein VPS hat kein lokales Netz — dort bleibt es bei `127.0.0.1`, und man kommt per SSH heran:
+
+```bash
+ssh -L 18978:127.0.0.1:18978 <server>   # danach http://localhost:18978
+```
+
+Der Tunnel erreicht CloudBeaver nicht: es hängt an einem eigenen Netz, das es nur mit der
+Datenbank teilt. Angemeldet wird mit `CLOUDBEAVER_ADMIN` (Standard `verwalter`) und
+`CLOUDBEAVER_PASSWORT`; ohne Passwort startet der Verbund nicht. Beides wird **nur beim ersten
+Start** übernommen — wer das Passwort später ändern will, tut es in CloudBeaver selbst. Einen
+anonymen Zugang gibt es nicht.
+
+Die Verbindung „Schiriplan“ ist vorbereitet. Beim Verbinden fragt CloudBeaver nach Benutzer
+(`schiriplan`) und Passwort (`POSTGRES_PASSWORD`); gespeichert wird es nicht.
 
 ### Ist alles gesund?
 

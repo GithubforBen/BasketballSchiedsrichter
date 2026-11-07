@@ -85,6 +85,10 @@ vorbedingungen() {
   docker compose version >/dev/null 2>&1 || fehler "Docker bringt kein Compose-Plugin mit."
   docker info >/dev/null 2>&1 || fehler "Docker ist nicht erreichbar. Laeuft der Dienst, und bist du in der Gruppe docker?"
   [[ -n $(env_wert POSTGRES_PASSWORD) ]] || fehler "In der .env fehlt POSTGRES_PASSWORD."
+  # Ohne dieses Passwort bricht `docker compose` jeden Befehl ab — besser hier,
+  # bevor gesichert und gezogen wird, als mitten im Bauen.
+  [[ -n $(env_wert CLOUDBEAVER_PASSWORT) ]] ||
+    fehler "In der .env fehlt CLOUDBEAVER_PASSWORT (fuer CloudBeaver, siehe README). Erzeugen: openssl rand -hex 16"
 }
 
 # Schreibt die Sicherung und gibt ihren Pfad in SICHERUNG zurueck.
@@ -221,6 +225,13 @@ einspielen() {
   ALT=$alt
   trap 'status=$?; rm -f "$UEBERGANG"; (( status == 0 )) || zurueck_hinweis "$ALT" "$SICHERUNG"' EXIT
   SICHERUNG=$sicherung
+
+  # Dieselbe Pruefung wie in voraussetzungen() — hier noch einmal, weil beim
+  # ersten Update mit CloudBeaver der erste Teil noch aus dem alten Skript
+  # stammt und sie nicht kannte. Bricht vor dem Bauen ab; die bisherige
+  # Anwendung laeuft dann unveraendert weiter.
+  [[ -n $(env_wert CLOUDBEAVER_PASSWORT) ]] ||
+    fehler "In der .env fehlt CLOUDBEAVER_PASSWORT (fuer CloudBeaver, siehe README). Eintragen (openssl rand -hex 16), dann ./aktualisieren.sh --erzwingen."
 
   schritt "Abhaengigkeiten auf dem Rechner"
   # Gebraucht fuer die Migration, die vom Rechner aus laeuft.

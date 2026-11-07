@@ -1,6 +1,7 @@
 # Betrieb auf dem VPS. Nach aussen ist nichts offen — der Zugriff laeuft
 # ausschliesslich ueber den Cloudflare Tunnel, der als eigener Dienst neben
-# der App laeuft und sie unter ihrem internen Namen erreicht.
+# der App laeuft und sie unter ihrem internen Namen erreicht. Einzige Ausnahme
+# ist CloudBeaver ganz unten, und das nur im lokalen Netz.
 #
 # Alle Dienste mit "restart: always": sie kommen nach einem Neustart des
 # Rechners wieder hoch, auch wenn sie vorher von Hand angehalten wurden. Mit
@@ -25,6 +26,9 @@ services:
       POSTGRES_DB: schiriplan
     volumes:
       - db-data:/var/lib/postgresql/data
+    networks:
+      - default
+      - verwaltung
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U schiriplan']
       interval: 10s
@@ -138,5 +142,53 @@ services:
     depends_on:
       - app
 
+  # Datenbank im Browser ansehen: CloudBeaver, nur im lokalen Netz.
+  #
+  # Der einzige Dienst mit einem veroeffentlichten Port — und der Tunnel kennt
+  # ihn nicht. Drei Riegel halten ihn aus dem Internet heraus:
+  #
+  # 1. Er haengt nur am Netz "verwaltung", das er sich mit der Datenbank teilt.
+  #    Tunnel und App sitzen nicht darin; selbst eine Regel, die jemand im
+  #    Cloudflare-Dashboard auf "cloudbeaver:8978" anlegt, liefe ins Leere.
+  # 2. Der Port lauscht auf CLOUDBEAVER_ADRESSE, ohne Angabe nur auf der
+  #    Rueckschleife. Fuers lokale Netz steht dort die LAN-Adresse des Rechners,
+  #    niemals 0.0.0.0: Docker oeffnet veroeffentlichte Ports an ufw vorbei, und
+  #    auf einem VPS hiesse 0.0.0.0 "fuer das ganze Internet".
+  # 3. Ohne Anmeldung kommt niemand hinein. Der Verwalter wird beim ersten
+  #    Start aus den Variablen angelegt — sonst richtete der erste Besucher im
+  #    Einrichtungsassistenten sich selbst als Admin ein —, und der anonyme
+  #    Zugang, den CloudBeaver von Haus aus anbietet, ist aus.
+  #
+  # Port 18978 statt der ueblichen 8978: darauf liegt sonst nichts.
+  #
+  # Die Verbindung zur Datenbank ist vorbereitet, ihr Passwort aber nicht
+  # gespeichert — es wird beim Verbinden abgefragt. Wer CloudBeaver offen hat,
+  # sieht alle Namen und Telefonnummern; das Passwort ist die zweite Tuer.
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:26.2.4
+    restart: always
+    depends_on:
+      - db
+    networks:
+      - verwaltung
+    ports:
+      - '${CLOUDBEAVER_ADRESSE:-127.0.0.1}:18978:8978'
+    environment:
+      CB_SERVER_NAME: Schiriplan
+      CB_ADMIN_NAME: ${CLOUDBEAVER_ADMIN:-verwalter}
+      CB_ADMIN_PASSWORD: ${CLOUDBEAVER_PASSWORT:?CLOUDBEAVER_PASSWORT muss gesetzt sein}
+      CLOUDBEAVER_APP_ANONYMOUS_ACCESS_ENABLED: 'false'
+    volumes:
+      - cloudbeaver-workspace:/opt/cloudbeaver/workspace
+      # Wird nur beim allerersten Start in den Arbeitsbereich kopiert.
+      - ./cloudbeaver/initial-data-sources.conf:/opt/cloudbeaver/conf/initial-data-sources.conf:ro
+
+# "default" ist das Netz, das Compose ohnehin anlegt; die Datenbank haengt
+# zusaetzlich an "verwaltung", damit CloudBeaver sie erreicht.
+networks:
+  default:
+  verwaltung:
+
 volumes:
   db-data:
+  cloudbeaver-workspace:
