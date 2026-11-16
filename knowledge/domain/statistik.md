@@ -20,7 +20,7 @@ Regeln 25–28, im heutigen Stand:
 - Stimmt das ausnahmsweise nicht, ändert der Admin die **Besetzung des vergangenen Spiels**.
 - Ranking: nur die eigene Person namentlich mit Zahl, alle anderen anonym ohne Zahl.
 
-`PLAN.md` (Regel 27, Screen „Spiele nachpflegen") sah noch eine Korrektur je Spiel vor. Der Bildschirm wurde abgeschafft; gilt der Stand im Code (bestätigt bei der Migration am 2026-11-16).
+Früher gab es eine Korrektur je Spiel (Screen „Spiele nachpflegen"). Der Bildschirm wurde abgeschafft; bei der Migration am 2026-11-16 bestätigt und in `PLAN.md` nachgezogen.
 
 # Why
 

@@ -20,7 +20,7 @@ Regeln 51–53, im heutigen Stand mit drei Stufen:
 - Wer keine Lizenz hat, kann sich in **kein** Spiel eintragen, auch nicht in eines seiner Liga.
 - Die Lizenz beschränkt das Eintragen, nicht das Sehen. Eine Ausschreibung für ein Spiel, für das die Lizenz nicht reicht, bekommt man nicht.
 
-`PLAN.md` nennt nur E und D. Die Stufe C kam später dazu; gilt der Stand im Code (bestätigt bei der Migration am 2026-11-16).
+Ursprünglich gab es nur E und D; die Stufe C kam später dazu. Bei der Migration am 2026-11-16 bestätigt und in `PLAN.md` nachgezogen.
 
 # Why
 

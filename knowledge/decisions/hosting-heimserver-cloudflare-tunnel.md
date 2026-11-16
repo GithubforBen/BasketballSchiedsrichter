@@ -16,7 +16,7 @@ sources:
 
 Die Anwendung läuft mit Docker Compose auf einem eigenen Server im Heimnetz. Von außen ist sie nur über einen Cloudflare Tunnel erreichbar (`tunnel`-Dienst in `docker-compose.yml`); kein Port ist ins Internet geöffnet. Alle Dienste stehen auf `restart: always` und kommen nach einem Neustart von selbst wieder hoch. Werkzeuge nur für die Verwaltung (z. B. CloudBeaver) sind an die LAN-Adresse gebunden und nie über den Tunnel erreichbar.
 
-`PLAN.md` §1 nennt noch einen „eigenen VPS". Die Entscheidung für Docker Compose und den Tunnel ist dieselbe geblieben, der Ort hat gewechselt; Kommentare in `docker-compose.yml` und `README.md`, die von einem VPS sprechen, stammen aus dieser Zeit.
+Ursprünglich war ein „eigener VPS" geplant. Die Entscheidung für Docker Compose und den Tunnel ist dieselbe geblieben, der Ort hat gewechselt. Wo `README.md`, `einrichten.sh` und `docker-compose.yml` noch „auf einem VPS …" sagen, beschreiben sie bewusst den anderen Fall: das Einrichtungsskript taugt für beide.
 
 # Why
 

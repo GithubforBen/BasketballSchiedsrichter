@@ -16,7 +16,7 @@ sources:
 
 Beim Einrichten stehen die Ligen U10, U12, U14, U16, U18 und Senioren bereit (`INITIAL_LEAGUES` in `src/config/club.ts`). Der Admin legt in den Einstellungen weitere an, benennt sie um oder deaktiviert sie.
 
-`PLAN.md` §1 nannte als Annahme U14 / U16 / U18 / Erwachsene / Senioren. Gilt der Stand im Code (bestätigt bei der Migration am 2026-11-16).
+Die erste Annahme in `PLAN.md` lautete U14 / U16 / U18 / Erwachsene / Senioren. Bei der Migration am 2026-11-16 auf den Stand im Code korrigiert.
 
 # Why
 

@@ -213,4 +213,4 @@ Skipped by the user during the migration, to be answered later:
 
 - **WhatsApp templates at Meta** (`backlog/whatsapp-vorlagen-bei-meta-pruefen.md`): `TODO.md` (as of 2026-09-07) says `schiriplan_termin_geaendert` and `schiriplan_erinnerung` were missing at Meta. The code still sends both (game moved, personal reminders). Are they approved now? Check with `src/cli/vorlagen-test.ts`.
 
-Stale text outside the bundle, not changed by the migration: `PLAN.md` still says VPS, passwordless login, licenses E/D only, "Spiele nachpflegen" and the old league list; comments in `docker-compose.yml` and `README.md` speak of a VPS; `TODO.md` lists items that are done.
+Stale text outside the bundle was brought up to date in this PR at the user's request: `PLAN.md` (Hosting, Login, leagues, rule 27, rules 51–52, screens), `TODO.md` (done items removed, the open template question restated) and two factual "VPS" comments in `docker-compose.yml`. Conditional "on a VPS …" advice in `README.md`, `einrichten.sh` and `docker-compose.yml` stays, and so do the milestone notes in `PLAN.md` §4, which are history.

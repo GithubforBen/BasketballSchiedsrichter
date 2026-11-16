@@ -1,4 +1,4 @@
-# Betrieb auf dem VPS. Nach aussen ist nichts offen — der Zugriff laeuft
+# Betrieb auf dem eigenen Server im Heimnetz. Nach aussen ist nichts offen — der Zugriff laeuft
 # ausschliesslich ueber den Cloudflare Tunnel, der als eigener Dienst neben
 # der App laeuft und sie unter ihrem internen Namen erreicht. Einzige Ausnahme
 # ist CloudBeaver ganz unten, und das nur im lokalen Netz.
@@ -93,7 +93,7 @@ services:
   # Taegliche Sicherung der Datenbank.
   #
   # Sie liegt bewusst als eigener Dienst hier und nicht als Cron-Eintrag auf
-  # dem VPS: so zieht `docker compose up` die Sicherung mit hoch, und wer den
+  # dem Server: so zieht `docker compose up` die Sicherung mit hoch, und wer den
   # Verbund umzieht, nimmt sie mit. Aufbewahrt werden 14 Staende — genug, um
   # einen Fehler zu bemerken, der erst nach ein paar Tagen auffaellt.
   backup:

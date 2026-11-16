@@ -20,7 +20,7 @@ Angemeldet wird mit Telefonnummer und Passwort. Der ursprünglich geplante Weg o
 
 # Why
 
-Der Verein hat für WhatsApp ein Budget von 2000 Nachrichten im Monat, und jede Anmeldung per Link verbraucht eine davon. Das passt nicht hinein. `PLAN.md` §1 nennt noch „Passwordless"; die Änderung kam mit Meilenstein M7 (Regeln 34–43).
+Der Verein hat für WhatsApp ein Budget von 2000 Nachrichten im Monat, und jede Anmeldung per Link verbraucht eine davon. Das passt nicht hinein. Geplant war zuerst „Passwordless"; die Änderung kam mit Meilenstein M7 (Regeln 34–43).
 
 # Rejected alternatives
 
