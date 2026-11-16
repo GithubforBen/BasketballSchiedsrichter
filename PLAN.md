@@ -12,9 +12,9 @@ Stand: 23.08.2026 · abgestimmt mit dem Auftraggeber in Session 1.
 | Framework | Next.js 15 (App Router), React 19, TypeScript strict |
 | Styling | Plain CSS auf den Modernist-Tokens (`design/_ds/.../styles.css` wird Basis), kein Tailwind |
 | Datenbank | PostgreSQL, ORM: Drizzle |
-| Hosting | Eigener VPS, Docker Compose, Zugriff ausschließlich über Cloudflare Tunnel (kein offener Port) |
+| Hosting | Eigener Server im Heimnetz (ursprünglich war ein VPS geplant), Docker Compose, Zugriff von außen ausschließlich über Cloudflare Tunnel (kein offener Port) |
 | Nachrichten | Meta WhatsApp Cloud API als Ziel; E-Mail-Kanal für Test/Übergang, per Config abschaltbar |
-| Login | Passwordless: Magic-Link **und** 6-stelliger Code in derselben Nachricht |
+| Login | Telefonnummer und Passwort (Regeln 34–43). Ursprünglich Passwordless — Magic-Link **und** 6-stelliger Code in derselben Nachricht; dieser Weg ist gebaut, aber abgeschaltet (`LOGIN_MAGIC_LINK`), weil jede Anmeldung eine WhatsApp-Nachricht kostet |
 | Mandanten | Ein Verein, Vereinsdaten aus einer Config-Datei (kein `club_id` im Schema) |
 | Sprache | Deutsch fest, `<html lang="de">`, keine i18n-Ebene. UI-Texte deutsch, Code englisch |
 | Öffentliche Ansicht | Wirklich öffentlich ohne Login, nur Kürzel sichtbar, indexierbar |
@@ -22,7 +22,7 @@ Stand: 23.08.2026 · abgestimmt mit dem Auftraggeber in Session 1.
 
 ### Offene Punkte, die ich als Annahme setze (Widerspruch jederzeit möglich)
 
-- **Ligen**: U14 / U16 / U18 / Erwachsene / Senioren vorbelegt, vom Admin in den Einstellungen anlegbar, umbenennbar und deaktivierbar.
+- **Ligen**: U10 / U12 / U14 / U16 / U18 / Senioren vorbelegt (`INITIAL_LEAGUES` in `src/config/club.ts`), vom Admin in den Einstellungen anlegbar, umbenennbar und deaktivierbar.
 - **Erster Admin**: per Seed-Kommando (`npm run seed:admin -- --name "..." --phone "+49..."`), da Konten sonst ausschließlich Admins anlegen.
 - **CSV**: Format `Datum;Zeit;Liga;Heim;Gast;Ort` wie im Mockup. Duplikaterkennung über `(Datum, Zeit, Heim, Gast)`.
 - **Nachrück-Frist**: einstellbar, Standard 12 Stunden, automatisch gekürzt auf ein Drittel der Restzeit bis Anpfiff, wenn weniger als 36 Stunden bleiben.
@@ -74,7 +74,7 @@ Aus dem Mockup extrahiert und in Session 1 ergänzt. Diese Liste ist die Referen
 ### Statistik
 25. Gezählt werden nur Einsätze **als Schiedsrichter auf dem Feld**. Die Zahl ist abrechnungsrelevant — der Verein bezahlt pro gepfiffenem Spiel. Entsprechend muss sie nachvollziehbar und korrigierbar sein.
 26. Ersatz **mit** Einsatz zählt, Ersatz **ohne** Einsatz zählt nicht.
-27. Nachrücken zählt automatisch als Einsatz; der Admin kann das pro Spiel nachträglich korrigieren.
+27. Nachrücken zählt automatisch als Einsatz: gezählt wird, wer zum Anpfiff auf Schiri 1 oder Schiri 2 steht. Stimmt das ausnahmsweise nicht, ändert der Admin die Besetzung des vergangenen Spiels. Die frühere Korrektur je Spiel („Spiele nachpflegen") ist abgeschafft — sie verlangte nach fast jedem Spiel mit Ersatz eine Entscheidung, die fast immer „nein" lautete.
 28. Ranking: nur die eigene Person namentlich mit Zahl, alle anderen als „anonym" ohne Zahl.
 
 ### Sichtbarkeit
@@ -167,12 +167,12 @@ Nachgetragen in Session 4. Sie stehen **neben** der Qualifikation (Regel 4), nic
 Stelle: die Qualifikation sagt, für welche Altersklasse jemand eingeteilt werden darf, die Lizenz,
 welche Spiele er überhaupt pfeifen darf.
 
-51. **Jedes Spiel verlangt eine Lizenz, E oder D.** E ist die Einstiegslizenz, D die höhere. Ohne
+51. **Jedes Spiel verlangt eine Lizenz, E, D oder C.** E ist die Einstiegslizenz, darüber D, darüber C. Ohne
     Angabe gilt E. Der Admin setzt sie im Spielformular oder über eine freiwillige siebte
     CSV-Spalte `Lizenz`.
 52. **Jedes Konto trägt eine Lizenz — oder keine.** Wer keine hat, kann sich in **kein** Spiel
-    eintragen, auch nicht in eines seiner Liga. Wer D hat, darf auch E-Spiele pfeifen; wer E hat,
-    keine D-Spiele.
+    eintragen, auch nicht in eines seiner Liga. Die höhere Lizenz deckt die niedrigeren: C darf C-,
+    D- und E-Spiele pfeifen, D darf D und E, E nur E. Umgekehrt nie.
 53. **Die Lizenz beschränkt das Eintragen, nicht das Sehen.** Den Spielplan sieht jeder
     vollständig, auch die Spiele, für die seine Lizenz nicht reicht. Eine Ausschreibung bekommt
     er dafür nicht: eine Nachricht an jemanden, der sich anschließend nicht eintragen darf,
@@ -194,7 +194,7 @@ welche Spiele er überhaupt pfeifen darf.
 | Screen | Rolle | Kern |
 |---|---|---|
 | Öffentliche Ansicht | alle | Spieltage, Kürzel-Chips, Statusampel |
-| Anmelden | alle | Telefonnummer → Link + Code |
+| Anmelden | alle | Telefonnummer + Passwort (Link + Code nur mit `LOGIN_MAGIC_LINK=an`) |
 | Offene Spiele | Schiri | Tagesnavigation mit Wischgeste, Eintragen/Austragen, Pflichtbestätigung, Verschiebungs-Banner |
 | Kalender & Verlauf | Schiri | Nächste Spiele, Vergangene, Monatsstatistik, Ranking |
 | Profil & Erinnerungen | Schiri | Stammdaten (lesend), Qualifikationen, Erinnerungs-Presets, Slider, Limit |
@@ -207,7 +207,7 @@ welche Spiele er überhaupt pfeifen darf.
 | Regeln | alle | Regularien als Text |
 | Impressum & Datenschutz | alle | Pflichtangaben |
 
-Zusätzlich, weil im Mockup nicht enthalten aber fachlich nötig: **Spiele nachpflegen** (Admin korrigiert Einsätze nach dem Spiel, Regel 27).
+Zusätzlich gab es zeitweise **Spiele nachpflegen** (Admin korrigiert Einsätze nach dem Spiel). Der Screen ist abgeschafft; korrigiert wird über die Besetzung des vergangenen Spiels, siehe Regel 27.
 
 ---
 

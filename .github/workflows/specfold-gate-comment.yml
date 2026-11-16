@@ -1,0 +1,46 @@
+# Posts the specfold-gate summary as one PR comment and keeps it up to date.
+# A separate workflow_run workflow, so fork PRs get the comment too (their own token is read-only).
+# The artifact comes from the PR's run and is treated as data: nothing in it is executed.
+name: specfold-gate-comment
+
+on:
+  workflow_run:
+    workflows: [specfold-gate]
+    types: [completed]
+
+permissions:
+  actions: read
+  pull-requests: write
+
+jobs:
+  comment:
+    if: github.event.workflow_run.event == 'pull_request' || github.event.workflow_run.event == 'pull_request_review'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: specfold-gate-summary
+          path: summary
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: Post or update the comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          pr=$(tr -d '[:space:]' < summary/pr-number)
+          case "$pr" in ''|*[!0-9]*) echo "::error::no valid PR number in the artifact"; exit 1 ;; esac
+          # only comment on the PR whose head the gate actually ran on
+          if [ "$(gh api "repos/$REPO/pulls/$pr" --jq .head.sha)" != "$HEAD_SHA" ]; then
+            echo "PR $pr has moved on since this run; skipping the comment"
+            exit 0
+          fi
+          { echo '<!-- specfold-gate -->'; cat summary/summary.md; } > body.md
+          id=$(gh api "repos/$REPO/issues/$pr/comments" --paginate \
+            --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- specfold-gate -->"))) | .id' | head -n 1)
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$id" -F body=@body.md > /dev/null
+          else
+            gh api --method POST "repos/$REPO/issues/$pr/comments" -F body=@body.md > /dev/null
+          fi

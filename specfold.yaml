@@ -1,0 +1,118 @@
+# Specfold settings for this repository. Upgrades keep your values; see the kit docs for every key.
+kit_version: 0.7.0          # set by `specfold upgrade` x-release-please-version
+# full: knowledge bundle plus OpenSpec specs and changes. knowledge: the bundle only, no openspec/
+# (set by `specfold init --profile` or `specfold migrate install --profile`; see the kit docs to switch).
+profile: full
+profile_version: 1
+channel: stable
+
+source:
+  github: samiuens/specfold
+
+# specfold upgrade commits with this message; {version} is the new version. The Claude Code
+# session start checks for a newer release once a day; set reminder to false to turn that off.
+# upgrade:
+#   commit_message: "chore: upgrade Specfold to v{version}"
+#   reminder: true
+
+requires:
+  openspec: ">=1.15 <2"
+  okf: "0.2"
+
+# Where your code lives; `specfold index` scans these files for `see knowledge:` references
+# (filled by `specfold init` or sf-migrate).
+source_globs: ["src/**"]
+
+folders:
+  architecture:
+    description: "Components, interfaces and data flows"
+  backlog:
+    description: "Ideas and work needed later but not now"
+  capabilities:
+    description: "One card per spec: why it exists and where its contract lives"
+  commitments:
+    description: "Promises made for later"
+  conventions:
+    description: "How code, tests and knowledge are written here"
+  decisions:
+    description: "Decisions, accepted and rejected"
+  domain:
+    description: "Terms and business rules"
+  references:
+    description: "Summaries of external docs, with stale_after"
+  runbooks:
+    description: "How to run recurring operational tasks"
+  vision:
+    description: "Where the project is heading"
+
+gate:
+  require_change_for_source_changes: true
+  escape_label: no-spec
+  block_on_stale_touched: true
+  block_on_broken_links: true
+  block_on_drift: false
+
+types:
+  - Term
+  - Business Rule
+  - Component
+  - Data Flow
+  - Interface
+  - Decision
+  - Capability
+  - Convention
+  - Runbook
+  - Reference
+  - Vision
+  - Deferred Commitment
+  - Backlog Item
+
+actors:
+  agent_prefix: "claude-code/"   # fallback; agents writing from omp sign with "omp/"
+
+# Agent tools this repository is set up for: agents (any tool reading AGENTS.md and .agents/skills/,
+# always listed), claude (Claude Code) and omp. Set by `specfold init --tools` or `specfold migrate install --tools`.
+tools: [agents, claude]
+
+# Folders that get one symlink per skill in .agents/skills/ (specfold agents sync).
+agents:
+  targets: [".claude/skills"]
+
+# What an agent may do on its own: allow, ask (the agent asks first) or deny, per action. A missing
+# action counts as ask. `specfold permissions sync` renders this into .claude/settings.json; AGENTS.md
+# tells every other tool. force-push, delete-remote-branch and push-tags must be at least as strict as push.
+permissions:
+  push: ask
+  force-push: ask
+  delete-remote-branch: ask
+  push-tags: ask
+  open-pr: ask
+  merge-pr: ask
+  close-pr: ask
+
+# Concepts without `verified` older than this many days are reported by `specfold audit` (A2).
+audit:
+  unverified_after_days: 30
+  # Open backlog items whose file no commit changed for this many days are reported (A8).
+  backlog_untouched_days: 180
+
+# Size limits for task breakdowns; exceeding them only warns (specfold tasks check T9, T10).
+tasks:
+  max_files_per_task: 5
+  max_tasks_per_group: 8
+
+# Token budgets of the always-loaded set (AGENTS.md, CLAUDE.md, config context, skill descriptions,
+# SessionStart output); `specfold stats` reports them and gate rule G11 warns when a PR exceeds one.
+stats:
+  budget:
+    agents_md: 2000
+    total: 4000
+    skill_description: 60
+
+# Files whose `spec: <capability>#<scenario>` comments count as tests (specfold trace, gate G15).
+trace:
+  test_globs: ["**/*.test.*", "**/*.spec.*", "**/*_test.*", "**/test/**", "**/tests/**", "**/spec/**"]
+
+# Extra commands per git hook, run after Specfold's own checks.
+hooks:
+  extra: {}

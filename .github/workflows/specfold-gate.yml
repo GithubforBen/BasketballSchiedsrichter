@@ -1,0 +1,74 @@
+# Specfold merge gate: make the job `specfold-gate` a required check in the branch rules.
+# No paths filter and no job-level if, so the check always reports.
+name: specfold-gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+  merge_group:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  specfold-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install OpenSpec
+        run: npm install --global @fission-ai/openspec@1.15.0
+      - name: Gate
+        id: gate
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+        run: |
+          summary="$RUNNER_TEMP/specfold-gate/summary.md"
+          mkdir -p "$(dirname "$summary")"
+          set +e
+          if [ "$EVENT" = merge_group ]; then
+            # no PR in a merge queue: G4 and G7 warn, every other rule still blocks
+            node scripts/specfold.mjs gate --base "$QUEUE_BASE" --local --summary "$summary"
+          else
+            printf '%s\n' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+            labels=()
+            while IFS= read -r label; do
+              [ -n "$label" ] && labels+=(--label "$label")
+            done < <(printf '%s' "$LABELS" | jq -r '.[]')
+            node scripts/specfold.mjs gate --base "origin/$BASE_REF" --pr "$PR_NUMBER" "${labels[@]}" \
+              --pr-body "$RUNNER_TEMP/pr-body.md" --summary "$summary"
+          fi
+          code=$?
+          set -e
+          if [ ! -s "$summary" ]; then
+            printf '## specfold gate: could not run (exit %s)\n\nSee the job log for the error.\n' "$code" > "$summary"
+          fi
+          printf '%s\n' "$PR_NUMBER" > "$RUNNER_TEMP/specfold-gate/pr-number"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - name: Summary
+        run: cat "$RUNNER_TEMP/specfold-gate/summary.md" >> "$GITHUB_STEP_SUMMARY"
+      - name: Keep the summary for the comment workflow
+        if: github.event_name != 'merge_group'
+        uses: actions/upload-artifact@v4
+        with:
+          name: specfold-gate-summary
+          path: ${{ runner.temp }}/specfold-gate/
+          retention-days: 7
+      - name: Verdict
+        env:
+          CODE: ${{ steps.gate.outputs.code }}
+        run: exit "$CODE"

@@ -25,3 +25,26 @@ sicherungen/
 # anders ist — etwa ein abgeschalteter Cloudflare-Tunnel in der Entwicklung —
 # und gilt darum nur hier.
 docker-compose.override.yml
+
+# specfold:start
+# personal Specfold settings, such as actors.github_login for specfold verify
+.specfold/local.yaml
+
+# Claude Code worktrees
+.claude/worktrees/
+
+# sf-migrate progress, local to one migration run
+.specfold/migration/state.json
+
+# graphify code graph, rebuilt in every clone (specfold graphify setup)
+graphify-out/
+
+# personal Claude Code settings, such as the subagent limit (specfold parallel set)
+.claude/settings.local.json
+
+# index of this worktree for test ports (specfold wt setup)
+.specfold/wt-index
+
+# the session start's daily check for a newer release (specfold upgrade)
+.specfold/local-state.json
+# specfold:end

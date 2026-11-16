@@ -1,0 +1,75 @@
+# Weekly Specfold upgrade: opens a pull request when a newer kit release is out, like Dependabot.
+# Inactive here. `specfold init --upgrade-workflow` or `specfold migrate install --upgrade-workflow`
+# copies it to .github/workflows/, and `specfold upgrade` keeps that copy current.
+#
+# It needs the SPECFOLD_TOKEN secret: a token that can read the kit's releases and, in this
+# repository, write contents, pull requests and workflows (an upgrade may change workflow files).
+name: specfold-upgrade
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Token is set
+        id: token
+        env:
+          TOKEN: ${{ secrets.SPECFOLD_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::No upgrade check: add the SPECFOLD_TOKEN secret, a token that can read the Specfold kit's releases and write contents, pull requests and workflows here."
+            echo "set=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "set=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.set == 'true'
+        with:
+          token: ${{ secrets.SPECFOLD_TOKEN }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.set == 'true'
+        with:
+          node-version: 22
+      - name: Install OpenSpec
+        if: steps.token.outputs.set == 'true'
+        run: npm install --global @fission-ai/openspec@1.15.0
+      - name: Open the upgrade pull request
+        if: steps.token.outputs.set == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.SPECFOLD_TOKEN }}
+        run: |
+          check="$RUNNER_TEMP/specfold-check.json"
+          set +e
+          node scripts/specfold.mjs upgrade --check --json > "$check"
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then echo "Specfold is up to date."; exit 0; fi
+          if [ "$code" -ne 1 ]; then cat "$check"; exit "$code"; fi
+          version=$(node -e 'console.log(JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")).path[0])' "$check")
+          branch="specfold/upgrade-$version"
+          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+            echo "::notice::$branch already exists; its pull request is open or was closed on purpose."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          set +e
+          node scripts/specfold.mjs upgrade --yes --pr
+          code=$?
+          set -e
+          # 1 means conflicts: the pull request is open and lists them
+          if [ "$code" -gt 1 ]; then exit "$code"; fi
+          url=$(gh pr view "$branch" --json url --jq .url)
+          gh pr list --state open --json number,headRefName \
+            --jq ".[] | select(.headRefName | startswith(\"specfold/upgrade-\")) | select(.headRefName != \"$branch\") | .number" |
+            while read -r number; do
+              gh pr close "$number" --comment "Superseded by $url."
+            done
