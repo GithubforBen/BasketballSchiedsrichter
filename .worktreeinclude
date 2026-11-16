@@ -1,0 +1,7 @@
+# specfold:start
+# Gitignored files Claude Code and specfold wt new copy into each new worktree
+.env
+.env.*
+.specfold/local.yaml
+graphify-out/
+# specfold:end

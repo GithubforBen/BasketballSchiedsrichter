@@ -1,0 +1,4 @@
+# specfold:start
+# log.md entries from parallel branches are kept from both sides; indexes are regenerated with specfold index
+knowledge/log.md merge=union
+# specfold:end

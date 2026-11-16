@@ -1,0 +1,6 @@
+# specfold:start
+# Who reviews decisions and specs. Replace @your-org/maintainers with real owners and remove the #.
+# Takes effect when the branch rules require a review from code owners.
+# /knowledge/decisions/ @your-org/maintainers
+# /openspec/specs/ @your-org/maintainers
+# specfold:end
