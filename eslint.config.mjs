@@ -19,6 +19,9 @@ export default tseslint.config(
       'next-env.d.ts',
       'test-results/**',
       'playwright-report/**',
+      // Specfold-Kit: gebuendelt und vom Kit verwaltet, nicht Teil des Projekts
+      '.specfold/**',
+      'scripts/specfold.mjs',
     ],
   },
   js.configs.recommended,
