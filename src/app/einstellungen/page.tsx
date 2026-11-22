@@ -1,20 +1,20 @@
-import type { Metadata } from "next";
-import { Button, Field, Input, Note } from "@/components/primitives";
-import { AdminShell, single } from "@/components/admin/AdminShell";
-import { CLUB } from "@/config/club";
-import { ROTATION_WINDOW_LABELS } from "@/domain/rotation";
-import { describeHours } from "@/domain/time";
-import type { OpenSlotVisibility } from "@/domain/types";
-import { requireAdmin } from "@/server/guard";
-import { loadLeagues } from "@/server/queries/admin-view";
-import { loadAlertSettings, loadSettings } from "@/server/queries/settings";
-import { currentKmRates, currentLeagueFees } from "@/server/receipt-rates";
+import type { Metadata } from 'next';
+import { Button, Field, Input, Note } from '@/components/primitives';
+import { AdminShell, single } from '@/components/admin/AdminShell';
+import { CLUB } from '@/config/club';
+import { ROTATION_WINDOW_LABELS } from '@/domain/rotation';
+import { describeHours } from '@/domain/time';
+import type { OpenSlotVisibility } from '@/domain/types';
+import { requireAdmin } from '@/server/guard';
+import { loadLeagues } from '@/server/queries/admin-view';
+import { loadAlertSettings, loadSettings } from '@/server/queries/settings';
+import { currentKmRates, currentLeagueFees } from '@/server/receipt-rates';
 import {
   saveKmRatesAction,
   saveLeagueFeeAction,
   saveSettingsAction,
   setLeagueAction,
-} from "./actions";
+} from './actions';
 
 /**
  * Einstellungen des Vereins.
@@ -25,7 +25,7 @@ import {
  */
 
 export const metadata: Metadata = { title: `Einstellungen · ${CLUB.appName}` };
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -33,16 +33,12 @@ interface PageProps {
 
 const CONFIRMATION_CHOICES = [24, 48, 72, 96];
 
-const OPEN_SLOT_CHOICES: readonly OpenSlotVisibility[] = [
-  "all",
-  "admins",
-  "off",
-];
+const OPEN_SLOT_CHOICES: readonly OpenSlotVisibility[] = ['all', 'admins', 'off'];
 
 const OPEN_SLOT_LABELS: Readonly<Record<OpenSlotVisibility, string>> = {
-  all: "alle Qualifizierten (in Rotationsreihenfolge)",
-  admins: "nur die Admins — eine Tagesbilanz statt vieler Einzelnachrichten",
-  off: "niemanden — Ausschreibung aus",
+  all: 'alle Qualifizierten (in Rotationsreihenfolge)',
+  admins: 'nur die Admins — eine Tagesbilanz statt vieler Einzelnachrichten',
+  off: 'niemanden — Ausschreibung aus',
 };
 
 const Switch = ({
@@ -59,10 +55,10 @@ const Switch = ({
   <label
     className="row"
     style={{
-      alignItems: "flex-start",
-      gap: "var(--space-3)",
-      padding: "var(--space-3) 0",
-      borderBottom: "1px solid var(--color-divider)",
+      alignItems: 'flex-start',
+      gap: 'var(--space-3)',
+      padding: 'var(--space-3) 0',
+      borderBottom: '1px solid var(--color-divider)',
     }}
   >
     <input
@@ -75,15 +71,15 @@ const Switch = ({
     <span style={{ flex: 1 }}>
       <span
         style={{
-          display: "block",
-          fontFamily: "var(--font-heading)",
+          display: 'block',
+          fontFamily: 'var(--font-heading)',
           fontWeight: 800,
-          fontSize: "15px",
+          fontSize: '15px',
         }}
       >
         {label}
       </span>
-      <span className="text-muted" style={{ fontSize: "13px" }}>
+      <span className="text-muted" style={{ fontSize: '13px' }}>
         {description}
       </span>
     </span>
@@ -91,7 +87,7 @@ const Switch = ({
 );
 
 const euro = (cents: number | undefined): string =>
-  cents === undefined ? "" : (cents / 100).toFixed(2).replace(".", ",");
+  cents === undefined ? '' : (cents / 100).toFixed(2).replace('.', ',');
 
 const Settings = async ({ searchParams }: PageProps) => {
   const user = await requireAdmin();
@@ -115,13 +111,13 @@ const Settings = async ({ searchParams }: PageProps) => {
       hint={single(params.hinweis)}
       error={single(params.fehler)}
     >
-      <form action={saveSettingsAction} style={{ maxWidth: "760px" }}>
+      <form action={saveSettingsAction} style={{ maxWidth: '760px' }}>
         <Note>
-          <strong>Qualifikation prüfen</strong> ist Pflicht und lässt sich nicht
-          abschalten: ohne passende Liga kann sich niemand eintragen.
+          <strong>Qualifikation prüfen</strong> ist Pflicht und lässt sich nicht abschalten: ohne
+          passende Liga kann sich niemand eintragen.
         </Note>
 
-        <h2 className="kicker" style={{ marginTop: "var(--space-6)" }}>
+        <h2 className="kicker" style={{ marginTop: 'var(--space-6)' }}>
           Regeln
         </h2>
         <Switch
@@ -146,9 +142,9 @@ const Settings = async ({ searchParams }: PageProps) => {
             name="rotationszeitraum"
             className="input"
             defaultValue={settings.rotationWindow}
-            style={{ maxWidth: "220px" }}
+            style={{ maxWidth: '220px' }}
           >
-            {(["week", "month", "season"] as const).map((window) => (
+            {(['week', 'month', 'season'] as const).map((window) => (
               <option key={window} value={window}>
                 {ROTATION_WINDOW_LABELS[window]}
               </option>
@@ -162,7 +158,7 @@ const Settings = async ({ searchParams }: PageProps) => {
           checked={settings.autoNudge}
         />
 
-        <h2 className="kicker" style={{ marginTop: "var(--space-6)" }}>
+        <h2 className="kicker" style={{ marginTop: 'var(--space-6)' }}>
           Nachrichten an Schiedsrichter
         </h2>
         <Switch
@@ -181,7 +177,7 @@ const Settings = async ({ searchParams }: PageProps) => {
             name="ausschreibung"
             className="input"
             defaultValue={settings.openSlotVisibility}
-            style={{ maxWidth: "320px" }}
+            style={{ maxWidth: '320px' }}
           >
             {OPEN_SLOT_CHOICES.map((choice) => (
               <option key={choice} value={choice}>
@@ -190,29 +186,25 @@ const Settings = async ({ searchParams }: PageProps) => {
             ))}
           </select>
         </Field>
-        <p className="text-muted" style={{ fontSize: "12px" }}>
-          „Alle Qualifizierten“ heißt: eine Nachricht je offenem Spiel an jeden,
-          der die Liga und die nötige Lizenz hat. „Nur die Admins“ schickt
-          stattdessen einmal am Abend eine Bilanz — wie viele Spiele eine Lücke
-          haben, bei wie vielen gar kein Schiedsrichter steht und wie eilig der
-          nächste Fall ist. Zehn Lücken ergeben so eine Nachricht und nicht
-          zehn. Steht die Ausschreibung auf „aus“, erfährt niemand von einer
-          Lücke — sie steht dann nur in der Übersicht und in den Meldungen. Die
-          Nachrück-Anfragen an Ersatzleute laufen unabhängig davon weiter. Ein
-          neu angelegtes Spiel wird nicht ausgeschrieben: die Nachricht geht
-          erst raus, wenn ein Platz wieder frei wird oder die automatische
-          Nachfrage ihre nächste Stufe erreicht. Vorher erinnerst du von Hand
-          unter „Meldungen“.
+        <p className="text-muted" style={{ fontSize: '12px' }}>
+          „Alle Qualifizierten“ heißt: eine Nachricht je offenem Spiel an jeden, der die Liga und
+          die nötige Lizenz hat. „Nur die Admins“ schickt stattdessen einmal am Abend eine Bilanz —
+          wie viele Spiele eine Lücke haben, bei wie vielen gar kein Schiedsrichter steht und wie
+          eilig der nächste Fall ist. Zehn Lücken ergeben so eine Nachricht und nicht zehn. Steht
+          die Ausschreibung auf „aus“, erfährt niemand von einer Lücke — sie steht dann nur in der
+          Übersicht und in den Meldungen. Die Nachrück-Anfragen an Ersatzleute laufen unabhängig
+          davon weiter. Ein neu angelegtes Spiel wird nicht ausgeschrieben: die Nachricht geht erst
+          raus, wenn ein Platz wieder frei wird oder die automatische Nachfrage ihre nächste Stufe
+          erreicht. Vorher erinnerst du von Hand unter „Meldungen“.
         </p>
 
-        <h2 className="kicker" style={{ marginTop: "var(--space-6)" }}>
+        <h2 className="kicker" style={{ marginTop: 'var(--space-6)' }}>
           Pflichtbestätigung vor dem Spiel
         </h2>
-        <p className="text-muted" style={{ fontSize: "13px" }}>
-          Nachricht mit dem Knopf „Ja, habe ich gelesen und mache es“. Ohne
-          Antwort innerhalb von{" "}
-          {describeHours(settings.confirmationFollowUpHours)} geht eine erneute
-          Erinnerung an den Schiedsrichter und eine Meldung an alle Admins.
+        <p className="text-muted" style={{ fontSize: '13px' }}>
+          Nachricht mit dem Knopf „Ja, habe ich gelesen und mache es“. Ohne Antwort innerhalb von{' '}
+          {describeHours(settings.confirmationFollowUpHours)} geht eine erneute Erinnerung an den
+          Schiedsrichter und eine Meldung an alle Admins.
         </p>
         <Field label="Vorlauf" htmlFor="bestaetigungsvorlauf">
           <select
@@ -220,7 +212,7 @@ const Settings = async ({ searchParams }: PageProps) => {
             name="bestaetigungsvorlauf"
             className="input"
             defaultValue={settings.confirmationLeadHours}
-            style={{ maxWidth: "220px" }}
+            style={{ maxWidth: '220px' }}
           >
             {CONFIRMATION_CHOICES.map((hours) => (
               <option key={hours} value={hours}>
@@ -230,14 +222,11 @@ const Settings = async ({ searchParams }: PageProps) => {
           </select>
         </Field>
 
-        <h2 className="kicker" style={{ marginTop: "var(--space-6)" }}>
+        <h2 className="kicker" style={{ marginTop: 'var(--space-6)' }}>
           Fristen für Schiedsrichter
         </h2>
         <div className="form-grid">
-          <Field
-            label="Austragen möglich bis (Tage vorher)"
-            htmlFor="austragefrist"
-          >
+          <Field label="Austragen möglich bis (Tage vorher)" htmlFor="austragefrist">
             <Input
               id="austragefrist"
               name="austragefrist"
@@ -247,10 +236,7 @@ const Settings = async ({ searchParams }: PageProps) => {
               defaultValue={settings.withdrawDeadlineDays}
             />
           </Field>
-          <Field
-            label="Ersatz anfordern bis (Tage vorher)"
-            htmlFor="ersatzfrist"
-          >
+          <Field label="Ersatz anfordern bis (Tage vorher)" htmlFor="ersatzfrist">
             <Input
               id="ersatzfrist"
               name="ersatzfrist"
@@ -275,12 +261,11 @@ const Settings = async ({ searchParams }: PageProps) => {
             />
           </Field>
         </div>
-        <p className="text-muted" style={{ fontSize: "12px" }}>
-          Beide Fristen kann der Admin pro Spiel überschreiben — im Spiel
-          bearbeiten.
+        <p className="text-muted" style={{ fontSize: '12px' }}>
+          Beide Fristen kann der Admin pro Spiel überschreiben — im Spiel bearbeiten.
         </p>
 
-        <h2 className="kicker" style={{ marginTop: "var(--space-6)" }}>
+        <h2 className="kicker" style={{ marginTop: 'var(--space-6)' }}>
           Nachrichten an Admins
         </h2>
         {/*
@@ -296,9 +281,8 @@ const Settings = async ({ searchParams }: PageProps) => {
           deshalb abbestellen.
         */}
         <Note>
-          Diese Schalter betreffen nur den <strong>Versand</strong>. Die Liste
-          unter „Offene Spiele &amp; Meldungen“ zeigt unabhängig davon immer
-          alles, was Aufmerksamkeit braucht.
+          Diese Schalter betreffen nur den <strong>Versand</strong>. Die Liste unter „Offene Spiele
+          &amp; Meldungen“ zeigt unabhängig davon immer alles, was Aufmerksamkeit braucht.
         </Note>
         <Switch
           name="meldungBestaetigung"
@@ -313,34 +297,26 @@ const Settings = async ({ searchParams }: PageProps) => {
           checked={alerts.dailyDigest}
         />
 
-        <Button
-          type="submit"
-          variant="primary"
-          style={{ marginTop: "var(--space-6)" }}
-        >
+        <Button type="submit" variant="primary" style={{ marginTop: 'var(--space-6)' }}>
           Einstellungen speichern
         </Button>
       </form>
 
-      <section style={{ marginTop: "var(--space-8)", maxWidth: "760px" }}>
+      <section style={{ marginTop: 'var(--space-8)', maxWidth: '760px' }}>
         <h2 className="kicker">Ligen</h2>
-        <p className="text-muted" style={{ fontSize: "13px" }}>
-          Abgeschaltete Ligen lassen sich nicht mehr für neue Spiele auswählen.
-          Bestehende Spiele und Qualifikationen bleiben erhalten.
+        <p className="text-muted" style={{ fontSize: '13px' }}>
+          Abgeschaltete Ligen lassen sich nicht mehr für neue Spiele auswählen. Bestehende Spiele
+          und Qualifikationen bleiben erhalten.
         </p>
-        <ul className="chip-row" style={{ marginTop: "var(--space-3)" }}>
+        <ul className="chip-row" style={{ marginTop: 'var(--space-3)' }}>
           {leagues.map((league) => (
             <li key={league.id}>
               <form action={setLeagueAction}>
                 <input type="hidden" name="liga" value={league.id} />
-                <input
-                  type="hidden"
-                  name="wert"
-                  value={league.active ? "aus" : "an"}
-                />
+                <input type="hidden" name="wert" value={league.active ? 'aus' : 'an'} />
                 <button
                   type="submit"
-                  className={`chip${league.active ? " chip-on" : ""}`}
+                  className={`chip${league.active ? ' chip-on' : ''}`}
                   aria-pressed={league.active}
                 >
                   {league.name}
@@ -350,35 +326,21 @@ const Settings = async ({ searchParams }: PageProps) => {
           ))}
         </ul>
 
-        <form
-          action={setLeagueAction}
-          className="row"
-          style={{ marginTop: "var(--space-4)" }}
-        >
+        <form action={setLeagueAction} className="row" style={{ marginTop: 'var(--space-4)' }}>
           <input type="hidden" name="wert" value="an" />
           <Field label="Neue Liga" htmlFor="neue-liga">
-            <Input
-              id="neue-liga"
-              name="liga"
-              placeholder="z. B. U20"
-              required
-            />
+            <Input id="neue-liga" name="liga" placeholder="z. B. U20" required />
           </Field>
-          <Button
-            type="submit"
-            variant="secondary"
-            style={{ alignSelf: "flex-end" }}
-          >
+          <Button type="submit" variant="secondary" style={{ alignSelf: 'flex-end' }}>
             Liga hinzufügen
           </Button>
         </form>
       </section>
-      <section style={{ marginTop: "var(--space-8)", maxWidth: "760px" }}>
+      <section style={{ marginTop: 'var(--space-8)', maxWidth: '760px' }}>
         <h2 className="kicker">Fahrtkosten</h2>
-        <p className="text-muted" style={{ fontSize: "13px" }}>
-          Kilometersätze der Quittung in Euro je Kilometer. Eine Änderung gilt
-          für Spiele ab jetzt; bei Spielen davor bleibt der Satz stehen, der zum
-          Anpfiff galt.
+        <p className="text-muted" style={{ fontSize: '13px' }}>
+          Kilometersätze der Quittung in Euro je Kilometer. Eine Änderung gilt für Spiele ab jetzt;
+          bei Spielen davor bleibt der Satz stehen, der zum Anpfiff galt.
         </p>
         <form action={saveKmRatesAction}>
           <div className="form-grid">
@@ -391,10 +353,7 @@ const Settings = async ({ searchParams }: PageProps) => {
                 defaultValue={euro(rates.soloCents)}
               />
             </Field>
-            <Field
-              label="Mit Mitfahrer gefahren (€/km)"
-              htmlFor="satz-mitfahrer"
-            >
+            <Field label="Mit Mitfahrer gefahren (€/km)" htmlFor="satz-mitfahrer">
               <Input
                 id="satz-mitfahrer"
                 name="satzMitfahrer"
@@ -404,26 +363,21 @@ const Settings = async ({ searchParams }: PageProps) => {
               />
             </Field>
           </div>
-          <Button
-            type="submit"
-            variant="secondary"
-            style={{ marginTop: "var(--space-3)" }}
-          >
+          <Button type="submit" variant="secondary" style={{ marginTop: 'var(--space-3)' }}>
             Kilometersätze speichern
           </Button>
         </form>
 
-        <h3 className="kicker" style={{ marginTop: "var(--space-6)" }}>
+        <h3 className="kicker" style={{ marginTop: 'var(--space-6)' }}>
           Gebühr je Liga
         </h3>
-        <p className="text-muted" style={{ fontSize: "13px" }}>
-          Die Spielgebühr, die auf der Quittung steht. Leer lassen, wenn die
-          Liga keine Gebühr hat.
+        <p className="text-muted" style={{ fontSize: '13px' }}>
+          Die Spielgebühr, die auf der Quittung steht. Leer lassen, wenn die Liga keine Gebühr hat.
         </p>
         <ul
           style={{
-            listStyle: "none",
-            margin: "var(--space-3) 0 0",
+            listStyle: 'none',
+            margin: 'var(--space-3) 0 0',
             padding: 0,
           }}
         >
@@ -431,20 +385,13 @@ const Settings = async ({ searchParams }: PageProps) => {
             <li
               key={league.id}
               style={{
-                padding: "var(--space-3) 0",
-                borderBottom: "1px solid var(--color-divider)",
+                padding: 'var(--space-3) 0',
+                borderBottom: '1px solid var(--color-divider)',
               }}
             >
-              <form
-                action={saveLeagueFeeAction}
-                className="row"
-                style={{ alignItems: "flex-end" }}
-              >
+              <form action={saveLeagueFeeAction} className="row" style={{ alignItems: 'flex-end' }}>
                 <input type="hidden" name="liga" value={league.id} />
-                <Field
-                  label={`${league.name} (€)`}
-                  htmlFor={`gebuehr-${league.id}`}
-                >
+                <Field label={`${league.name} (€)`} htmlFor={`gebuehr-${league.id}`}>
                   <Input
                     id={`gebuehr-${league.id}`}
                     name="gebuehr"
