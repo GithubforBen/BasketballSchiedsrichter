@@ -101,7 +101,7 @@ agent: implementer
 
 - [x] 7.1 E2E on desktop: a referee enters travel data, downloads the receipt (PDF response, file name), and the batch form with an empty period shows the message
   - Done when: `npx playwright test e2e/quittung.spec.ts` passes
-- [ ] 7.2 E2E on mobile at 390 x 844: the expense form is usable without horizontal scrolling, saving works and the receipt download starts; the profile batch panel fits the viewport
+- [x] 7.2 E2E on mobile at 390 x 844: the expense form is usable without horizontal scrolling, saving works and the receipt download starts; the profile batch panel fits the viewport
   - Done when: `npx playwright test e2e/quittung.spec.ts` passes the mobile cases and the verifier confirms the mobile view
 
 ## 8. Knowledge
