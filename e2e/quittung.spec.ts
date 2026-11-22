@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   createGame,
+  dayKeyOfGame,
   dropGame,
   placeReferee,
   resetAssignments,
@@ -83,11 +84,17 @@ const desk = (variant: Variant) => {
   };
 };
 
+/** `quittung-<Anpfiffstag in Vereinszeit>-<heim>-<gast>.pdf` des Testspiels. */
+const expectedFilename = async (): Promise<string> =>
+  `quittung-${await dayKeyOfGame(GAME)}-testheim-testgast.pdf`;
+
 const expectPdf = async (page: Page, href: string): Promise<Buffer> => {
   const response = await page.request.get(href);
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toContain("application/pdf");
-  expect(response.headers()["content-disposition"]).toContain("quittung.pdf");
+  expect(response.headers()["content-disposition"]).toContain(
+    await expectedFilename(),
+  );
   const body = await response.body();
   expect(body.subarray(0, 5).toString()).toBe("%PDF-");
   return body;
@@ -100,6 +107,9 @@ const askForEmptyPeriod = async (page: Page): Promise<void> => {
 };
 
 test.describe("Quittung am Rechner", () => {
+  test.beforeEach(({ isMobile }) => {
+    test.skip(isMobile, "gilt nur im Projekt desktop");
+  });
   const {
     field,
     saveButton,
@@ -147,7 +157,7 @@ test.describe("Quittung am Rechner", () => {
       page.waitForEvent("download"),
       receiptLink(page).click(),
     ]);
-    expect(download.suggestedFilename()).toBe("quittung.pdf");
+    expect(download.suggestedFilename()).toBe(await expectedFilename());
   });
 
   // spec: schiri-quittung#either-referee-gets-the-same-receipt
@@ -180,6 +190,9 @@ test.describe("Quittung am Rechner", () => {
 });
 
 test.describe("Quittung am Handy (390 x 844)", () => {
+  test.beforeEach(({ isMobile }) => {
+    test.skip(!isMobile, "gilt nur im Projekt mobil");
+  });
   test.use({ viewport: PHONE });
   const { field, openExpenses, fillAndSave, receiptHref } = desk("narrow");
   test.beforeEach(setup);
