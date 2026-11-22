@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requestSubstitute, withdraw, type ActionResult } from '@/server/assignments';
+import { EXPENSE_FIELDS, parseExpenseForm } from '@/components/calendar/ExpenseForm';
+import { saveExpenses } from '@/server/expenses';
 import { requireUser } from '@/server/guard';
 import { calendarResultRoute } from '@/routes';
 
@@ -36,4 +38,16 @@ export const withdrawFromCalendarAction = async (formData: FormData): Promise<vo
 export const requestSubstituteFromCalendarAction = async (formData: FormData): Promise<void> => {
   const user = await requireUser();
   finish(await requestSubstitute(read(formData, 'spiel'), user.id));
+};
+
+/**
+ * Fahrt und Kosten der eigenen Einsaetze speichern. Der Schiedsrichter ist
+ * immer der angemeldete Nutzer — eine Id im Formular wird nicht gelesen.
+ */
+export const saveOwnExpensesAction = async (formData: FormData): Promise<void> => {
+  const user = await requireUser();
+  const parsed = parseExpenseForm(formData);
+  if (!parsed.ok) return finish(parsed);
+  const gameId = read(formData, EXPENSE_FIELDS.game);
+  finish(await saveExpenses({ id: user.id, role: 'referee' }, gameId, user.id, parsed.input));
 };

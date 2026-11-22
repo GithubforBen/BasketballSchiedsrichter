@@ -69,11 +69,11 @@ scenarios: [schiri-quittung#referee-saves-travel-data, schiri-quittung#default-p
 agent: implementer
 ```
 
-- [ ] 5.1 Create `ExpenseForm.tsx` (travel mode, km, per diem, other amount and label; single column, full-width inputs, numeric input modes) and the `kalender` server action that saves the session user's own expenses
+- [x] 5.1 Create `ExpenseForm.tsx` (travel mode, km, per diem, other amount and label; single column, full-width inputs, numeric input modes) and the `kalender` server action that saves the session user's own expenses
   - Done when: `npm run typecheck` and `npm run lint` exit 0
-- [ ] 5.2 Show "Fahrt & Kosten" (collapsible) and "Quittung (PDF)" on own referee-slot games in `kalender`, on the mobile card and in the wide table
+- [x] 5.2 Show "Fahrt & Kosten" (collapsible) and "Quittung (PDF)" on own referee-slot games in `kalender`, on the mobile card and in the wide table
   - Done when: `npm run typecheck` exits 0 and the form appears only on slot 1/2 games in a local run
-- [ ] 5.3 Add the "Quittungen für Zeitraum" panel to `profil`, with the period preset to the last full month and error display from the `fehler` parameter
+- [x] 5.3 Add the "Quittungen für Zeitraum" panel to `profil`, with the period preset to the last full month and error display from the `fehler` parameter
   - Done when: `npm run typecheck` exits 0 and the panel shows the preset dates in a local run
 
 ## 6. Admin UI: rates, fees, corrections
