@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Fragment } from 'react';
 import { CalendarExport, type CalendarExportGame } from '@/components/calendar/CalendarExport';
+import { ExpenseForm } from '@/components/calendar/ExpenseForm';
 import { OwnGameActions, type OwnGameActionsProps } from '@/components/calendar/OwnGameActions';
 import { Note, Panel, TableWrap } from '@/components/primitives';
 import { FOOTER_NAV, navFor } from '@/components/shell/navigation';
@@ -11,11 +12,14 @@ import { dateLabel, matchdayLabel, matchTitle, timeLabel } from '@/domain/schedu
 import { slotViews, substituteRequestView } from '@/domain/slot-actions';
 import { slotKind } from '@/domain/slots';
 import { ownRank } from '@/domain/stats';
+import { loadExpensesFor } from '@/server/expenses';
 import { requireUser } from '@/server/guard';
 import { gamesWithPendingRequest, gamesWithSlotsByIds } from '@/server/queries/games';
 import { loadReferee } from '@/server/queries/referees';
 import { monthlyCounts, myGames, seasonRanking } from '@/server/queries/referee-view';
 import { loadSettings } from '@/server/queries/settings';
+import { receiptRoute } from '@/routes';
+import { saveOwnExpensesAction } from './actions';
 
 /**
  * Kalender und Verlauf.
@@ -115,6 +119,41 @@ const Calendar = async ({ searchParams }: PageProps) => {
     });
   }
 
+  /*
+   * Fahrt und Kosten gibt es nur dort, wo man selbst pfeift (Platz 0 und 1)
+   * und das Spiel nicht abgesagt ist — auch nach dem Spiel, denn die Quittung
+   * wird meist erst danach gebraucht.
+   */
+  const expenseEntries = [...upcoming, ...past].filter(
+    (entry) => entry.slotIndex < 2 && entry.game.state !== 'cancelled',
+  );
+  const expenses = await loadExpensesFor(
+    user.id,
+    expenseEntries.map((entry) => entry.game.id),
+  );
+  const hasExpenses = (gameId: string) => expenseEntries.some((entry) => entry.game.id === gameId);
+  const expenseBlock = (gameId: string) =>
+    hasExpenses(gameId) ? (
+      <div className="stack" style={{ gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
+        <details>
+          <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Fahrt &amp; Kosten</summary>
+          <div style={{ marginTop: 'var(--space-3)' }}>
+            <ExpenseForm
+              action={saveOwnExpensesAction}
+              gameId={gameId}
+              initial={expenses.get(gameId) ?? null}
+              idPrefix={`kosten-${gameId}`}
+            />
+          </div>
+        </details>
+        <div className="row">
+          <a className="btn btn-secondary" href={receiptRoute(gameId)} download>
+            Quittung (PDF)
+          </a>
+        </div>
+      </div>
+    ) : null;
+
   const ownActions = (gameId: string) => {
     const own = actions.get(gameId);
     return own ? <OwnGameActions {...own} /> : null;
@@ -194,9 +233,10 @@ const Calendar = async ({ searchParams }: PageProps) => {
                   <tbody>
                     {upcoming.map((entry) => {
                       const own = actions.get(entry.game.id);
+                      const extra = expenseBlock(entry.game.id);
                       return (
                         <Fragment key={entry.game.id}>
-                          <tr className={own ? 'row-with-actions' : undefined}>
+                          <tr className={own || extra ? 'row-with-actions' : undefined}>
                             <td style={{ whiteSpace: 'nowrap' }}>
                               {dateLabel(entry.game.kickoff, CLUB.timeZone)}
                             </td>
@@ -208,10 +248,11 @@ const Calendar = async ({ searchParams }: PageProps) => {
                               {CONFIRMATION_LABELS[entry.confirmation]}
                             </td>
                           </tr>
-                          {own ? (
+                          {own || extra ? (
                             <tr className="row-actions">
                               <td colSpan={6}>
-                                <OwnGameActions {...own} />
+                                {own ? <OwnGameActions {...own} /> : null}
+                                {extra}
                               </td>
                             </tr>
                           ) : null}
@@ -244,6 +285,7 @@ const Calendar = async ({ searchParams }: PageProps) => {
                         </span>
                       </div>
                       {ownActions(entry.game.id)}
+                      {expenseBlock(entry.game.id)}
                     </div>
                   </li>
                 ))}
@@ -282,24 +324,34 @@ const Calendar = async ({ searchParams }: PageProps) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {past.map((entry) => (
-                      <tr key={entry.game.id}>
-                        <td style={{ whiteSpace: 'nowrap' }}>
-                          {dateLabel(entry.game.kickoff, CLUB.timeZone)}
-                        </td>
-                        <td>{matchTitle(entry.game)}</td>
-                        <td className="text-muted">{entry.role}</td>
-                        <td
-                          style={{
-                            color: entry.countsForStats
-                              ? 'var(--status-filled-text)'
-                              : 'var(--text-dim)',
-                          }}
-                        >
-                          {entry.countsForStats ? 'gezählt' : 'zählt nicht'}
-                        </td>
-                      </tr>
-                    ))}
+                    {past.map((entry) => {
+                      const extra = expenseBlock(entry.game.id);
+                      return (
+                        <Fragment key={entry.game.id}>
+                          <tr className={extra ? 'row-with-actions' : undefined}>
+                            <td style={{ whiteSpace: 'nowrap' }}>
+                              {dateLabel(entry.game.kickoff, CLUB.timeZone)}
+                            </td>
+                            <td>{matchTitle(entry.game)}</td>
+                            <td className="text-muted">{entry.role}</td>
+                            <td
+                              style={{
+                                color: entry.countsForStats
+                                  ? 'var(--status-filled-text)'
+                                  : 'var(--text-dim)',
+                              }}
+                            >
+                              {entry.countsForStats ? 'gezählt' : 'zählt nicht'}
+                            </td>
+                          </tr>
+                          {extra ? (
+                            <tr className="row-actions">
+                              <td colSpan={4}>{extra}</td>
+                            </tr>
+                          ) : null}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </TableWrap>
               </div>
@@ -312,6 +364,7 @@ const Calendar = async ({ searchParams }: PageProps) => {
                       <div className="text-muted" style={{ fontSize: '11px' }}>
                         {dateLabel(entry.game.kickoff, CLUB.timeZone)} · {entry.role}
                       </div>
+                      {expenseBlock(entry.game.id)}
                     </div>
                     <span
                       style={{
