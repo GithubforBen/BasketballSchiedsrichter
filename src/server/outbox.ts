@@ -151,19 +151,27 @@ export const costUsedToday = async (now: Date): Promise<number> => {
  */
 const claim = async (limit: number, onlyKey?: string): Promise<readonly ClaimedRow[]> => {
   const keyFilter = onlyKey === undefined ? sql`` : sql`and key = ${onlyKey}`;
+  /*
+   * Die Auswahl steht in einem materialisierten CTE und nicht als Unterabfrage
+   * in `where id in (...)`: dort darf Postgres die Unterabfrage mehrfach
+   * ausfuehren, und mit `skip locked` liefert jeder Durchlauf andere Zeilen.
+   * In der CI kamen so bei einem Limit von 2 vier Nachrichten heraus.
+   */
   const result = await db.execute(sql`
-    update notification_outbox set
-      state = 'sending',
-      attempts = attempts + 1,
-      send_after = now() + (${CLAIM_TIMEOUT_MINUTES} * interval '1 minute')
-    where id in (
+    with picked as materialized (
       select id from notification_outbox
       where state in ('queued', 'sending') and send_after <= now() ${keyFilter}
       order by send_after asc
       limit ${limit}
       for update skip locked
     )
-    returning id, key, kind, recipient_id, game_id, payload, attempts, cost_units
+    update notification_outbox set
+      state = 'sending',
+      attempts = attempts + 1,
+      send_after = now() + (${CLAIM_TIMEOUT_MINUTES} * interval '1 minute')
+    from picked
+    where notification_outbox.id = picked.id
+    returning notification_outbox.id, key, kind, recipient_id, game_id, payload, attempts, cost_units
   `);
   return result as unknown as readonly ClaimedRow[];
 };
