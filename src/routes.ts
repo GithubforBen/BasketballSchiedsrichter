@@ -189,3 +189,31 @@ export const overviewRoute = (zeitraum: 'kommende' | 'alle'): Route =>
  */
 export const CALENDAR_EXPORT_PATH: Route = '/api/export/kalender';
 export const CALENDAR_GAME_PARAM = 'spiel';
+
+/**
+ * Die Quittung eines Spiels als PDF.
+ *
+ * Pfad und Feldname stehen hier, damit Verweis und Route sich nicht
+ * auseinanderentwickeln — wie bei der Kalenderdatei.
+ */
+export const RECEIPT_EXPORT_PATH: Route = '/api/export/quittung';
+export const RECEIPT_GAME_PARAM = 'spiel';
+
+/** Der Download der Quittung eines Spiels. */
+export const receiptRoute = (gameId: string): Route =>
+  withQuery(RECEIPT_EXPORT_PATH, { [RECEIPT_GAME_PARAM]: gameId });
+
+/**
+ * Die Sammel-Quittungen eines Zeitraums als ein PDF.
+ * Pfad und Feldnamen stehen daneben fuer das Formular im Profil.
+ */
+export const RECEIPTS_EXPORT_PATH: Route = '/api/export/quittungen';
+export const RECEIPTS_FROM_PARAM = 'von';
+export const RECEIPTS_TO_PARAM = 'bis';
+
+/** Der Download der Quittungen fuer einen Zeitraum (YYYY-MM-DD). */
+export const receiptsRoute = (period: { von: string; bis: string }): Route =>
+  withQuery(RECEIPTS_EXPORT_PATH, {
+    [RECEIPTS_FROM_PARAM]: period.von,
+    [RECEIPTS_TO_PARAM]: period.bis,
+  });
