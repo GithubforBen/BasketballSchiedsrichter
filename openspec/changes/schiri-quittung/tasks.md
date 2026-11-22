@@ -23,7 +23,7 @@ scenarios: [schiri-quittung#driver-with-passenger, schiri-quittung#rode-along, s
 agent: implementer
 ```
 
-- [ ] 2.1 Write `receipt.test.ts` for travel, per-referee totals (missing = 0), overall total, blank columns and German euro formatting, then implement `buildReceiptView` in `receipt.ts` (design D3)
+- [x] 2.1 Write `receipt.test.ts` for travel, per-referee totals (missing = 0), overall total, blank columns and German euro formatting, then implement `buildReceiptView` in `receipt.ts` (design D3)
   - Done when: `npx vitest run src/domain/receipt.test.ts` passes
 - [ ] 2.2 Write `receipt-period.test.ts` for the default period (last full month in Europe/Berlin, also in January) and range validation, then implement `receipt-period.ts`
   - Done when: `npx vitest run src/domain/receipt-period.test.ts` passes
