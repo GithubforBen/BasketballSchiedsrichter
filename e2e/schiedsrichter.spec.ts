@@ -256,7 +256,7 @@ test.describe('Profil und Erinnerungen', () => {
     await page.goto('/profil');
 
     await expect(page.getByText(SEED.jonas.name).first()).toBeVisible();
-    await expect(page.getByText(/nur Admin/).first()).toBeVisible();
+    await expect(page.getByText(/ändert nur ein Admin/).first()).toBeVisible();
     // Kein Eingabefeld für Stammdaten.
     await expect(page.locator('input[name="name"], input[name="telefon"]')).toHaveCount(0);
   });
@@ -393,7 +393,7 @@ test.describe('Zugangsschutz', () => {
       await page.goto(path);
       await expect(page).toHaveURL(/\/anmelden/);
     }
-    await expect(topbar(page)).toContainText('nicht angemeldet');
+    await expect(topbar(page).getByRole('link', { name: 'Anmelden' })).toBeVisible();
   });
 });
 

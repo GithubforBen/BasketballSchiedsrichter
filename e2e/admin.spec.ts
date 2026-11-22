@@ -49,6 +49,24 @@ const csvFor = (dayOffset: number, suffix = '') => {
   ].join('\n');
 };
 
+/**
+ * Legt über die Zeile „neu" in der Schiedsrichter-Tabelle eine Person an.
+ * Die Zeile erscheint erst mit `?neu=ja`; ihre Felder tragen eigene
+ * Beschriftungen, weil „Kürzel" und „Telefonnummer" auch an jeder anderen
+ * Zeile stehen.
+ */
+const neuePerson = async (
+  page: Page,
+  person: { vorname: string; nachname: string; kuerzel: string; telefon: string },
+): Promise<void> => {
+  await page.goto('/schiris?neu=ja');
+  await page.getByLabel('Nachname der neuen Person').fill(person.nachname);
+  await page.getByLabel('Vorname der neuen Person').fill(person.vorname);
+  await page.getByLabel('Kürzel der neuen Person').fill(person.kuerzel);
+  await page.getByLabel('Telefonnummer der neuen Person').fill(person.telefon);
+  await page.getByRole('button', { name: 'Anlegen', exact: true }).click();
+};
+
 test.describe('Adminbereich', () => {
   test.beforeEach(async () => {
     await resetAssignments();
@@ -226,33 +244,32 @@ test.describe('Adminbereich', () => {
   });
 
   test('erteilt und entzieht eine Qualifikation', async ({ page }) => {
-    await setQualificationDirect(SEED.jonas.id, 'Erwachsene', false);
+    // „Erwachsene" heißt seit der Bereinigung der Ligen „Senioren".
+    await setQualificationDirect(SEED.jonas.id, 'Senioren', false);
     await loginAs(page, SEED.nele.phone);
     await page.goto('/schiris');
 
     await page
-      .getByRole('button', { name: `Erwachsene für ${SEED.jonas.name} erteilen` })
+      .getByRole('button', { name: `Senioren für ${SEED.jonas.name} erteilen` })
       .click();
     await expect(formSuccess(page)).toContainText(/erteilt/);
-    expect(await hasQualification(SEED.jonas.id, 'Erwachsene')).toBe(true);
+    expect(await hasQualification(SEED.jonas.id, 'Senioren')).toBe(true);
 
     await page
-      .getByRole('button', { name: `Erwachsene für ${SEED.jonas.name} entziehen` })
+      .getByRole('button', { name: `Senioren für ${SEED.jonas.name} entziehen` })
       .click();
     await expect(formSuccess(page)).toContainText(/entzogen/);
-    expect(await hasQualification(SEED.jonas.id, 'Erwachsene')).toBe(false);
+    expect(await hasQualification(SEED.jonas.id, 'Senioren')).toBe(false);
   });
 
   test('lehnt ein unbrauchbares Kürzel beim Anlegen ab', async ({ page }) => {
     await loginAs(page, SEED.nele.phone);
-    await page.goto('/schiris');
-
-    // Die Tabelle darüber enthält ebenfalls Felder mit diesen Beschriftungen —
-    // gemeint sind die des Anlege-Formulars darunter.
-    await page.getByLabel('Name', { exact: true }).fill('Test Person');
-    await page.getByLabel('Kürzel', { exact: true }).fill('X');
-    await page.getByLabel('Telefonnummer', { exact: true }).fill('0151 55500777');
-    await page.getByRole('button', { name: /Schiedsrichter anlegen/ }).click();
+    await neuePerson(page, {
+      vorname: 'Test',
+      nachname: 'Person',
+      kuerzel: 'X',
+      telefon: '0151 55500777',
+    });
 
     await expect(formError(page)).toContainText(/zwei bis vier Buchstaben/);
   });
@@ -432,6 +449,8 @@ test.describe('Adminbereich', () => {
 test.describe('Ein neues Konto von Anfang bis Ende', () => {
   const NEU = {
     name: 'Friedrich Merz',
+    firstName: 'Friedrich',
+    surname: 'Merz',
     initials: 'FME',
     phone: '0159 20260825',
     phoneE164: '+4915920260825',
@@ -449,15 +468,12 @@ test.describe('Ein neues Konto von Anfang bis Ende', () => {
 
   const anlegen = async (page: Page): Promise<void> => {
     await loginAs(page, SEED.nele.phone);
-    await page.goto('/schiris');
-    /*
-     * Über die Ids und nicht über die Beschriftung: „Kürzel" und
-     * „Telefonnummer" stehen auf dieser Seite auch an jeder Tabellenzeile.
-     */
-    await page.locator('#neu-name').fill(NEU.name);
-    await page.locator('#neu-kuerzel').fill(NEU.initials);
-    await page.locator('#neu-telefon').fill(NEU.phone);
-    await page.getByRole('button', { name: /Schiedsrichter anlegen/ }).click();
+    await neuePerson(page, {
+      vorname: NEU.firstName,
+      nachname: NEU.surname,
+      kuerzel: NEU.initials,
+      telefon: NEU.phone,
+    });
   };
 
   const anmelden = async (page: Page, password: string): Promise<void> => {

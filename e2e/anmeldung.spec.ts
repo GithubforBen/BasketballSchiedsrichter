@@ -30,9 +30,10 @@ test.describe('Anmeldung mit Passwort', () => {
     await submit(page, ADMIN.phone, ADMIN_PASSWORD);
 
     await expect(topbar(page)).toContainText(ADMIN.name);
-    // Nach dem Login öffnet sich zuerst „Kalender & Verlauf“ — so steht es im
-    // Mockup, und so merkt sich die App später den zuletzt benutzten Bildschirm.
-    await expect(page.getByRole('heading', { name: /Kalender/, level: 1 })).toBeVisible();
+    // Ohne gemerkten Bildschirm landet ein Admin auf seiner Spielübersicht,
+    // ein Schiedsrichter auf „Kalender & Verlauf“ (src/server/auth/landing.ts).
+    await expect(page).toHaveURL(/\/uebersicht$/);
+    await expect(page.getByRole('heading', { name: 'Spielübersicht', level: 1 })).toBeVisible();
   });
 
   test('nimmt die Nummer in jeder Schreibweise an — Regel 42', async ({ page }) => {
@@ -89,7 +90,8 @@ test.describe('Anmeldung mit Passwort', () => {
     // Der Knopf aus der Kopfzeile: „Abmelden" steht auf jeder Seite oben und im
     // Profil noch einmal, und beide sollen dasselbe tun.
     await topbar(page).getByRole('button', { name: 'Abmelden' }).click();
-    await expect(topbar(page)).toContainText('nicht angemeldet');
+    // Abgemeldet steht oben der Weg zur Anmeldung statt des Namens.
+    await expect(topbar(page).getByRole('link', { name: 'Anmelden' })).toBeVisible();
     await expect(topbar(page)).not.toContainText(ADMIN.name);
   });
 });
