@@ -132,7 +132,7 @@ const Calendar = async ({ searchParams }: PageProps) => {
     expenseEntries.map((entry) => entry.game.id),
   );
   const hasExpenses = (gameId: string) => expenseEntries.some((entry) => entry.game.id === gameId);
-  const expenseBlock = (gameId: string) =>
+  const expenseBlock = (gameId: string, variant: 'wide' | 'narrow') =>
     hasExpenses(gameId) ? (
       <div className="stack" style={{ gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
         <details>
@@ -142,7 +142,7 @@ const Calendar = async ({ searchParams }: PageProps) => {
               action={saveOwnExpensesAction}
               gameId={gameId}
               initial={expenses.get(gameId) ?? null}
-              idPrefix={`kosten-${gameId}`}
+              idPrefix={`kosten-${variant}-${gameId}`}
             />
           </div>
         </details>
@@ -233,7 +233,7 @@ const Calendar = async ({ searchParams }: PageProps) => {
                   <tbody>
                     {upcoming.map((entry) => {
                       const own = actions.get(entry.game.id);
-                      const extra = expenseBlock(entry.game.id);
+                      const extra = expenseBlock(entry.game.id, 'wide');
                       return (
                         <Fragment key={entry.game.id}>
                           <tr className={own || extra ? 'row-with-actions' : undefined}>
@@ -285,7 +285,7 @@ const Calendar = async ({ searchParams }: PageProps) => {
                         </span>
                       </div>
                       {ownActions(entry.game.id)}
-                      {expenseBlock(entry.game.id)}
+                      {expenseBlock(entry.game.id, 'narrow')}
                     </div>
                   </li>
                 ))}
@@ -325,7 +325,7 @@ const Calendar = async ({ searchParams }: PageProps) => {
                   </thead>
                   <tbody>
                     {past.map((entry) => {
-                      const extra = expenseBlock(entry.game.id);
+                      const extra = expenseBlock(entry.game.id, 'wide');
                       return (
                         <Fragment key={entry.game.id}>
                           <tr className={extra ? 'row-with-actions' : undefined}>
@@ -364,7 +364,7 @@ const Calendar = async ({ searchParams }: PageProps) => {
                       <div className="text-muted" style={{ fontSize: '11px' }}>
                         {dateLabel(entry.game.kickoff, CLUB.timeZone)} · {entry.role}
                       </div>
-                      {expenseBlock(entry.game.id)}
+                      {expenseBlock(entry.game.id, 'narrow')}
                     </div>
                     <span
                       style={{
