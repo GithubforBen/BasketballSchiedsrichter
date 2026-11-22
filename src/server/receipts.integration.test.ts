@@ -344,6 +344,17 @@ suite('Quittung', () => {
       expect(view?.columns[1].name).toBeNull();
     });
 
+    // spec: schiri-quittung#only-one-referee
+    it('setzt Platz 1 in die zweite Spalte, wenn Platz 0 leer ist', async () => {
+      const g = await makeGameAt('2001-06-10T10:00:00Z');
+      await assign(g, 1, ben);
+
+      const view = await loadReceiptView(ben, g);
+
+      expect(view?.columns[0].name).toBeNull();
+      expect(view?.columns[1].name).not.toBeNull();
+    });
+
     // spec: schiri-quittung#other-users-are-refused
     it('gibt Fremden und dem Ersatzplatz nichts', async () => {
       const g = await makeGameAt('2001-06-10T10:00:00Z');
