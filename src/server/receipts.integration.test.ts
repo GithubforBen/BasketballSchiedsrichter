@@ -3,6 +3,7 @@ import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ensureLeagues } from '../../test/ligen';
 import { saveExpenses, type ExpenseInput } from './expenses';
+import { loadReceiptView, loadReceiptViews } from './queries/receipts';
 import {
   DEFAULT_KM_RATES,
   resolveKmRates,
@@ -299,6 +300,98 @@ suite('Quittung', () => {
 
       expect(await resolveLeagueFee(league, at('2001-10-01T10:00:00Z'))).toBe(2000);
       expect(await resolveLeagueFee(league, at('2002-01-10T10:00:00Z'))).toBeNull();
+    });
+  });
+
+  describe('Auswahl', () => {
+    const makeGameAt = async (iso: string, state = 'scheduled', home = 'Heim') => {
+      const id = `${prefix}-g-${randomUUID().slice(0, 8)}`;
+      await sql`INSERT INTO games (id, kickoff, league_id, home, away, venue, state)
+                VALUES (${id}, ${new Date(iso)}, 'U14', ${home}, 'Gast', 'Halle', ${state})`;
+      return id;
+    };
+    const period = { von: '2001-06-01', bis: '2001-06-30' };
+    const after = new Date('2001-07-15T00:00:00Z');
+
+    // spec: schiri-quittung#either-referee-gets-the-same-receipt
+    it('liefert beiden Schiedsrichtern dieselbe Quittung mit beiden Angaben', async () => {
+      const g = await makeGameAt('2001-06-10T10:00:00Z');
+      await assign(g, 0, anna);
+      await assign(g, 1, ben);
+      await saveExpenses(asReferee(anna), g, anna, { ...empty, travelMode: 'alone', km: 10 });
+      await saveExpenses(asReferee(ben), g, ben, { ...empty, travelMode: 'with_passenger', km: 20 });
+
+      const forAnna = await loadReceiptView(anna, g);
+      const forBen = await loadReceiptView(ben, g);
+
+      expect(forAnna).not.toBeNull();
+      expect(forAnna).toEqual(forBen);
+      expect(forAnna?.columns[0].km).toBe('10');
+      expect(forAnna?.columns[0].travel).toBe('3,00');
+      expect(forAnna?.columns[1].km).toBe('20');
+      expect(forAnna?.columns[1].travel).toBe('6,40');
+      expect(forAnna?.overallTotal).toBe('9,40');
+    });
+
+    // spec: schiri-quittung#only-one-referee
+    it('laesst die zweite Spalte leer, wenn nur eine Person eingetragen ist', async () => {
+      const g = await makeGameAt('2001-06-10T10:00:00Z');
+      await assign(g, 0, anna);
+
+      const view = await loadReceiptView(anna, g);
+
+      expect(view?.columns[0].name).not.toBeNull();
+      expect(view?.columns[1].name).toBeNull();
+    });
+
+    // spec: schiri-quittung#other-users-are-refused
+    it('gibt Fremden und dem Ersatzplatz nichts', async () => {
+      const g = await makeGameAt('2001-06-10T10:00:00Z');
+      await assign(g, 0, anna);
+      await assign(g, 2, ben);
+
+      expect(await loadReceiptView(cara, g)).toBeNull();
+      expect(await loadReceiptView(ben, g)).toBeNull();
+      expect(await loadReceiptView(anna, `${prefix}-gibt-es-nicht`)).toBeNull();
+    });
+
+    // spec: schiri-quittung#cancelled-game
+    it('gibt fuer ein abgesagtes Spiel nichts', async () => {
+      const g = await makeGameAt('2001-06-10T10:00:00Z', 'cancelled');
+      await assign(g, 0, anna);
+
+      expect(await loadReceiptView(anna, g)).toBeNull();
+    });
+
+    // spec: schiri-quittung#future-and-substitute-games-excluded
+    it('waehlt im Zeitraum nur vergangene Spiele auf Platz 0/1, nach Anpfiff', async () => {
+      const late = await makeGameAt('2001-06-20T10:00:00Z', 'scheduled', 'Spaet');
+      const early = await makeGameAt('2001-06-02T10:00:00Z', 'scheduled', 'Frueh');
+      const substitute = await makeGameAt('2001-06-05T10:00:00Z');
+      const cancelled = await makeGameAt('2001-06-06T10:00:00Z', 'cancelled');
+      const outside = await makeGameAt('2001-07-02T10:00:00Z');
+      const future = await makeGameAt('2001-06-28T10:00:00Z', 'scheduled', 'Zukunft');
+      for (const g of [late, early, cancelled, outside, future]) await assign(g, 0, anna);
+      await assign(substitute, 3, anna);
+
+      const views = await loadReceiptViews(anna, period, new Date('2001-06-25T00:00:00Z'));
+
+      expect(views.map((v) => v.game.home)).toEqual(['Frueh', 'Spaet']);
+      expect(await loadReceiptViews(anna, period, after)).toHaveLength(3);
+    });
+
+    // spec: schiri-quittung#nothing-in-the-period
+    it('liefert fuer einen leeren Zeitraum eine leere Liste', async () => {
+      expect(await loadReceiptViews(anna, { von: '2001-01-01', bis: '2001-01-31' }, after)).toEqual(
+        [],
+      );
+    });
+
+    it('bezieht den letzten Tag des Zeitraums vollstaendig ein', async () => {
+      const g = await makeGameAt('2001-06-30T20:30:00Z');
+      await assign(g, 0, anna);
+
+      expect(await loadReceiptViews(anna, period, after)).toHaveLength(1);
     });
   });
 });

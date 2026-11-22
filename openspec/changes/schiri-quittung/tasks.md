@@ -41,7 +41,7 @@ agent: implementer
   - Done when: `npx vitest run src/server/receipts.integration.test.ts` passes the expense cases
 - [x] 3.2 Implement `src/server/receipt-rates.ts`: save km rates and league fees as history (append only on change, first league fee at `-infinity`) and resolve both as of a kickoff, with integration tests for defaults, later changes and a league without fee
   - Done when: `npx vitest run src/server/receipts.integration.test.ts` passes the rate and fee cases
-- [ ] 3.3 Implement `src/server/queries/receipts.ts`: load the receipt view of one game for a user holding slot 0/1 (null otherwise, or when cancelled) and the list for a user and period (past kickoffs only, by kickoff)
+- [x] 3.3 Implement `src/server/queries/receipts.ts`: load the receipt view of one game for a user holding slot 0/1 (null otherwise, or when cancelled) and the list for a user and period (past kickoffs only, by kickoff)
   - Done when: integration tests in `src/server/receipts.integration.test.ts` for single and batch selection pass
 - [ ] 3.4 Create `src/server/receipt-logo.ts` (base64 of `design/quittung-logo.png`) and `src/server/receipt-pdf.ts` rendering one A4 page per view with `pdf-lib` and Helvetica, with a fallback for characters outside WinAnsi; unit test page count, the `%PDF` header and a team name containing `ł`
   - Done when: `npx vitest run src/server/receipt-pdf.test.ts` passes
