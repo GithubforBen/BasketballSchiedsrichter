@@ -37,7 +37,7 @@ scenarios: [schiri-quittung#referee-saves-travel-data, schiri-quittung#referee-e
 agent: implementer
 ```
 
-- [ ] 3.1 Implement `saveExpenses` in `src/server/expenses.ts` with the permission and validation rules of design D6, with integration tests for own save, edit after kickoff, substitute rejected, invalid input, partner rejected, admin allowed, and cascade on leaving the game
+- [x] 3.1 Implement `saveExpenses` in `src/server/expenses.ts` with the permission and validation rules of design D6, with integration tests for own save, edit after kickoff, substitute rejected, invalid input, partner rejected, admin allowed, and cascade on leaving the game
   - Done when: `npx vitest run src/server/receipts.integration.test.ts` passes the expense cases
 - [ ] 3.2 Implement `src/server/receipt-rates.ts`: save km rates and league fees as history (append only on change, first league fee at `-infinity`) and resolve both as of a kickoff, with integration tests for defaults, later changes and a league without fee
   - Done when: `npx vitest run src/server/receipts.integration.test.ts` passes the rate and fee cases
