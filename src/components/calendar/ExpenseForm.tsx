@@ -137,7 +137,8 @@ export const ExpenseForm = ({
         <Input
           id={id('km')}
           name={EXPENSE_FIELDS.km}
-          inputMode="decimal"
+          inputMode="numeric"
+          pattern="[0-9]*"
           autoComplete="off"
           style={full}
           defaultValue={kmText(initial?.km)}
