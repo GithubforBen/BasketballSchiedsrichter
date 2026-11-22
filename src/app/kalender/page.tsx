@@ -136,7 +136,7 @@ const Calendar = async ({ searchParams }: PageProps) => {
     hasExpenses(gameId) ? (
       <div className="stack" style={{ gap: 'var(--space-3)', marginTop: 'var(--space-2)' }}>
         <details>
-          <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Fahrt &amp; Kosten</summary>
+          <summary className="expense-summary">Fahrt &amp; Kosten</summary>
           <div style={{ marginTop: 'var(--space-3)' }}>
             <ExpenseForm
               action={saveOwnExpensesAction}
@@ -358,13 +358,12 @@ const Calendar = async ({ searchParams }: PageProps) => {
 
               <ul className="card-list only-narrow">
                 {past.map((entry) => (
-                  <li key={entry.game.id} className="game-card">
+                  <li key={entry.game.id} className="game-card game-card-wrap">
                     <div className="game-card-text">
                       <div className="game-card-title">{matchTitle(entry.game)}</div>
                       <div className="text-muted" style={{ fontSize: '11px' }}>
                         {dateLabel(entry.game.kickoff, CLUB.timeZone)} · {entry.role}
                       </div>
-                      {expenseBlock(entry.game.id, 'narrow')}
                     </div>
                     <span
                       style={{
@@ -377,6 +376,7 @@ const Calendar = async ({ searchParams }: PageProps) => {
                     >
                       {entry.countsForStats ? 'gezählt' : 'zählt nicht'}
                     </span>
+                    <div className="game-card-extra">{expenseBlock(entry.game.id, 'narrow')}</div>
                   </li>
                 ))}
               </ul>

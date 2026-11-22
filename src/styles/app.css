@@ -1715,3 +1715,29 @@ a {
   color: var(--color-accent-700);
   font-size: 12px;
 }
+
+/* Kostenformular im Kalender: Tippflaeche und 16 px gegen den iOS-Zoom. */
+.expense-summary {
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.expense-form .input,
+.expense-form select {
+  font-size: 16px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Vergangene Spiele: der Kostenblock bekommt eine volle Zeile unter der Karte. */
+.game-card-wrap {
+  flex-wrap: wrap;
+}
+
+.game-card-extra {
+  flex: 1 1 100%;
+  min-width: 0;
+}
