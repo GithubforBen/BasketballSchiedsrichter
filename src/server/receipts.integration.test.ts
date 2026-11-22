@@ -3,6 +3,13 @@ import postgres from 'postgres';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ensureLeagues } from '../../test/ligen';
 import { saveExpenses, type ExpenseInput } from './expenses';
+import {
+  DEFAULT_KM_RATES,
+  resolveKmRates,
+  resolveLeagueFee,
+  saveKmRates,
+  saveLeagueFee,
+} from './receipt-rates';
 
 /**
  * Quittung: Angaben, Saetze, Gebuehren und Auswahl gegen eine echte Datenbank.
@@ -78,6 +85,8 @@ suite('Quittung', () => {
     if (!sql) return;
     await sql`DELETE FROM games WHERE id LIKE ${`${prefix}%`}`;
     await sql`DELETE FROM referees WHERE id LIKE ${`${prefix}%`}`;
+    await sql`DELETE FROM leagues WHERE id LIKE ${`${prefix}%`}`;
+    await sql`DELETE FROM km_rates WHERE valid_from >= '2001-01-01' AND valid_from < '2003-01-01'`;
     await sql.end();
   });
 
@@ -191,6 +200,105 @@ suite('Quittung', () => {
       await sql`DELETE FROM assignments WHERE game_id = ${g} AND referee_id = ${cara}`;
 
       expect(await stored(g, cara)).toBeNull();
+    });
+  });
+
+  describe('Kilometersaetze', () => {
+    const at = (iso: string) => new Date(iso);
+
+    afterEach(async () => {
+      await sql`DELETE FROM km_rates WHERE valid_from >= '2001-01-01' AND valid_from < '2003-01-01'`;
+    });
+
+    // spec: schiri-quittung#default-rates
+    it('liefert ohne gespeicherten Satz die Standardwerte', async () => {
+      expect(await resolveKmRates(at('1999-06-01T10:00:00Z'))).toEqual(DEFAULT_KM_RATES);
+      expect(DEFAULT_KM_RATES).toEqual({ soloCents: 30, sharedCents: 32 });
+    });
+
+    // spec: schiri-quittung#rate-change-does-not-alter-past-games
+    it('aendert vergangene Spiele durch einen neuen Satz nicht', async () => {
+      const kickoff = at('2001-06-01T10:00:00Z');
+      await saveKmRates({ soloCents: 31, sharedCents: 33 }, at('2001-03-01T00:00:00Z'));
+      const saved = await saveKmRates({ soloCents: 35, sharedCents: 37 }, at('2001-09-01T00:00:00Z'));
+
+      expect(saved).toEqual({ ok: true, changed: true });
+      expect(await resolveKmRates(kickoff)).toEqual({ soloCents: 31, sharedCents: 33 });
+      expect(await resolveKmRates(at('2001-10-01T10:00:00Z'))).toEqual({
+        soloCents: 35,
+        sharedCents: 37,
+      });
+    });
+
+    it('legt bei unveraenderten Werten keinen Eintrag an', async () => {
+      await saveKmRates({ soloCents: 31, sharedCents: 33 }, at('2001-03-01T00:00:00Z'));
+      const again = await saveKmRates({ soloCents: 31, sharedCents: 33 }, at('2001-04-01T00:00:00Z'));
+
+      expect(again).toEqual({ ok: true, changed: false });
+      const rows = await sql`SELECT 1 FROM km_rates WHERE valid_from >= '2001-01-01'
+                             AND valid_from < '2003-01-01'`;
+      expect(rows).toHaveLength(1);
+    });
+
+    it('lehnt negative Saetze ab', async () => {
+      expect((await saveKmRates({ soloCents: -1, sharedCents: 32 })).ok).toBe(false);
+    });
+  });
+
+  describe('Ligagebuehren', () => {
+    const league = `${prefix}-L`;
+    const other = `${prefix}-M`;
+    const at = (iso: string) => new Date(iso);
+
+    beforeAll(async () => {
+      for (const id of [league, other])
+        await sql`INSERT INTO leagues (id, name, active, sort_order) VALUES (${id}, ${id}, true, 99)`;
+    });
+
+    afterEach(async () => {
+      await sql`DELETE FROM league_fees WHERE league_id IN (${league}, ${other})`;
+    });
+
+    // spec: schiri-quittung#league-without-fee
+    it('liefert ohne Gebuehr null', async () => {
+      expect(await resolveLeagueFee(league, at('2001-06-01T10:00:00Z'))).toBeNull();
+      expect(await saveLeagueFee(league, null)).toEqual({ ok: true, changed: false });
+    });
+
+    // spec: schiri-quittung#first-fee-of-a-league-applies-to-earlier-games
+    it('wendet die erste Gebuehr auch auf fruehere Spiele an', async () => {
+      await saveLeagueFee(league, 2000, at('2001-09-01T00:00:00Z'));
+
+      expect(await resolveLeagueFee(league, at('2001-06-01T10:00:00Z'))).toBe(2000);
+      expect(await resolveLeagueFee(league, at('2001-10-01T10:00:00Z'))).toBe(2000);
+    });
+
+    // spec: schiri-quittung#fee-change-after-the-game
+    it('laesst die Gebuehr vergangener Spiele nach einer Aenderung stehen', async () => {
+      await saveLeagueFee(league, 2000, at('2001-09-01T00:00:00Z'));
+      const kickoff = at('2001-10-01T10:00:00Z');
+
+      const changed = await saveLeagueFee(league, 2500, at('2001-12-01T00:00:00Z'));
+
+      expect(changed).toEqual({ ok: true, changed: true });
+      expect(await resolveLeagueFee(league, kickoff)).toBe(2000);
+      expect(await resolveLeagueFee(league, at('2002-01-10T10:00:00Z'))).toBe(2500);
+    });
+
+    it('haelt die Gebuehren je Liga getrennt und ignoriert unveraenderte Werte', async () => {
+      await saveLeagueFee(league, 2000, at('2001-09-01T00:00:00Z'));
+      const same = await saveLeagueFee(league, 2000, at('2001-10-01T00:00:00Z'));
+
+      expect(same).toEqual({ ok: true, changed: false });
+      expect(await resolveLeagueFee(other, at('2002-01-01T00:00:00Z'))).toBeNull();
+    });
+
+    it('kann eine Gebuehr leeren, ohne die Vergangenheit zu aendern', async () => {
+      await saveLeagueFee(league, 2000, at('2001-09-01T00:00:00Z'));
+      await saveLeagueFee(league, null, at('2001-12-01T00:00:00Z'));
+
+      expect(await resolveLeagueFee(league, at('2001-10-01T10:00:00Z'))).toBe(2000);
+      expect(await resolveLeagueFee(league, at('2002-01-10T10:00:00Z'))).toBeNull();
     });
   });
 });

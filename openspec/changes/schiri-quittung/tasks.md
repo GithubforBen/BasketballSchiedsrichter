@@ -39,7 +39,7 @@ agent: implementer
 
 - [x] 3.1 Implement `saveExpenses` in `src/server/expenses.ts` with the permission and validation rules of design D6, with integration tests for own save, edit after kickoff, substitute rejected, invalid input, partner rejected, admin allowed, and cascade on leaving the game
   - Done when: `npx vitest run src/server/receipts.integration.test.ts` passes the expense cases
-- [ ] 3.2 Implement `src/server/receipt-rates.ts`: save km rates and league fees as history (append only on change, first league fee at `-infinity`) and resolve both as of a kickoff, with integration tests for defaults, later changes and a league without fee
+- [x] 3.2 Implement `src/server/receipt-rates.ts`: save km rates and league fees as history (append only on change, first league fee at `-infinity`) and resolve both as of a kickoff, with integration tests for defaults, later changes and a league without fee
   - Done when: `npx vitest run src/server/receipts.integration.test.ts` passes the rate and fee cases
 - [ ] 3.3 Implement `src/server/queries/receipts.ts`: load the receipt view of one game for a user holding slot 0/1 (null otherwise, or when cancelled) and the list for a user and period (past kickoffs only, by kickoff)
   - Done when: integration tests in `src/server/receipts.integration.test.ts` for single and batch selection pass
