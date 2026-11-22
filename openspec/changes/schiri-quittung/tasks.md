@@ -9,9 +9,9 @@ scenarios: []
 agent: implementer
 ```
 
-- [ ] 1.1 Add `pdf-lib` as a runtime dependency
+- [x] 1.1 Add `pdf-lib` as a runtime dependency
   - Done when: `npm ls pdf-lib` lists it and `npm run typecheck` exits 0
-- [ ] 1.2 Add `assignment_expenses`, `km_rates` and `league_fees` to `src/db/schema.ts` per design D1/D2 (cents as integers, composite FK to `assignments(game_id, referee_id)` with cascade) and generate migration `0015_schiri_quittung.sql`
+- [x] 1.2 Add `assignment_expenses`, `km_rates` and `league_fees` to `src/db/schema.ts` per design D1/D2 (cents as integers, composite FK to `assignments(game_id, referee_id)` with cascade) and generate migration `0015_schiri_quittung.sql`
   - Done when: `npm run db:generate` reports no further changes and `npm run typecheck` exits 0
 
 ## 2. Receipt domain logic
