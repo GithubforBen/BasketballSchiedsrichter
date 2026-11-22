@@ -7,6 +7,8 @@ import { isLicense } from '@/domain/license';
 import type { License, SlotIndex } from '@/domain/types';
 import { editGameRoute } from '@/routes';
 import { assignReferee, editGame, removeFromGame, setGameReleases } from '@/server/admin/games';
+import { EXPENSE_FIELDS, parseExpenseForm } from '@/components/calendar/ExpenseForm';
+import { saveExpenses } from '@/server/expenses';
 import { requireAdmin } from '@/server/guard';
 import { requestSubstitute } from '@/server/assignments';
 import { loadSettings } from '@/server/queries/settings';
@@ -24,7 +26,6 @@ const readLicense = (formData: FormData): License => {
   const value = read(formData, 'lizenz');
   return isLicense(value) ? value : 'E';
 };
-
 
 export const saveGameAction = async (formData: FormData): Promise<void> => {
   const user = await requireAdmin();
@@ -123,5 +124,22 @@ export const requestSubstituteAction = async (formData: FormData): Promise<void>
   revalidatePath('/bearbeiten');
   revalidatePath('/uebersicht');
   revalidatePath('/spiele');
+  redirect(editGameRoute(gameId, result));
+};
+
+/** Fahrt und Kosten eines Schiedsrichters dieses Spiels — der Admin darf sie jederzeit aendern. */
+export const saveExpensesAction = async (formData: FormData): Promise<void> => {
+  const user = await requireAdmin();
+  const gameId = read(formData, EXPENSE_FIELDS.game);
+  const parsed = parseExpenseForm(formData);
+  if (!parsed.ok) redirect(editGameRoute(gameId, parsed));
+
+  const result = await saveExpenses(
+    { id: user.id, role: 'admin' },
+    gameId,
+    read(formData, EXPENSE_FIELDS.referee),
+    parsed.input,
+  );
+  revalidatePath('/bearbeiten');
   redirect(editGameRoute(gameId, result));
 };

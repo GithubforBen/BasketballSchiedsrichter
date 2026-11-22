@@ -8,7 +8,13 @@ import type { OpenSlotVisibility } from '@/domain/types';
 import { requireAdmin } from '@/server/guard';
 import { loadLeagues } from '@/server/queries/admin-view';
 import { loadAlertSettings, loadSettings } from '@/server/queries/settings';
-import { saveSettingsAction, setLeagueAction } from './actions';
+import { currentKmRates, currentLeagueFees } from '@/server/receipt-rates';
+import {
+  saveKmRatesAction,
+  saveLeagueFeeAction,
+  saveSettingsAction,
+  setLeagueAction,
+} from './actions';
 
 /**
  * Einstellungen des Vereins.
@@ -64,7 +70,12 @@ const Switch = ({
     />
     <span style={{ flex: 1 }}>
       <span
-        style={{ display: 'block', fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '15px' }}
+        style={{
+          display: 'block',
+          fontFamily: 'var(--font-heading)',
+          fontWeight: 800,
+          fontSize: '15px',
+        }}
       >
         {label}
       </span>
@@ -75,14 +86,19 @@ const Switch = ({
   </label>
 );
 
+const euro = (cents: number | undefined): string =>
+  cents === undefined ? '' : (cents / 100).toFixed(2).replace('.', ',');
+
 const Settings = async ({ searchParams }: PageProps) => {
   const user = await requireAdmin();
   const params = await searchParams;
 
-  const [settings, alerts, leagues] = await Promise.all([
+  const [settings, alerts, leagues, rates, fees] = await Promise.all([
     loadSettings(),
     loadAlertSettings(),
     loadLeagues(),
+    currentKmRates(),
+    currentLeagueFees(),
   ]);
 
   return (
@@ -172,14 +188,14 @@ const Settings = async ({ searchParams }: PageProps) => {
         </Field>
         <p className="text-muted" style={{ fontSize: '12px' }}>
           „Alle Qualifizierten“ heißt: eine Nachricht je offenem Spiel an jeden, der die Liga und
-          die nötige Lizenz hat. „Nur die Admins“ schickt stattdessen einmal am Abend eine Bilanz
-          — wie viele Spiele eine Lücke haben, bei wie vielen gar kein Schiedsrichter steht und
-          wie eilig der nächste Fall ist. Zehn Lücken ergeben so eine Nachricht und nicht zehn.
-          Steht die Ausschreibung auf „aus“, erfährt niemand von einer Lücke — sie steht dann nur
-          in der Übersicht und in den Meldungen. Die Nachrück-Anfragen an Ersatzleute laufen
-          unabhängig davon weiter. Ein neu angelegtes Spiel wird nicht ausgeschrieben: die
-          Nachricht geht erst raus, wenn ein Platz wieder frei wird oder die automatische
-          Nachfrage ihre nächste Stufe erreicht. Vorher erinnerst du von Hand unter „Meldungen“.
+          die nötige Lizenz hat. „Nur die Admins“ schickt stattdessen einmal am Abend eine Bilanz —
+          wie viele Spiele eine Lücke haben, bei wie vielen gar kein Schiedsrichter steht und wie
+          eilig der nächste Fall ist. Zehn Lücken ergeben so eine Nachricht und nicht zehn. Steht
+          die Ausschreibung auf „aus“, erfährt niemand von einer Lücke — sie steht dann nur in der
+          Übersicht und in den Meldungen. Die Nachrück-Anfragen an Ersatzleute laufen unabhängig
+          davon weiter. Ein neu angelegtes Spiel wird nicht ausgeschrieben: die Nachricht geht erst
+          raus, wenn ein Platz wieder frei wird oder die automatische Nachfrage ihre nächste Stufe
+          erreicht. Vorher erinnerst du von Hand unter „Meldungen“.
         </p>
 
         <h2 className="kicker" style={{ marginTop: 'var(--space-6)' }}>
@@ -319,6 +335,78 @@ const Settings = async ({ searchParams }: PageProps) => {
             Liga hinzufügen
           </Button>
         </form>
+      </section>
+      <section style={{ marginTop: 'var(--space-8)', maxWidth: '760px' }}>
+        <h2 className="kicker">Fahrtkosten</h2>
+        <p className="text-muted" style={{ fontSize: '13px' }}>
+          Kilometersätze der Quittung in Euro je Kilometer. Eine Änderung gilt für Spiele ab jetzt;
+          bei Spielen davor bleibt der Satz stehen, der zum Anpfiff galt.
+        </p>
+        <form action={saveKmRatesAction}>
+          <div className="form-grid">
+            <Field label="Allein gefahren (€/km)" htmlFor="satz-allein">
+              <Input
+                id="satz-allein"
+                name="satzAllein"
+                inputMode="decimal"
+                required
+                defaultValue={euro(rates.soloCents)}
+              />
+            </Field>
+            <Field label="Mit Mitfahrer gefahren (€/km)" htmlFor="satz-mitfahrer">
+              <Input
+                id="satz-mitfahrer"
+                name="satzMitfahrer"
+                inputMode="decimal"
+                required
+                defaultValue={euro(rates.sharedCents)}
+              />
+            </Field>
+          </div>
+          <Button type="submit" variant="secondary" style={{ marginTop: 'var(--space-3)' }}>
+            Kilometersätze speichern
+          </Button>
+        </form>
+
+        <h3 className="kicker" style={{ marginTop: 'var(--space-6)' }}>
+          Gebühr je Liga
+        </h3>
+        <p className="text-muted" style={{ fontSize: '13px' }}>
+          Die Spielgebühr, die auf der Quittung steht. Leer lassen, wenn die Liga keine Gebühr hat.
+        </p>
+        <ul
+          style={{
+            listStyle: 'none',
+            margin: 'var(--space-3) 0 0',
+            padding: 0,
+          }}
+        >
+          {leagues.map((league) => (
+            <li
+              key={league.id}
+              style={{
+                padding: 'var(--space-3) 0',
+                borderBottom: '1px solid var(--color-divider)',
+              }}
+            >
+              <form action={saveLeagueFeeAction} className="row" style={{ alignItems: 'flex-end' }}>
+                <input type="hidden" name="liga" value={league.id} />
+                <Field label={`${league.name} (€)`} htmlFor={`gebuehr-${league.id}`}>
+                  <Input
+                    id={`gebuehr-${league.id}`}
+                    name="gebuehr"
+                    inputMode="decimal"
+                    placeholder="keine"
+                    defaultValue={euro(fees.get(league.id))}
+                  />
+                </Field>
+                <Button type="submit" variant="secondary">
+                  Speichern
+                </Button>
+              </form>
+            </li>
+          ))}
+        </ul>
       </section>
     </AdminShell>
   );

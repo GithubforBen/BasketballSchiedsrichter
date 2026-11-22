@@ -6,6 +6,7 @@ import type { OpenSlotVisibility, RotationWindow } from '@/domain/types';
 import { adminResultRoute } from '@/routes';
 import { saveSettings, setLeague } from '@/server/admin/settings';
 import { requireAdmin } from '@/server/guard';
+import { saveKmRates, saveLeagueFee } from '@/server/receipt-rates';
 
 /** Vereinsweite Einstellungen und Ligen. */
 
@@ -59,4 +60,74 @@ export const setLeagueAction = async (formData: FormData): Promise<void> => {
   const result = await setLeague(user.id, read(formData, 'liga'), read(formData, 'wert') === 'an');
   revalidatePath('/einstellungen');
   redirect(adminResultRoute('/einstellungen', result));
+};
+
+const EURO = /^\d+(?:[.,]\d{1,2})?$/;
+
+/** "0,30" -> 30 Cent; leer -> null; sonst `undefined`. */
+const parseCents = (raw: string): number | null | undefined => {
+  const value = raw.trim();
+  if (value === '') return null;
+  if (!EURO.test(value)) return undefined;
+  return Math.round(Number(value.replace(',', '.')) * 100);
+};
+
+/** Die beiden Kilometersaetze der Quittung (Euro je km). */
+export const saveKmRatesAction = async (formData: FormData): Promise<void> => {
+  await requireAdmin();
+  const solo = parseCents(read(formData, 'satzAllein'));
+  const shared = parseCents(read(formData, 'satzMitfahrer'));
+  if (solo == null || shared == null) {
+    redirect(
+      adminResultRoute('/einstellungen', {
+        ok: false,
+        message: 'Beide Kilometersätze bitte als Betrag in Euro angeben, z. B. 0,30.',
+      }),
+    );
+  }
+  const result = await saveKmRates({ soloCents: solo, sharedCents: shared });
+  revalidatePath('/einstellungen');
+  redirect(
+    adminResultRoute(
+      '/einstellungen',
+      result.ok
+        ? {
+            ok: true,
+            message: result.changed
+              ? 'Kilometersätze gespeichert. Sie gelten für Spiele ab jetzt.'
+              : 'Die Kilometersätze waren schon so eingestellt.',
+          }
+        : result,
+    ),
+  );
+};
+
+/** Die Gebuehr einer Liga (Euro); leer entfernt sie. */
+export const saveLeagueFeeAction = async (formData: FormData): Promise<void> => {
+  await requireAdmin();
+  const league = read(formData, 'liga');
+  const fee = parseCents(read(formData, 'gebuehr'));
+  if (fee === undefined) {
+    redirect(
+      adminResultRoute('/einstellungen', {
+        ok: false,
+        message: 'Die Gebühr bitte als Betrag in Euro angeben, z. B. 20,00.',
+      }),
+    );
+  }
+  const result = await saveLeagueFee(league, fee);
+  revalidatePath('/einstellungen');
+  redirect(
+    adminResultRoute(
+      '/einstellungen',
+      result.ok
+        ? {
+            ok: true,
+            message: result.changed
+              ? `Gebühr für ${league} gespeichert. Sie gilt für Spiele ab jetzt.`
+              : `Die Gebühr für ${league} war schon so eingestellt.`,
+          }
+        : result,
+    ),
+  );
 };
