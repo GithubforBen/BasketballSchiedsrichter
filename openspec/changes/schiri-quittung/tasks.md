@@ -57,7 +57,7 @@ agent: implementer
 
 - [x] 4.1 Add `GET /api/export/quittung?spiel=<id>` (404 for non-holders and cancelled games) and the route helper in `src/routes.ts`
   - Done when: `npm run typecheck` exits 0 and the route returns `application/pdf` for a slot holder in a local run
-- [ ] 4.2 Add `GET /api/export/quittungen?von=&bis=` with a redirect to `/profil` carrying a `fehler` message for an invalid or empty period, and the route helper
+- [x] 4.2 Add `GET /api/export/quittungen?von=&bis=` with a redirect to `/profil` carrying a `fehler` message for an invalid or empty period, and the route helper
   - Done when: `npm run typecheck` exits 0 and an empty period redirects with a message in a local run
 
 ## 5. Referee UI: calendar and profile
