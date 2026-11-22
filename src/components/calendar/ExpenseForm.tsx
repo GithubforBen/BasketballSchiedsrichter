@@ -113,7 +113,7 @@ export const ExpenseForm = ({
   const id = (name: string) => `${idPrefix}-${name}`;
   const full = { width: '100%' } as const;
   return (
-    <form action={action} className="stack" style={{ gap: 'var(--space-3)', maxWidth: '420px' }}>
+    <form action={action} className="stack expense-form" style={{ gap: 'var(--space-3)', maxWidth: '420px' }}>
       <input type="hidden" name={EXPENSE_FIELDS.game} value={gameId} />
       {refereeId ? <input type="hidden" name={EXPENSE_FIELDS.referee} value={refereeId} /> : null}
 
@@ -137,7 +137,8 @@ export const ExpenseForm = ({
         <Input
           id={id('km')}
           name={EXPENSE_FIELDS.km}
-          inputMode="decimal"
+          inputMode="numeric"
+          pattern="[0-9]*"
           autoComplete="off"
           style={full}
           defaultValue={kmText(initial?.km)}
