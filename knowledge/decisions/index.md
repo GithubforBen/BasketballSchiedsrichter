@@ -10,5 +10,6 @@
 * [Next.js mit App Router, React und strengem TypeScript](framework-nextjs.md) - Die App ist eine Next.js-Anwendung (App Router) mit React und TypeScript im strict-Modus — ein Projekt für Oberfläche und Server.
 * [Plain CSS auf den Modernist-Tokens, kein Tailwind](styling-plain-css-modernist.md) - Gestylt wird mit normalem CSS auf Basis der Tokens des Modernist-Designsystems; Tailwind wird nicht verwendet.
 * [PostgreSQL mit Drizzle als ORM](datenbank-postgres-drizzle.md) - Daten liegen in PostgreSQL; Schema und Abfragen laufen über Drizzle ORM, Migrationen liegen in drizzle/.
+* [Quittung als PDF mit pdf-lib](quittung-pdf-mit-pdf-lib.md) - Quittung als serverseitiges PDF mit pdf-lib statt Druckansicht im Browser oder Ausfüllen der alten Excel-PDF.
 * [Tests: Vitest für Regeln, echtes Postgres für Integration, Playwright auf Desktop und Handy](teststrategie.md) - Die Regel-Engine wird mit Vitest getestet, Serverpfade gegen ein echtes Postgres, die Oberfläche mit Playwright auf Desktop und Mobil.
 * [Öffentlicher Spielplan ohne Login, nur mit Kürzeln](oeffentliche-ansicht-ohne-login.md) - Der Spielplan ist ohne Anmeldung öffentlich und indexierbar; Personen erscheinen dort ausschließlich als Kürzel.

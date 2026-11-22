@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
-import { Button, Field, Note, Panel } from '@/components/primitives';
+import { Button, Field, Input, Note, Panel } from '@/components/primitives';
 import { ReminderSlider } from '@/components/profile/ReminderSlider';
 import { FOOTER_NAV, navFor } from '@/components/shell/navigation';
 import { Shell } from '@/components/shell/Shell';
 import { CLUB } from '@/config/club';
 import { licenseLabel } from '@/domain/license';
+import { defaultReceiptPeriod } from '@/domain/receipt-period';
 import {
   DIGEST_WEEKS_DEFAULT,
   DIGEST_WEEKS_MAX,
@@ -16,6 +17,7 @@ import {
 } from '@/domain/reminders';
 import { describeHours } from '@/domain/time';
 import { formatPhone } from '@/domain/phone';
+import { RECEIPTS_EXPORT_PATH, RECEIPTS_FROM_PARAM, RECEIPTS_TO_PARAM } from '@/routes';
 import { requireUser } from '@/server/guard';
 import { loadLeagues } from '@/server/queries/leagues';
 import { loadReferee, loadReminders } from '@/server/queries/referees';
@@ -67,6 +69,8 @@ const Profile = async ({ searchParams }: PageProps) => {
   const pending = Number.parseInt(single(params.bestaetigen) ?? '', 10);
   const hint = single(params.hinweis);
   const error = single(params.fehler);
+
+  const period = defaultReceiptPeriod(now, CLUB.timeZone);
 
   const { nav, tabs } = navFor(user.role);
 
@@ -230,6 +234,51 @@ const Profile = async ({ searchParams }: PageProps) => {
             </form>
           </section>
         ) : null}
+
+        {/*
+          Sammel-PDF der Quittungen: ein GET-Formular auf die Download-Route.
+          Ein Fehler (leerer oder ungueltiger Zeitraum) kommt als `fehler`
+          zurueck und steht oben auf der Seite.
+        */}
+        <section>
+          <h2 className="kicker">Quittungen für Zeitraum</h2>
+          <p className="text-muted" style={{ fontSize: '13px' }}>
+            Eine Seite je Spiel, in dem du pfeifst und das schon angepfiffen ist. Voreingestellt
+            ist der letzte volle Monat.
+          </p>
+          <form
+            action={RECEIPTS_EXPORT_PATH}
+            method="get"
+            className="stack receipt-form"
+            style={{ marginTop: 'var(--space-4)', maxWidth: '420px' }}
+          >
+            <Field label="Von" htmlFor="quittung-von">
+              <Input
+                id="quittung-von"
+                type="date"
+                name={RECEIPTS_FROM_PARAM}
+                defaultValue={period.von}
+                required
+                style={{ width: '100%' }}
+              />
+            </Field>
+            <Field label="Bis" htmlFor="quittung-bis">
+              <Input
+                id="quittung-bis"
+                type="date"
+                name={RECEIPTS_TO_PARAM}
+                defaultValue={period.bis}
+                required
+                style={{ width: '100%' }}
+              />
+            </Field>
+            <div className="row">
+              <Button type="submit" variant="secondary">
+                Quittungen (PDF)
+              </Button>
+            </div>
+          </form>
+        </section>
 
         <section>
           <h2 className="kicker">Zusätzliche Erinnerungen</h2>

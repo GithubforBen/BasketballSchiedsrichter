@@ -1,5 +1,6 @@
 import {
   boolean,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -453,4 +454,52 @@ export const rateLimits = pgTable(
     count: integer('count').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.key, table.windowStart] })],
+);
+
+/**
+ * Fahrt- und Nebenkosten je Schiedsrichter und Spiel, Betraege in Cent.
+ * Alle Werte duerfen leer sein: leer heisst unbekannt und bleibt auf der
+ * Quittung frei. Faellt die Eintragung weg, faellt die Zeile mit.
+ */
+export const assignmentExpenses = pgTable(
+  'assignment_expenses',
+  {
+    gameId: text('game_id').notNull(),
+    refereeId: text('referee_id').notNull(),
+    /** `solo`, `shared` oder `rode`. */
+    travelMode: text('travel_mode'),
+    km: integer('km'),
+    perDiemCents: integer('per_diem_cents'),
+    otherCents: integer('other_cents'),
+    otherLabel: text('other_label'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: text('updated_by').references(() => referees.id, { onDelete: 'set null' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.gameId, table.refereeId] }),
+    foreignKey({
+      columns: [table.gameId, table.refereeId],
+      foreignColumns: [assignments.gameId, assignments.refereeId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/** Kilometersaetze in Cent, als Verlauf. Kein Eintrag: die Standardwerte aus dem Code. */
+export const kmRates = pgTable('km_rates', {
+  validFrom: timestamp('valid_from', { withTimezone: true }).primaryKey(),
+  soloCents: integer('solo_cents').notNull(),
+  sharedCents: integer('shared_cents').notNull(),
+});
+
+/** Spielgebuehr je Liga, als Verlauf. `fee_cents` NULL heisst geleert. */
+export const leagueFees = pgTable(
+  'league_fees',
+  {
+    leagueId: text('league_id')
+      .notNull()
+      .references(() => leagues.id, { onDelete: 'cascade' }),
+    validFrom: timestamp('valid_from', { withTimezone: true }).notNull(),
+    feeCents: integer('fee_cents'),
+  },
+  (table) => [primaryKey({ columns: [table.leagueId, table.validFrom] })],
 );
