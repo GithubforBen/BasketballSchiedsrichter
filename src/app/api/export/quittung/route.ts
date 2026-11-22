@@ -3,6 +3,7 @@ import { requireUser } from '@/server/guard';
 import { loadReceiptView } from '@/server/queries/receipts';
 import { renderReceiptsPdf } from '@/server/receipt-pdf';
 import { RECEIPT_GAME_PARAM } from '@/routes';
+import { receiptFilename } from '@/domain/receipt-filename';
 
 /**
  * Die Quittung eines Spiels als PDF.
@@ -29,7 +30,7 @@ export const GET = async (request: NextRequest): Promise<Response> => {
   return new Response(Buffer.from(pdf), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': 'attachment; filename="quittung.pdf"',
+      'Content-Disposition': `attachment; filename="${receiptFilename(view.game, 'Europe/Berlin')}"`,
       // Betraege und Besetzung aendern sich; keine Kopie im Zwischenspeicher.
       'Cache-Control': 'no-store',
     },
