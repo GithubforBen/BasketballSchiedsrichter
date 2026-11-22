@@ -23,13 +23,18 @@ Das vollständige Verzeichnis (Art. 30 DSGVO) steht in `docs/verarbeitete-daten.
 | `notification_outbox` | Wortlaut und Anrede | 90 Tage |
 | `audit_log` | mittelbar | 400 Tage |
 | `rate_limits` | Telefonnummer / IP | 2 Tage |
+| `assignment_expenses` | Fahrtart, Kilometer, Tagegeld, Sonstiges je Einsatz | solange der Einsatz besteht (mit ihm gelöscht) |
 | `games`, `leagues`, `settings` | keiner | dauerhaft |
 
 Beim Löschen eines Kontos räumen die Fremdschlüssel alles ab (`ON DELETE CASCADE`); im Prüfprotokoll bleibt der Vorgang ohne Personenbezug (`SET NULL`).
 
 Nach außen: Meta bekommt Telefonnummer und Nachrichteninhalt (bei `NOTIFICATION_CHANNEL=whatsapp`), Cloudflare IP und Verbindungsdaten bei jedem Aufruf, ein SMTP-Anbieter nur beim E-Mail-Kanal.
 
+Die Quittungsdaten stehen noch nicht in `docs/verarbeitete-daten.md`, im Datenauszug und in der Datenschutzerklärung: [Quittungsdaten in Auskunft und Datenschutzerklärung](/commitments/quittungsdaten-auskunft-datenschutz.md). `km_rates` und `league_fees` enthalten keinen Personenbezug.
+
 # Related
+
+- [Schiri-Quittung](/capabilities/schiri-quittung.md)
 
 - [Datenschutzerklärung](/references/datenschutzerklaerung.md)
 - [Sichtbarkeit](/domain/sichtbarkeit.md)

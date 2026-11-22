@@ -15,6 +15,7 @@
 * [Anmeldung mit Passwort: Start-Passwort, Wechselzwang, nur Hashes](passwort-anmeldung.md) - Login mit Telefonnummer und Passwort; ein Start-Passwort aus dem Namen gilt 14 Tage und muss gewechselt werden; gespeichert wird nur ein scrypt-Hash.
 * [Ausfall und Nachrück-Kaskade](ausfall-und-nachruecken.md) - Sagt ein Schiri ab, werden Ersatz 1, dann Ersatz 2 mit Frist gefragt; dann wird ausgeschrieben. Frist 12 h, kurz vor Anpfiff ein Drittel der Restzeit.
 * [Besetzung: zwei Schiris, zwei Ersatz, wer zuerst kommt](besetzung.md) - Pro Spiel zwei gleichwertige Schiedsrichter- und zwei Ersatzplätze, strikt der Reihe nach, sofort verbindlich, max. ein Spiel pro Tag.
+* [Fahrtkosten und Spielgebühren](fahrtkosten-und-gebuehren.md) - Fahrtkosten 0,30 €/km allein, 0,32 €/km mit Mitfahrer, mitgefahren 0 €; Gebühr je Liga; es gelten Satz und Gebühr zum Anpfiff.
 * [Faire Rotation beim Anschreiben und schaltbare Admin-Meldungen](rotation-und-admin-meldungen.md) - Die Rotation bestimmt nur die Reihenfolge der Benachrichtigung, nicht wer sich eintragen darf; Admin-Meldungen sind einzeln schaltbar.
 * [Fristen für Austragen und Ersatz anfordern](fristen.md) - Selbst austragen geht bis 3 Wochen vor Anpfiff, Ersatz anfordern bis 3 Tage davor; beide Fristen sind einstellbar, der Admin kann je Spiel freigeben.
 * [Lizenzen E, D und C: die höhere deckt die niedrigere](lizenzen.md) - Jedes Spiel verlangt eine Lizenz (Standard E); C deckt D und E, D deckt E. Ohne Lizenz keine Eintragung, sehen darf man trotzdem alles.
