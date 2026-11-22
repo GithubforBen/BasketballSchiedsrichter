@@ -20,9 +20,12 @@ import {
   assignRefereeAction,
   removeFromGameAction,
   requestSubstituteAction,
+  saveExpensesAction,
   saveGameAction,
   saveReleasesAction,
 } from './actions';
+import { ExpenseForm } from '@/components/calendar/ExpenseForm';
+import { loadExpensesFor, type ExpenseInput } from '@/server/expenses';
 
 /**
  * Spiel bearbeiten.
@@ -33,7 +36,9 @@ import {
  * auslöst.
  */
 
-export const metadata: Metadata = { title: `Spiel bearbeiten · ${CLUB.appName}` };
+export const metadata: Metadata = {
+  title: `Spiel bearbeiten · ${CLUB.appName}`,
+};
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
@@ -105,6 +110,16 @@ const EditGame = async ({ searchParams }: PageProps) => {
     timeZone: CLUB.timeZone,
     pendingRequest: pendingRequests.has(detail.game.id),
   });
+
+  /* Fahrt und Kosten gibt es nur fuer die beiden Schiedsrichter-Plaetze (die Quittung kennt keine Ersatzleute). */
+  const expenseSlots = detail.slots.filter((slot) => slot.index < 2 && slot.refereeId !== null);
+  const expenses = new Map<string, ExpenseInput>();
+  for (const slot of expenseSlots) {
+    if (!slot.refereeId) continue;
+    const loaded = await loadExpensesFor(slot.refereeId, [detail.game.id]);
+    const own = loaded.get(detail.game.id);
+    if (own) expenses.set(slot.refereeId, own);
+  }
 
   const { date, time } = localParts(detail.game.kickoff);
   const overrides = [
@@ -228,20 +243,26 @@ const EditGame = async ({ searchParams }: PageProps) => {
           </form>
 
           {/*
-            * Ein eigenes Formular, bewusst neben und nicht in dem oberen.
-            *
-            * Eine Freigabe verschiebt kein Spiel. Stuende sie im Formular
-            * darueber, ginge sie nur ueber den Knopf "Speichern & Beteiligte
-            * informieren" raus — der schreibt Datum, Uhrzeit und Ort zurueck und
-            * kann dabei eine Verschiebung samt Nachricht an alle ausloesen
-            * (Regel 17). Ein Haken, der eine Frist aufhebt, darf das weder
-            * kosten noch danach aussehen.
-            */}
+           * Ein eigenes Formular, bewusst neben und nicht in dem oberen.
+           *
+           * Eine Freigabe verschiebt kein Spiel. Stuende sie im Formular
+           * darueber, ginge sie nur ueber den Knopf "Speichern & Beteiligte
+           * informieren" raus — der schreibt Datum, Uhrzeit und Ort zurueck und
+           * kann dabei eine Verschiebung samt Nachricht an alle ausloesen
+           * (Regel 17). Ein Haken, der eine Frist aufhebt, darf das weder
+           * kosten noch danach aussehen.
+           */}
           <form action={saveReleasesAction} style={{ marginTop: 'var(--space-8)' }}>
             <input type="hidden" name="spiel" value={detail.game.id} />
 
             <fieldset
-              style={{ border: 0, padding: 0, margin: 0, display: 'grid', gap: 'var(--space-3)' }}
+              style={{
+                border: 0,
+                padding: 0,
+                margin: 0,
+                display: 'grid',
+                gap: 'var(--space-3)',
+              }}
             >
               <legend className="field-label">Freigaben nur für dieses Spiel</legend>
               {overrides.map((override) => (
@@ -264,7 +285,12 @@ const EditGame = async ({ searchParams }: PageProps) => {
                   />
                   <span style={{ flex: 1 }}>
                     <span
-                      style={{ display: 'block', fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: '14px' }}
+                      style={{
+                        display: 'block',
+                        fontFamily: 'var(--font-heading)',
+                        fontWeight: 800,
+                        fontSize: '14px',
+                      }}
                     >
                       {override.label}
                     </span>
@@ -290,7 +316,13 @@ const EditGame = async ({ searchParams }: PageProps) => {
 
         <aside>
           <h2 className="kicker">Besetzung</h2>
-          <ul style={{ listStyle: 'none', margin: 'var(--space-3) 0 0', padding: 0 }}>
+          <ul
+            style={{
+              listStyle: 'none',
+              margin: 'var(--space-3) 0 0',
+              padding: 0,
+            }}
+          >
             {detail.slots.map((slot) => (
               <li
                 key={slot.index}
@@ -375,10 +407,39 @@ const EditGame = async ({ searchParams }: PageProps) => {
             </span>
           </div>
 
+          {expenseSlots.length > 0 ? (
+            <section style={{ marginTop: 'var(--space-6)' }}>
+              <h2 className="kicker">Fahrt &amp; Kosten</h2>
+              <p className="text-muted" style={{ fontSize: '12px' }}>
+                Für die Quittung. Du kannst die Angaben der Schiedsrichter jederzeit ergänzen oder
+                korrigieren.
+              </p>
+              {expenseSlots.map((slot) =>
+                slot.refereeId ? (
+                  <details key={slot.index} style={{ marginTop: 'var(--space-3)' }}>
+                    <summary>
+                      {slot.role}: {slot.name}
+                    </summary>
+                    <div style={{ marginTop: 'var(--space-3)' }}>
+                      <ExpenseForm
+                        action={saveExpensesAction}
+                        gameId={detail.game.id}
+                        refereeId={slot.refereeId}
+                        initial={expenses.get(slot.refereeId) ?? null}
+                        idPrefix={`kosten-${slot.index}`}
+                        submitLabel="Angaben speichern"
+                      />
+                    </div>
+                  </details>
+                ) : null,
+              )}
+            </section>
+          ) : null}
+
           <p className="text-muted" style={{ fontSize: '11px', marginTop: 'var(--space-3)' }}>
-            Eintragen benachrichtigt die Person — sie erfährt sonst nicht, dass sie eingeteilt
-            ist. Zur Auswahl steht, wer die Qualifikation {detail.game.leagueId} und mindestens
-            Lizenz {detail.game.requiredLicense} hat. Entfernen wirft die Person aus dem Spiel und
+            Eintragen benachrichtigt die Person — sie erfährt sonst nicht, dass sie eingeteilt ist.
+            Zur Auswahl steht, wer die Qualifikation {detail.game.leagueId} und mindestens Lizenz{' '}
+            {detail.game.requiredLicense} hat. Entfernen wirft die Person aus dem Spiel und
             informiert sie ebenfalls. Auf einem Schiedsrichter-Platz wird der Ersatz danach nicht
             von selbst gefragt — erst, wenn du „Ersatz anfordern“ drückst.
           </p>

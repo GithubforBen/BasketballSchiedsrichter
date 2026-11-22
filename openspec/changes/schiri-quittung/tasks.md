@@ -87,7 +87,7 @@ agent: implementer
 
 - [x] 6.1 Add the "Fahrtkosten" panel (two rates in EUR/km) and a fee field per league to `einstellungen`, saving through `receipt-rates.ts`
   - Done when: `npm run typecheck` exits 0 and a saved rate shows again after reload in a local run
-- [ ] 6.2 Add an expense form (reusing `ExpenseForm`) per occupied referee slot to `bearbeiten`, saving through `saveExpenses` as admin
+- [x] 6.2 Add an expense form (reusing `ExpenseForm`) per occupied referee slot to `bearbeiten`, saving through `saveExpenses` as admin
   - Done when: `npm run typecheck` exits 0 and `npm run lint` exits 0
 
 ## 7. End-to-end and mobile verification
