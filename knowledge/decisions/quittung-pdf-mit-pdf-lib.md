@@ -4,10 +4,11 @@ title: Quittung als PDF mit pdf-lib
 description: "Quittung als serverseitiges PDF mit pdf-lib statt Druckansicht im Browser oder Ausfüllen der alten Excel-PDF."
 status: draft
 decision: accepted
+change: 2026-11-22-schiri-quittung
 generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-22T14:16:27+01:00 }
 sources:
   - id: design
-    resource: ../../openspec/changes/schiri-quittung/design.md
+    resource: ../../openspec/changes/archive/2026-11-22-schiri-quittung/design.md
   - id: pdf
     resource: ../../src/server/receipt-pdf.ts
 ---

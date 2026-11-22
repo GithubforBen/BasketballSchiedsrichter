@@ -3,14 +3,21 @@ type: Capability
 title: Schiri-Quittung
 description: "Jeder Schiri exportiert die Vereinsquittung über Schiedsrichtergebühren als PDF, vorausgefüllt mit Spiel, beiden Schiris und Beträgen."
 status: draft
+spec: openspec/specs/schiri-quittung/spec.md
+resource: ../../openspec/specs/schiri-quittung/spec.md
+change: 2026-11-22-schiri-quittung
 generated: { by: claude-code/claude-sonnet-5-5, at: 2026-11-22T14:16:26+01:00 }
 sources:
   - id: design
-    resource: ../../openspec/changes/schiri-quittung/design.md
+    resource: ../../openspec/changes/archive/2026-11-22-schiri-quittung/design.md
   - id: receipt
     resource: ../../src/domain/receipt.ts
   - id: expenses
     resource: ../../src/server/expenses.ts
+  - id: proposal-2026-11-22-schiri-quittung
+    resource: ../../openspec/changes/archive/2026-11-22-schiri-quittung/proposal.md
+  - id: design-2026-11-22-schiri-quittung
+    resource: ../../openspec/changes/archive/2026-11-22-schiri-quittung/design.md
 ---
 
 # Why
