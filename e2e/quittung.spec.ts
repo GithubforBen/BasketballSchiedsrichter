@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
-import { createGame, dropGame, placeReferee, resetAssignments } from "./db";
+import {
+  createGame,
+  dayKeyOfGame,
+  dropGame,
+  placeReferee,
+  resetAssignments,
+} from "./db";
 import {
   expectNoHorizontalScroll,
   formError,
@@ -26,46 +32,69 @@ const setup = async (): Promise<void> => {
   await placeReferee(GAME, 1, SEED.lena.id);
 };
 
-const field = (page: Page, name: string) =>
-  page.locator(`#kosten-${GAME}-${name}`);
-const expenseDetails = (page: Page) =>
-  page.locator("details", { has: field(page, "km") });
-const saveButton = (page: Page) =>
-  page
-    .locator("form", { has: field(page, "km") })
-    .getByRole("button", { name: "Speichern" });
+type Variant = "wide" | "narrow";
 
-/** Oeffnet "Fahrt & Kosten" des Testspiels im Kalender. */
-const openExpenses = async (page: Page): Promise<void> => {
-  await page.goto("/kalender");
-  await expenseDetails(page).locator("summary").click();
-  await expect(field(page, "km")).toBeVisible();
+/**
+ * Der Kalender zeichnet das Kostenformular zweimal: als Tabelle (wide, Rechner)
+ * und als Karten (narrow, Handy). Je Geraeteklasse gilt nur die sichtbare Kopie.
+ */
+const desk = (variant: Variant) => {
+  const field = (page: Page, name: string) =>
+    page.locator(`#kosten-${variant}-${GAME}-${name}`);
+  const expenseDetails = (page: Page) =>
+    page.locator("details", { has: field(page, "km") });
+  const saveButton = (page: Page) =>
+    page
+      .locator("form.expense-form", { has: field(page, "km") })
+      .getByRole("button", { name: "Speichern" });
+
+  /** Oeffnet "Fahrt & Kosten" des Testspiels im Kalender. */
+  const openExpenses = async (page: Page): Promise<void> => {
+    await page.goto("/kalender");
+    await expenseDetails(page).locator("summary.expense-summary").click();
+    await expect(field(page, "km")).toBeVisible();
+  };
+
+  const fillAndSave = async (page: Page): Promise<void> => {
+    await field(page, "fahrtart").selectOption("alone");
+    await field(page, "km").fill("42");
+    await field(page, "tagegeld").fill("10,50");
+    await saveButton(page).click();
+    await expect(formSuccess(page)).toContainText("Angaben gespeichert");
+  };
+
+  const receiptLink = (page: Page) =>
+    expenseDetails(page)
+      .locator("xpath=..")
+      .getByRole("link", { name: "Quittung (PDF)" });
+
+  const receiptHref = async (page: Page): Promise<string> => {
+    const href = await receiptLink(page).getAttribute("href");
+    if (!href) throw new Error("Quittung (PDF) ohne Link");
+    return href;
+  };
+
+  return {
+    field,
+    saveButton,
+    openExpenses,
+    fillAndSave,
+    receiptLink,
+    receiptHref,
+  };
 };
 
-const fillAndSave = async (page: Page): Promise<void> => {
-  await field(page, "fahrtart").selectOption("alone");
-  await field(page, "km").fill("42");
-  await field(page, "tagegeld").fill("10,50");
-  await saveButton(page).click();
-  await expect(formSuccess(page)).toContainText("Angaben gespeichert");
-};
-
-const receiptLink = (page: Page) =>
-  expenseDetails(page)
-    .locator("xpath=..")
-    .getByRole("link", { name: "Quittung (PDF)" });
-
-const receiptHref = async (page: Page): Promise<string> => {
-  const href = await receiptLink(page).getAttribute("href");
-  if (!href) throw new Error("Quittung (PDF) ohne Link");
-  return href;
-};
+/** `quittung-<Anpfiffstag in Vereinszeit>-<heim>-<gast>.pdf` des Testspiels. */
+const expectedFilename = async (): Promise<string> =>
+  `quittung-${await dayKeyOfGame(GAME)}-testheim-testgast.pdf`;
 
 const expectPdf = async (page: Page, href: string): Promise<Buffer> => {
   const response = await page.request.get(href);
   expect(response.status()).toBe(200);
   expect(response.headers()["content-type"]).toContain("application/pdf");
-  expect(response.headers()["content-disposition"]).toContain("quittung.pdf");
+  expect(response.headers()["content-disposition"]).toContain(
+    await expectedFilename(),
+  );
   const body = await response.body();
   expect(body.subarray(0, 5).toString()).toBe("%PDF-");
   return body;
@@ -78,6 +107,17 @@ const askForEmptyPeriod = async (page: Page): Promise<void> => {
 };
 
 test.describe("Quittung am Rechner", () => {
+  test.beforeEach(({ isMobile }) => {
+    test.skip(isMobile, "gilt nur im Projekt desktop");
+  });
+  const {
+    field,
+    saveButton,
+    openExpenses,
+    fillAndSave,
+    receiptLink,
+    receiptHref,
+  } = desk("wide");
   test.beforeEach(setup);
   test.afterEach(async () => {
     await dropGame(GAME);
@@ -117,7 +157,7 @@ test.describe("Quittung am Rechner", () => {
       page.waitForEvent("download"),
       receiptLink(page).click(),
     ]);
-    expect(download.suggestedFilename()).toBe("quittung.pdf");
+    expect(download.suggestedFilename()).toBe(await expectedFilename());
   });
 
   // spec: schiri-quittung#either-referee-gets-the-same-receipt
@@ -150,7 +190,11 @@ test.describe("Quittung am Rechner", () => {
 });
 
 test.describe("Quittung am Handy (390 x 844)", () => {
+  test.beforeEach(({ isMobile }) => {
+    test.skip(!isMobile, "gilt nur im Projekt mobil");
+  });
   test.use({ viewport: PHONE });
+  const { field, openExpenses, fillAndSave, receiptHref } = desk("narrow");
   test.beforeEach(setup);
   test.afterEach(async () => {
     await dropGame(GAME);
