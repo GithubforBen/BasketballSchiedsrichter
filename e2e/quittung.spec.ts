@@ -137,12 +137,21 @@ test.describe("Quittung am Rechner", () => {
     await expect(field(page, "tagegeld")).toHaveValue("10,50");
   });
 
-  test("lehnt Kilometer, die keine Zahl sind, mit einer Meldung ab", async ({
+  // spec: schiri-quittung#invalid-input-is-rejected
+  test("lehnt Kilometer ueber dem Maximum mit einer Meldung ab", async ({
     page,
   }) => {
     await loginAs(page, SEED.jonas.phone);
     await openExpenses(page);
+
+    // Text blockiert schon der Browser (pattern), ohne abzusenden.
     await field(page, "km").fill("viel");
+    expect(
+      await field(page, "km").evaluate((el) => (el as HTMLInputElement).validity.valid),
+    ).toBe(false);
+
+    // 2001 laesst der Browser zu, der Server lehnt es ab.
+    await field(page, "km").fill("2001");
     await saveButton(page).click();
     await expect(formError(page)).toContainText("Kilometer");
   });
