@@ -249,7 +249,7 @@ const Profile = async ({ searchParams }: PageProps) => {
           <form
             action={RECEIPTS_EXPORT_PATH}
             method="get"
-            className="stack"
+            className="stack receipt-form"
             style={{ marginTop: 'var(--space-4)', maxWidth: '420px' }}
           >
             <Field label="Von" htmlFor="quittung-von">

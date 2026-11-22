@@ -1741,3 +1741,10 @@ a {
   flex: 1 1 100%;
   min-width: 0;
 }
+
+/* Quittungszeitraum im Profil: 16 px gegen den iOS-Zoom, Datumsfelder duerfen nicht ueberlaufen. */
+.receipt-form .input {
+  font-size: 16px;
+  min-width: 0;
+  box-sizing: border-box;
+}
