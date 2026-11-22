@@ -75,13 +75,37 @@ const text = (
   value: string,
   x: number,
   y: number,
-  opts: { size?: number; bold?: boolean; align?: 'left' | 'right' } = {},
+  opts: { size?: number; bold?: boolean; align?: 'left' | 'right'; maxWidth?: number } = {},
 ) => {
   const f = opts.bold ? bold : font;
-  const safe = toWinAnsi(value, f);
-  const size = opts.size ?? 10;
+  const fitted =
+    opts.maxWidth == null
+      ? { text: toWinAnsi(value, f), size: opts.size ?? 10 }
+      : fitText(value, f, opts.maxWidth, opts.size ?? 10);
+  const safe = fitted.text;
+  const size = fitted.size;
   const width = f.widthOfTextAtSize(safe, size);
   page.drawText(safe, { x: opts.align === 'right' ? x - width : x, y, size, font: f, color: INK });
+};
+
+/**
+ * Passt einen Text in eine Zellbreite: erst die Schrift bis `minSize` verkleinern,
+ * dann mit Auslassungspunkten kuerzen. Gibt Text (WinAnsi) und Groesse zurueck.
+ */
+export const fitText = (
+  value: string,
+  font: PDFFont,
+  maxWidth: number,
+  size = 10,
+  minSize = 7,
+): { text: string; size: number } => {
+  const safe = toWinAnsi(value, font);
+  let s = size;
+  while (s > minSize && font.widthOfTextAtSize(safe, s) > maxWidth) s -= 0.5;
+  if (font.widthOfTextAtSize(safe, s) <= maxWidth) return { text: safe, size: s };
+  const chars = [...safe];
+  while (chars.length > 0 && font.widthOfTextAtSize(`${chars.join('')}...`, s) > maxWidth) chars.pop();
+  return { text: `${chars.join('').trimEnd()}...`, size: s };
 };
 
 const hline = (page: PDFPage, y: number, x1 = MARGIN, x2 = PAGE.width - MARGIN) =>
@@ -99,6 +123,9 @@ const rowsOf = (c: ReceiptColumn): string[] => [
   c.other == null ? '' : `${c.otherLabel ? `${c.otherLabel}  ` : ''}${euro(c.other)}`,
   euro(c.total),
 ];
+
+/** Breite einer Wertespalte: rechtsbuendig, links der Beschriftung und der Nachbarspalte fern. */
+const COL_WIDTH = 190;
 
 const LABELS = ['Schiedsrichter/in', 'Fahrstrecke', 'Fahrtkosten', 'Gebühren', 'Tagegeld', 'Sonstiges', 'Summe'];
 
@@ -145,13 +172,13 @@ const drawView = (doc: PDFDocument, view: ReceiptView, fonts: { font: PDFFont; b
       size: 10,
       bold: isTotal || i === 0,
       align: 'right',
-
+      maxWidth: COL_WIDTH,
     });
     text(ctx, rows[1]?.[i] ?? '', colRight[1], y, {
       size: 10,
       bold: isTotal || i === 0,
       align: 'right',
-
+      maxWidth: COL_WIDTH,
     });
     hline(page, y - 9);
     y -= rowH;

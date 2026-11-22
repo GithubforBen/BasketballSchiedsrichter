@@ -68,7 +68,7 @@ const buildViews = async (games: readonly GameRow[]): Promise<ReceiptView[]> => 
     .where(and(inArray(schema.assignments.gameId, ids), lte(schema.assignments.slotIndex, 1)))
     .orderBy(asc(schema.assignments.slotIndex));
 
-  const byGame = new Map<string, ReceiptRefereeInput[]>();
+  const byGame = new Map<string, (ReceiptRefereeInput | null)[]>();
   for (const r of rows) {
     const expenses: ReceiptExpenses | null =
       r.hasExpenses == null
@@ -80,8 +80,9 @@ const buildViews = async (games: readonly GameRow[]): Promise<ReceiptView[]> => 
             otherCents: r.otherCents,
             otherLabel: r.otherLabel,
           };
-    const list = byGame.get(r.gameId) ?? [];
-    list.push({ name: r.name, expenses });
+    // Je Platz: Platz 0 links, Platz 1 rechts, auch wenn Platz 0 leer ist.
+    const list = byGame.get(r.gameId) ?? [null, null];
+    list[r.slot] = { name: r.name, expenses };
     byGame.set(r.gameId, list);
   }
 
@@ -91,7 +92,7 @@ const buildViews = async (games: readonly GameRow[]): Promise<ReceiptView[]> => 
       resolveKmRates(g.kickoff),
       resolveLeagueFee(g.leagueId, g.kickoff),
     ]);
-    const refs = byGame.get(g.id) ?? [];
+    const refs = byGame.get(g.id) ?? [null, null];
     views.push(
       buildReceiptView(
         {
